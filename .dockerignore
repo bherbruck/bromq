@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+.github
+
+# Build artifacts
+*.db
+*.db-shm
+*.db-wal
+*.log
+bin/
+tmp/
+.local/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+CLAUDE.md
+DOCKER.md
+*.md
+
+# Web build artifacts (source is needed, but not node_modules)
+web/node_modules
+web/dist
+web/.vite
+
+# Go build cache
+vendor/
+
+# Docker files
+compose*.yml
+compose*.yaml
+docker-compose*.yml
+Dockerfile*
+
+# Test files
+*_test.go
