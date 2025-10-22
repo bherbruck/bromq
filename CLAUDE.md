@@ -15,9 +15,10 @@ A single-node MQTT broker with embedded web UI built on mochi-mqtt/server. Featu
 - stdlib net/http (Go 1.22+) - HTTP server and routing
 - JWT (golang-jwt/jwt/v5) - API authentication
 
-**Frontend:** (to be scaffolded in `web/`)
-- Vite - Build tool
-- shadcn/ui - Component library
+**Frontend:**
+- React Router v7 (SPA mode) - Routing and build tool
+- Vite - Build tool and dev server
+- shadcn/ui - Component library (Radix UI + Tailwind CSS)
 - Frontend embeds into Go binary via `go:embed`
 
 ## Project Structure
@@ -26,27 +27,42 @@ A single-node MQTT broker with embedded web UI built on mochi-mqtt/server. Featu
 mqtt-server/
 ├── main.go                      # Entry point, wires everything together
 ├── internal/
-│   ├── storage/                # Database layer (SQLite/PostgreSQL/MySQL)
-│   │   ├── db.go              # Connection, schema, GORM auto-migration
-│   │   ├── config.go          # Database configuration (env vars + flags)
-│   │   ├── models.go          # GORM models with tags
-│   │   ├── users.go           # User CRUD + authentication
-│   │   ├── acl.go             # ACL rules CRUD + topic matching
-│   │   └── retained.go        # Retained message persistence
-│   ├── mqtt/                   # MQTT server wrapper
-│   │   ├── config.go          # Configuration struct
-│   │   ├── server.go          # Server initialization
-│   │   └── metrics.go         # Stats/metrics extraction
-│   └── api/                    # REST API
-│       ├── models.go          # Request/response types
-│       ├── middleware.go      # JWT auth, CORS, logging, admin guard
-│       ├── handlers.go        # HTTP handlers for all endpoints
-│       └── server.go          # HTTP server setup + routing
-├── hooks/auth/
-│   ├── auth.go                # MQTT authentication hook (OnConnectAuthenticate)
-│   └── acl.go                 # MQTT ACL hook (OnACLCheck)
-├── web/                        # Frontend (scaffolded by you)
-│   └── dist/                  # Build output (embedded via go:embed)
+│   ├── storage/                    # Database layer (SQLite/PostgreSQL/MySQL)
+│   │   ├── db.go                  # Connection, schema, GORM auto-migration
+│   │   ├── config.go              # Database configuration (env vars + flags)
+│   │   ├── models.go              # GORM models with tags
+│   │   ├── dashboard_users.go     # Dashboard admin CRUD + authentication
+│   │   ├── mqtt_users.go          # MQTT credentials CRUD + authentication
+│   │   ├── mqtt_clients.go        # Client connection tracking CRUD
+│   │   ├── acl.go                 # ACL rules CRUD + topic matching
+│   │   └── retained.go            # Retained message persistence
+│   ├── mqtt/                       # MQTT server wrapper
+│   │   ├── config.go              # Configuration struct
+│   │   ├── server.go              # Server initialization
+│   │   └── metrics.go             # Stats/metrics extraction
+│   └── api/                        # REST API
+│       ├── models.go              # Request/response types
+│       ├── middleware.go          # JWT auth, CORS, logging, admin guard
+│       ├── dashboard_handlers.go  # Dashboard user management endpoints
+│       ├── mqtt_handlers.go       # MQTT users/clients/ACL endpoints
+│       ├── handlers.go            # Legacy endpoints + metrics
+│       └── server.go              # HTTP server setup + routing
+├── hooks/
+│   ├── auth/
+│   │   ├── auth.go                # MQTT authentication hook
+│   │   └── acl.go                 # MQTT ACL authorization hook
+│   ├── tracking/
+│   │   └── tracking.go            # Client connection tracking hook
+│   ├── metrics/
+│   │   └── metrics.go             # Prometheus metrics hook
+│   └── retained/
+│       └── retained.go            # Retained message persistence hook
+├── web/                            # Frontend (React Router v7 + shadcn/ui)
+│   ├── app/                       # React application source
+│   │   ├── components/           # Reusable UI components
+│   │   ├── routes/               # Page routes
+│   │   └── lib/                  # API client and utilities
+│   └── dist/client/              # Build output (embedded via go:embed)
 ├── Dockerfile                  # Multi-stage build (Node → Go → Alpine)
 └── go.mod
 ```
@@ -159,11 +175,11 @@ go mod tidy
 
 The system uses a three-table architecture to separate concerns between dashboard administration, MQTT credentials, and individual device tracking:
 
-1. **`admin_users`**: Dashboard administrators (human users)
+1. **`dashboard_users`**: Dashboard administrators (human users)
    - `id` (uint, primary key)
    - `username` (string, unique, not null)
    - `password_hash` (string, not null, bcrypt)
-   - `role` (string, not null, default='admin') - Always 'admin'
+   - `role` (string, not null, default='admin') - 'admin' or 'viewer'
    - `metadata` (jsonb) - Custom attributes
    - `created_at`, `updated_at` (timestamps)
 
@@ -198,10 +214,10 @@ The system uses a three-table architecture to separate concerns between dashboar
    - `created_at` (timestamp)
 
 **User Architecture:**
-- **AdminUser**: Dashboard administrators. Can log in to web UI and use REST API to manage the system.
+- **DashboardUser**: Web UI administrators. Can log in to dashboard and use REST API to manage the system. Role can be 'admin' (full access) or 'viewer' (read-only).
 - **MQTTUser**: MQTT credentials that can be shared by multiple devices. Cannot log in to dashboard.
 - **MQTTClient**: Individual devices that connect using an MQTTUser's credentials. Tracked with unique Client ID.
-- The login endpoint (`POST /api/auth/login`) only accepts AdminUsers. MQTTUsers authenticate via MQTT protocol.
+- The login endpoint (`POST /api/auth/login`) only accepts DashboardUsers. MQTTUsers authenticate via MQTT protocol.
 - Multiple MQTT clients (e.g., sensors in a building) can share the same MQTTUser credentials but have unique Client IDs.
 
 **Database Configuration:**
@@ -276,6 +292,7 @@ ADMIN_PASSWORD=admin     # Default admin password (default: admin)
 
 *ACL Management:*
 - `db.CreateACLRule(mqttUserID, topicPattern, permission)` - Create ACL rule for MQTT user
+- `db.UpdateACLRule(id, topicPattern, permission)` - Update existing ACL rule
 - `db.ListACLRules()` - List all ACL rules
 - `db.GetACLRulesByMQTTUserID(mqttUserID)` - Get rules for specific MQTT user
 - `db.DeleteACLRule(id)` - Delete ACL rule
@@ -310,7 +327,7 @@ Hooks implement the mochi-mqtt hook interface to intercept MQTT lifecycle events
 
 **AuthHook** (`hooks/auth/auth.go`):
 - Implements `OnConnectAuthenticate` to validate MQTT client credentials against database
-- Validates against MQTTUser table (not AdminUser)
+- Validates against MQTTUser table (not DashboardUser)
 - Anonymous connections allowed if no username provided
 - Stores username in `cl.Properties.Username` for ACL checks
 
@@ -362,7 +379,7 @@ Hooks implement the mochi-mqtt hook interface to intercept MQTT lifecycle events
 **Endpoints:**
 
 Public:
-- `POST /api/auth/login` - Get JWT token (AdminUser only)
+- `POST /api/auth/login` - Get JWT token (DashboardUser only)
 
 Protected (any authenticated admin):
 - `PUT /api/auth/change-password` - Change own password
@@ -392,6 +409,7 @@ Protected (admin only - all routes below):
 *ACL Rules:*
 - `GET /api/acl` - List all ACL rules
 - `POST /api/acl` - Create ACL rule for MQTT user
+- `PUT /api/acl/{id}` - Update ACL rule
 - `DELETE /api/acl/{id}` - Delete ACL rule
 
 *Legacy Endpoints (for backward compatibility):*
@@ -549,7 +567,7 @@ docker run -d \
 **Anonymous MQTT access:** Enabled by default in auth hook - ACL still enforced
 
 **User Separation:**
-- AdminUsers can log in to the web dashboard and REST API to manage the system
+- DashboardUsers can log in to the web dashboard and REST API to manage the system
 - MQTTUsers are credentials for MQTT connections (cannot access dashboard/API)
 - MQTTClients are individual devices tracked by their Client ID
 - Multiple devices can share the same MQTTUser credentials
@@ -586,7 +604,7 @@ mosquitto_sub -h localhost -p 1883 -u sensor_user -P sensor123 -t "test/#"
 mosquitto_pub -h localhost -p 1883 -i "device-001" -u sensor_user -P sensor123 -t "sensor/temp" -m "22.5"
 mosquitto_pub -h localhost -p 1883 -i "device-002" -u sensor_user -P sensor123 -t "sensor/temp" -m "23.1"
 
-# Note: AdminUser credentials (admin/admin) do NOT work for MQTT connections
+# Note: DashboardUser credentials (admin/admin) do NOT work for MQTT connections
 # You must create separate MQTTUser credentials via the API
 ```
 
