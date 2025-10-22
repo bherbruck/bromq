@@ -5,12 +5,16 @@ A high-performance, single-node MQTT broker with embedded web UI built on mochi-
 ## Features
 
 - **Full MQTT v3/v5 support** via mochi-mqtt
-- **Database-backed authentication** using SQLite
+- **Multi-database support** - SQLite (default), PostgreSQL, MySQL
+- **Three-table architecture** - Separate dashboard users, MQTT credentials, and client tracking
+- **Database-backed authentication** with bcrypt password hashing
 - **Granular ACL permissions** with MQTT wildcard support (`+`, `#`)
-- **REST API** for user and ACL management
-- **Web Dashboard** (Vite + shadcn/ui - to be scaffolded)
-- **Single binary deployment** with embedded frontend
-- **Docker support** with multi-stage builds
+- **REST API** for comprehensive management (users, credentials, clients, ACL)
+- **Modern Web Dashboard** - React Router v7 + shadcn/ui
+- **Client connection tracking** - Monitor individual devices with metadata
+- **Single binary deployment** (~19MB) with embedded frontend
+- **Docker support** with multi-stage builds and hot reload dev mode
+- **Prometheus metrics** endpoint for monitoring
 
 ## Quick Start
 
@@ -40,7 +44,7 @@ After starting:
 
 ## API Usage
 
-### Login
+### Login (Dashboard User)
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
@@ -48,13 +52,13 @@ curl -X POST http://localhost:8080/api/auth/login \
   -d '{"username":"admin","password":"admin"}'
 ```
 
-### Create User
+### Create MQTT Credentials
 
 ```bash
-curl -X POST http://localhost:8080/api/users \
+curl -X POST http://localhost:8080/api/mqtt/credentials \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"username":"user1","password":"pass123","role":"user"}'
+  -d '{"username":"sensor_user","password":"sensor123","description":"IoT sensors"}'
 ```
 
 ### Create ACL Rule
@@ -63,16 +67,33 @@ curl -X POST http://localhost:8080/api/users \
 curl -X POST http://localhost:8080/api/acl \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"user_id":2,"topic_pattern":"sensor/+/temp","permission":"pubsub"}'
+  -d '{"mqtt_user_id":1,"topic_pattern":"sensor/+/temp","permission":"pubsub"}'
 ```
+
+### List Connected Clients
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8080/api/mqtt/clients
+```
+
+See [CLAUDE.md](CLAUDE.md) for comprehensive API documentation.
 
 ## Architecture
 
-- **Backend:** Go with stdlib net/http, SQLite, mochi-mqtt
-- **Frontend:** React Router v7 (SPA mode) + shadcn/ui + TailwindCSS 4
+- **Backend:** Go 1.22+ with stdlib net/http, GORM, mochi-mqtt/server v2
+- **Database:** SQLite (default), PostgreSQL, or MySQL with auto-migration
+- **Frontend:** React Router v7 (SPA mode) + shadcn/ui + Tailwind CSS
 - **Authentication:** JWT tokens with bcrypt password hashing
-- **ACL:** Topic-level permissions with wildcard support
-- **Build:** Single binary with embedded React frontend (17MB)
+- **User System:** Three-table architecture
+  - `dashboard_users` - Web UI administrators
+  - `mqtt_users` - MQTT credentials (shared by devices)
+  - `mqtt_clients` - Individual device tracking
+- **ACL:** Topic-level permissions with MQTT wildcard support (`+`, `#`)
+- **Hooks:** Authentication, ACL, client tracking, metrics, retained messages
+- **Deployment:** Single binary (~19MB) with embedded frontend
+
+For detailed architecture documentation, see [CLAUDE.md](CLAUDE.md).
 
 ## License
 
