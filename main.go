@@ -11,6 +11,7 @@ import (
 	"github/bherbruck/mqtt-server/hooks/auth"
 	"github/bherbruck/mqtt-server/hooks/metrics"
 	"github/bherbruck/mqtt-server/hooks/retained"
+	"github/bherbruck/mqtt-server/hooks/tracking"
 	"github/bherbruck/mqtt-server/internal/api"
 	"github/bherbruck/mqtt-server/internal/mqtt"
 	"github/bherbruck/mqtt-server/internal/storage"
@@ -21,7 +22,14 @@ var webFS embed.FS
 
 func main() {
 	// Parse command line flags
-	dbPath := flag.String("db", "mqtt-server.db", "SQLite database file path")
+	dbType := flag.String("db-type", "", "Database type (sqlite, postgres, mysql). Defaults to DB_TYPE env var or 'sqlite'")
+	dbPath := flag.String("db-path", "", "SQLite database file path. Defaults to DB_PATH env var or 'mqtt-server.db'")
+	dbHost := flag.String("db-host", "", "Database host (postgres/mysql). Defaults to DB_HOST env var or 'localhost'")
+	dbPort := flag.Int("db-port", 0, "Database port (postgres/mysql). Defaults to DB_PORT env var or default port")
+	dbUser := flag.String("db-user", "", "Database user (postgres/mysql). Defaults to DB_USER env var or 'mqtt'")
+	dbPassword := flag.String("db-password", "", "Database password (postgres/mysql). Defaults to DB_PASSWORD env var")
+	dbName := flag.String("db-name", "", "Database name (postgres/mysql). Defaults to DB_NAME env var or 'mqtt'")
+	dbSSLMode := flag.String("db-sslmode", "", "SSL mode for postgres (disable, require, verify-ca, verify-full). Defaults to DB_SSLMODE env var or 'disable'")
 	mqttTCP := flag.String("mqtt-tcp", ":1883", "MQTT TCP listener address")
 	mqttWS := flag.String("mqtt-ws", ":8883", "MQTT WebSocket listener address")
 	httpAddr := flag.String("http", ":8080", "HTTP API server address")
@@ -29,9 +37,38 @@ func main() {
 
 	log.Println("Starting MQTT Server...")
 
+	// Load database configuration from environment variables first
+	dbConfig := storage.LoadConfigFromEnv()
+
+	// Override with command-line flags if provided
+	if *dbType != "" {
+		dbConfig.Type = *dbType
+	}
+	if *dbPath != "" {
+		dbConfig.FilePath = *dbPath
+	}
+	if *dbHost != "" {
+		dbConfig.Host = *dbHost
+	}
+	if *dbPort != 0 {
+		dbConfig.Port = *dbPort
+	}
+	if *dbUser != "" {
+		dbConfig.User = *dbUser
+	}
+	if *dbPassword != "" {
+		dbConfig.Password = *dbPassword
+	}
+	if *dbName != "" {
+		dbConfig.DBName = *dbName
+	}
+	if *dbSSLMode != "" {
+		dbConfig.SSLMode = *dbSSLMode
+	}
+
 	// Initialize database
-	log.Printf("Opening database: %s", *dbPath)
-	db, err := storage.Open(*dbPath)
+	log.Printf("Connecting to database (type: %s)", dbConfig.Type)
+	db, err := storage.Open(dbConfig)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
@@ -77,6 +114,13 @@ func main() {
 	}
 	log.Println("Retained message hook registered")
 
+	// Add client tracking hook
+	trackingHook := tracking.NewTrackingHook(db)
+	if err := mqttServer.AddHook(trackingHook, nil); err != nil {
+		log.Fatalf("Failed to add tracking hook: %v", err)
+	}
+	log.Println("Client tracking hook registered")
+
 	// Start MQTT server in a goroutine
 	go func() {
 		if err := mqttServer.Start(); err != nil {
@@ -97,7 +141,11 @@ func main() {
 	log.Printf("  MQTT TCP:       %s", *mqttTCP)
 	log.Printf("  MQTT WebSocket: %s", *mqttWS)
 	log.Printf("  HTTP API:       %s", *httpAddr)
-	log.Printf("  Database:       %s", *dbPath)
+	if dbConfig.Type == "sqlite" {
+		log.Printf("  Database:       %s (%s)", dbConfig.Type, dbConfig.FilePath)
+	} else {
+		log.Printf("  Database:       %s (%s:%d/%s)", dbConfig.Type, dbConfig.Host, dbConfig.Port, dbConfig.DBName)
+	}
 	log.Println("===========================================")
 	log.Println("Default credentials: admin / admin")
 	log.Println("Press Ctrl+C to stop")

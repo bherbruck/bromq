@@ -54,12 +54,12 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 	// Authenticate user
 	user, err := h.authenticator.AuthenticateUser(username, password)
 	if err != nil {
-		log.Printf("Authentication error for user %s: %v", username, err)
+		log.Printf("Authentication failed for user %s: %v", username, err)
 		return false
 	}
 
 	if user == nil {
-		log.Printf("Authentication failed for user %s", username)
+		log.Printf("Authentication failed for user %s: user not found", username)
 		return false
 	}
 
