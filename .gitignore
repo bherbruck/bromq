@@ -9,8 +9,12 @@ mqtt-server
 *.so
 *.dylib
 
-# Test binary
+# Test binary and coverage
 *.test
+*.out
+coverage.txt
+coverage.html
+*.coverprofile
 
 # Database
 *.db
