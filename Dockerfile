@@ -68,4 +68,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Start server
-CMD ["./mqtt-server", "-db", "/app/data/mqtt-server.db"]
+CMD ["/app/mqtt-server", "-db", "/app/data/mqtt-server.db"]
