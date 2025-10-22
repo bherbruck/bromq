@@ -17,25 +17,26 @@ func setupMQTTTestServer(t *testing.T) (*mqttserver.Server, *storage.DB, func())
 	t.Helper()
 
 	// Create in-memory database
-	db, err := storage.Open(":memory:")
+	config := storage.DefaultSQLiteConfig(":memory:")
+	db, err := storage.Open(config)
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
-	// Create test users
-	db.CreateUser("testuser", "password123", "user")
-	db.CreateUser("publisher", "password123", "user")
-	db.CreateUser("subscriber", "password123", "user")
+	// Create test MQTT users
+	db.CreateMQTTUser("testuser", "password123", "Test user", nil)
+	db.CreateMQTTUser("publisher", "password123", "Publisher user", nil)
+	db.CreateMQTTUser("subscriber", "password123", "Subscriber user", nil)
 
 	// Create ACL rules
-	user, _ := db.GetUserByUsername("testuser")
-	db.CreateACLRule(user.ID, "test/#", "pubsub")
+	user, _ := db.GetMQTTUserByUsername("testuser")
+	db.CreateACLRule(int(user.ID), "test/#", "pubsub")
 
-	pub, _ := db.GetUserByUsername("publisher")
-	db.CreateACLRule(pub.ID, "publish/#", "pub")
+	pub, _ := db.GetMQTTUserByUsername("publisher")
+	db.CreateACLRule(int(pub.ID), "publish/#", "pub")
 
-	sub, _ := db.GetUserByUsername("subscriber")
-	db.CreateACLRule(sub.ID, "subscribe/#", "sub")
+	sub, _ := db.GetMQTTUserByUsername("subscriber")
+	db.CreateACLRule(int(sub.ID), "subscribe/#", "sub")
 
 	// Create MQTT server with test port
 	cfg := &mqttserver.Config{
@@ -109,10 +110,10 @@ func TestMQTTIntegration_Authentication(t *testing.T) {
 			shouldFail: false,
 		},
 		{
-			name:       "default admin credentials",
+			name:       "admin credentials should not work for MQTT",
 			username:   "admin",
 			password:   "admin",
-			shouldFail: false,
+			shouldFail: true, // DashboardUsers cannot authenticate for MQTT
 		},
 		{
 			name:       "invalid password",
@@ -270,9 +271,9 @@ func TestMQTTIntegration_WildcardTopics(t *testing.T) {
 	defer cleanup()
 
 	// Create user with wildcard permissions
-	wildcardUser, _ := db.CreateUser("wildcarduser", "password123", "user")
-	db.CreateACLRule(wildcardUser.ID, "devices/+/telemetry", "pub")
-	db.CreateACLRule(wildcardUser.ID, "sensors/#", "sub")
+	wildcardUser, _ := db.CreateMQTTUser("wildcarduser", "password123", "Wildcard user", nil)
+	db.CreateACLRule(int(wildcardUser.ID), "devices/+/telemetry", "pub")
+	db.CreateACLRule(int(wildcardUser.ID), "sensors/#", "sub")
 
 	client := createMQTTClient(t, "test-wildcard", "wildcarduser", "password123")
 
@@ -313,59 +314,6 @@ func TestMQTTIntegration_WildcardTopics(t *testing.T) {
 	})
 }
 
-func TestMQTTIntegration_AdminFullAccess(t *testing.T) {
-	server, _, cleanup := setupMQTTTestServer(t)
-	defer cleanup()
-
-	client := createMQTTClient(t, "test-admin", "admin", "admin")
-
-	token := client.Connect()
-	token.Wait()
-	if token.Error() != nil {
-		t.Fatalf("Connection failed: %v", token.Error())
-	}
-	defer client.Disconnect(250)
-
-	t.Run("admin can publish to any topic", func(t *testing.T) {
-		topics := []string{
-			"admin/test",
-			"devices/sensor1/data",
-			"random/topic/path",
-			"any/deep/nested/topic",
-		}
-
-		for _, topic := range topics {
-			token = client.Publish(topic, 0, false, "admin message")
-			token.Wait()
-			if token.Error() != nil {
-				t.Errorf("Admin publish to %s failed: %v", topic, token.Error())
-			}
-		}
-	})
-
-	t.Run("admin can subscribe to any topic", func(t *testing.T) {
-		token = client.Subscribe("#", 0, func(client mqtt.Client, msg mqtt.Message) {
-			t.Logf("Admin received: %s on %s", msg.Payload(), msg.Topic())
-		})
-		token.Wait()
-		if token.Error() != nil {
-			t.Errorf("Admin subscribe failed: %v", token.Error())
-		}
-	})
-
-	// Verify admin is in client list
-	clients := server.GetClients()
-	found := false
-	for _, c := range clients {
-		if c.Username == "admin" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("Admin client not found in client list")
-	}
-}
 
 func TestMQTTIntegration_ClientDisconnection(t *testing.T) {
 	server, _, cleanup := setupMQTTTestServer(t)

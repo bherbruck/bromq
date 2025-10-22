@@ -5,127 +5,113 @@ import (
 	"strings"
 )
 
-type ACLRule struct {
-	ID           int    `json:"id"`
-	UserID       int    `json:"user_id"`
-	TopicPattern string `json:"topic_pattern"`
-	Permission   string `json:"permission"` // "pub", "sub", or "pubsub"
-}
-
 // ListACLRules returns all ACL rules
 func (db *DB) ListACLRules() ([]ACLRule, error) {
-	rows, err := db.Query("SELECT id, user_id, topic_pattern, permission FROM acl_rules ORDER BY user_id, topic_pattern")
+	var rules []ACLRule
+	err := db.Order("mqtt_user_id, topic_pattern").Find(&rules).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ACL rules: %w", err)
 	}
-	defer rows.Close()
-
-	var rules []ACLRule
-	for rows.Next() {
-		var rule ACLRule
-		if err := rows.Scan(&rule.ID, &rule.UserID, &rule.TopicPattern, &rule.Permission); err != nil {
-			return nil, fmt.Errorf("failed to scan ACL rule: %w", err)
-		}
-		rules = append(rules, rule)
-	}
-	return rules, rows.Err()
+	return rules, nil
 }
 
-// GetACLRulesByUserID returns all ACL rules for a specific user
-func (db *DB) GetACLRulesByUserID(userID int) ([]ACLRule, error) {
-	rows, err := db.Query(
-		"SELECT id, user_id, topic_pattern, permission FROM acl_rules WHERE user_id = ? ORDER BY topic_pattern",
-		userID,
-	)
+// GetACLRulesByMQTTUserID returns all ACL rules for a specific MQTT user
+func (db *DB) GetACLRulesByMQTTUserID(mqttUserID int) ([]ACLRule, error) {
+	var rules []ACLRule
+	err := db.Where("mqtt_user_id = ?", mqttUserID).Order("topic_pattern").Find(&rules).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ACL rules: %w", err)
 	}
-	defer rows.Close()
-
-	var rules []ACLRule
-	for rows.Next() {
-		var rule ACLRule
-		if err := rows.Scan(&rule.ID, &rule.UserID, &rule.TopicPattern, &rule.Permission); err != nil {
-			return nil, fmt.Errorf("failed to scan ACL rule: %w", err)
-		}
-		rules = append(rules, rule)
-	}
-	return rules, rows.Err()
+	return rules, nil
 }
 
 // CreateACLRule creates a new ACL rule
-func (db *DB) CreateACLRule(userID int, topicPattern, permission string) (*ACLRule, error) {
+func (db *DB) CreateACLRule(mqttUserID int, topicPattern, permission string) (*ACLRule, error) {
 	// Validate permission
 	if permission != "pub" && permission != "sub" && permission != "pubsub" {
 		return nil, fmt.Errorf("invalid permission: must be 'pub', 'sub', or 'pubsub'")
 	}
 
-	// Verify user exists
-	user, err := db.GetUser(userID)
+	// Verify MQTT user exists
+	user, err := db.GetMQTTUser(mqttUserID)
 	if err != nil {
 		return nil, err
 	}
 	if user == nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, fmt.Errorf("MQTT user not found")
 	}
 
-	result, err := db.Exec(
-		"INSERT INTO acl_rules (user_id, topic_pattern, permission) VALUES (?, ?, ?)",
-		userID, topicPattern, permission,
-	)
-	if err != nil {
+	// Create rule
+	rule := ACLRule{
+		MQTTUserID:   uint(mqttUserID),
+		TopicPattern: topicPattern,
+		Permission:   permission,
+	}
+
+	if err := db.Create(&rule).Error; err != nil {
 		return nil, fmt.Errorf("failed to create ACL rule: %w", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ACL rule ID: %w", err)
+	return &rule, nil
+}
+
+// UpdateACLRule updates an existing ACL rule
+func (db *DB) UpdateACLRule(id int, topicPattern, permission string) (*ACLRule, error) {
+	// Validate permission
+	if permission != "pub" && permission != "sub" && permission != "pubsub" {
+		return nil, fmt.Errorf("invalid permission: must be 'pub', 'sub', or 'pubsub'")
 	}
 
-	return &ACLRule{
-		ID:           int(id),
-		UserID:       userID,
-		TopicPattern: topicPattern,
-		Permission:   permission,
-	}, nil
+	// Find existing rule
+	var rule ACLRule
+	if err := db.First(&rule, id).Error; err != nil {
+		return nil, fmt.Errorf("ACL rule not found")
+	}
+
+	// Update fields
+	rule.TopicPattern = topicPattern
+	rule.Permission = permission
+
+	if err := db.Save(&rule).Error; err != nil {
+		return nil, fmt.Errorf("failed to update ACL rule: %w", err)
+	}
+
+	return &rule, nil
 }
 
 // DeleteACLRule deletes an ACL rule by ID
 func (db *DB) DeleteACLRule(id int) error {
-	result, err := db.Exec("DELETE FROM acl_rules WHERE id = ?", id)
-	if err != nil {
-		return fmt.Errorf("failed to delete ACL rule: %w", err)
+	result := db.Delete(&ACLRule{}, id)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete ACL rule: %w", result.Error)
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if rows == 0 {
+	if result.RowsAffected == 0 {
 		return fmt.Errorf("ACL rule not found")
 	}
 
 	return nil
 }
 
-// CheckACL checks if a user has permission for a specific topic and action
+// CheckACL checks if an MQTT user has permission for a specific topic and action
+// Note: This is for MQTT users only. Admin users (dashboard) don't use MQTT ACL checks.
 func (db *DB) CheckACL(username, topic, action string) (bool, error) {
-	// Get user
-	user, err := db.GetUserByUsername(username)
+	// Get MQTT user
+	user, err := db.GetMQTTUserByUsername(username)
 	if err != nil {
+		// If user not found, deny access (not an error)
+		if err.Error() == "record not found" {
+			return false, nil
+		}
 		return false, err
 	}
 	if user == nil {
 		return false, nil // User not found
 	}
 
-	// Admin users have full access
-	if user.Role == "admin" {
-		return true, nil
-	}
-
 	// Get user's ACL rules
-	rules, err := db.GetACLRulesByUserID(user.ID)
+	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
 	if err != nil {
 		return false, err
 	}

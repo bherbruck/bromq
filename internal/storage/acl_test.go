@@ -8,11 +8,11 @@ func TestCreateACLRule(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, db, "testuser", "password123", "user")
+	user := createTestMQTTUser(t, db, "testuser", "password123", "Test MQTT user")
 
 	tests := []struct {
 		name         string
-		userID       int
+		userID       uint
 		topicPattern string
 		permission   string
 		wantErr      bool
@@ -56,7 +56,7 @@ func TestCreateACLRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule, err := db.CreateACLRule(tt.userID, tt.topicPattern, tt.permission)
+			rule, err := db.CreateACLRule(int(tt.userID), tt.topicPattern, tt.permission)
 
 			if tt.wantErr {
 				if err == nil {
@@ -69,8 +69,8 @@ func TestCreateACLRule(t *testing.T) {
 				t.Fatalf("CreateACLRule() unexpected error: %v", err)
 			}
 
-			if rule.UserID != tt.userID {
-				t.Errorf("CreateACLRule() userID = %v, want %v", rule.UserID, tt.userID)
+			if rule.MQTTUserID != tt.userID {
+				t.Errorf("CreateACLRule() userID = %v, want %v", rule.MQTTUserID, tt.userID)
 			}
 
 			if rule.TopicPattern != tt.topicPattern {
@@ -92,8 +92,8 @@ func TestListACLRules(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user1 := createTestUser(t, db, "user1", "password123", "user")
-	user2 := createTestUser(t, db, "user2", "password123", "user")
+	user1 := createTestMQTTUser(t, db, "user1", "password123", "MQTT user 1")
+	user2 := createTestMQTTUser(t, db, "user2", "password123", "MQTT user 2")
 
 	// Create test rules
 	createTestACLRule(t, db, user1.ID, "devices/+/telemetry", "pub")
@@ -110,12 +110,12 @@ func TestListACLRules(t *testing.T) {
 	}
 }
 
-func TestGetACLRulesByUserID(t *testing.T) {
+func TestGetACLRulesByMQTTUserID(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user1 := createTestUser(t, db, "user1", "password123", "user")
-	user2 := createTestUser(t, db, "user2", "password123", "user")
+	user1 := createTestMQTTUser(t, db, "user1", "password123", "MQTT user 1")
+	user2 := createTestMQTTUser(t, db, "user2", "password123", "MQTT user 2")
 
 	// Create test rules
 	createTestACLRule(t, db, user1.ID, "devices/+/telemetry", "pub")
@@ -124,7 +124,7 @@ func TestGetACLRulesByUserID(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		userID    int
+		userID    uint
 		wantCount int
 	}{
 		{
@@ -146,19 +146,19 @@ func TestGetACLRulesByUserID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rules, err := db.GetACLRulesByUserID(tt.userID)
+			rules, err := db.GetACLRulesByMQTTUserID(int(tt.userID))
 			if err != nil {
-				t.Fatalf("GetACLRulesByUserID() unexpected error: %v", err)
+				t.Fatalf("GetACLRulesByMQTTUserID() unexpected error: %v", err)
 			}
 
 			if len(rules) != tt.wantCount {
-				t.Errorf("GetACLRulesByUserID() returned %d rules, want %d", len(rules), tt.wantCount)
+				t.Errorf("GetACLRulesByMQTTUserID() returned %d rules, want %d", len(rules), tt.wantCount)
 			}
 
 			// Verify all rules belong to the correct user
 			for _, rule := range rules {
-				if rule.UserID != tt.userID {
-					t.Errorf("GetACLRulesByUserID() rule userID = %v, want %v", rule.UserID, tt.userID)
+				if rule.MQTTUserID != tt.userID {
+					t.Errorf("GetACLRulesByMQTTUserID() rule userID = %v, want %v", rule.MQTTUserID, tt.userID)
 				}
 			}
 		})
@@ -169,16 +169,16 @@ func TestDeleteACLRule(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, db, "testuser", "password123", "user")
+	user := createTestMQTTUser(t, db, "testuser", "password123", "Test MQTT user")
 
 	tests := []struct {
 		name    string
-		setup   func() int // returns rule ID to delete
+		setup   func() uint // returns rule ID to delete
 		wantErr bool
 	}{
 		{
 			name: "delete existing rule",
-			setup: func() int {
+			setup: func() uint {
 				rule := createTestACLRule(t, db, user.ID, "test/topic", "pub")
 				return rule.ID
 			},
@@ -186,7 +186,7 @@ func TestDeleteACLRule(t *testing.T) {
 		},
 		{
 			name: "delete non-existent rule",
-			setup: func() int {
+			setup: func() uint {
 				return 999999
 			},
 			wantErr: true,
@@ -196,7 +196,7 @@ func TestDeleteACLRule(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id := tt.setup()
-			err := db.DeleteACLRule(id)
+			err := db.DeleteACLRule(int(id))
 
 			if tt.wantErr {
 				if err == nil {
@@ -216,9 +216,8 @@ func TestCheckACL(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	// Create test users
-	regularUser := createTestUser(t, db, "regularuser", "password123", "user")
-	_ = createTestUser(t, db, "adminuser", "password123", "admin") // Create admin user for test cases
+	// Create test MQTT user
+	regularUser := createTestMQTTUser(t, db, "regularuser", "password123", "Regular MQTT user")
 
 	// Create ACL rules for regular user
 	createTestACLRule(t, db, regularUser.ID, "devices/+/telemetry", "pub")
@@ -290,24 +289,6 @@ func TestCheckACL(t *testing.T) {
 			name:        "regular user can subscribe to pubsub topic",
 			username:    "regularuser",
 			topic:       "chat/room1",
-			action:      "sub",
-			wantAllowed: true,
-			wantErr:     false,
-		},
-
-		// Admin user tests
-		{
-			name:        "admin can publish to any topic",
-			username:    "adminuser",
-			topic:       "any/random/topic",
-			action:      "pub",
-			wantAllowed: true,
-			wantErr:     false,
-		},
-		{
-			name:        "admin can subscribe to any topic",
-			username:    "adminuser",
-			topic:       "any/random/topic",
 			action:      "sub",
 			wantAllowed: true,
 			wantErr:     false,
@@ -487,29 +468,29 @@ func TestDeleteUserCascadesACLRules(t *testing.T) {
 	defer db.Close()
 
 	// Create a user with ACL rules
-	user := createTestUser(t, db, "testuser", "password123", "user")
+	user := createTestMQTTUser(t, db, "testuser", "password123", "Test MQTT user")
 	createTestACLRule(t, db, user.ID, "devices/+/telemetry", "pub")
 	createTestACLRule(t, db, user.ID, "commands/#", "sub")
 
 	// Verify rules exist
-	rulesBefore, err := db.GetACLRulesByUserID(user.ID)
+	rulesBefore, err := db.GetACLRulesByMQTTUserID(int(user.ID))
 	if err != nil {
-		t.Fatalf("GetACLRulesByUserID() before delete failed: %v", err)
+		t.Fatalf("GetACLRulesByMQTTUserID() before delete failed: %v", err)
 	}
 	if len(rulesBefore) != 2 {
 		t.Fatalf("Expected 2 rules before delete, got %d", len(rulesBefore))
 	}
 
 	// Delete the user
-	err = db.DeleteUser(user.ID)
+	err = db.DeleteMQTTUser(int(user.ID))
 	if err != nil {
-		t.Fatalf("DeleteUser() failed: %v", err)
+		t.Fatalf("DeleteMQTTUser() failed: %v", err)
 	}
 
 	// Verify ACL rules are also deleted (cascade)
-	rulesAfter, err := db.GetACLRulesByUserID(user.ID)
+	rulesAfter, err := db.GetACLRulesByMQTTUserID(int(user.ID))
 	if err != nil {
-		t.Fatalf("GetACLRulesByUserID() after delete failed: %v", err)
+		t.Fatalf("GetACLRulesByMQTTUserID() after delete failed: %v", err)
 	}
 	if len(rulesAfter) != 0 {
 		t.Errorf("Expected 0 rules after user deletion (cascade), got %d", len(rulesAfter))
