@@ -25,6 +25,7 @@ func NewHandler(db *storage.DB, mqttServer *mqtt.Server) *Handler {
 }
 
 // Login handles user authentication and returns a JWT token
+// Only DashboardUsers can log in to the dashboard
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -32,24 +33,19 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userInterface, err := h.db.AuthenticateUser(req.Username, req.Password)
+	// Authenticate against DashboardUser table only
+	user, err := h.db.AuthenticateDashboardUser(req.Username, req.Password)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"authentication error: %s"}`, err), http.StatusInternalServerError)
 		return
 	}
 
-	if userInterface == nil {
+	if user == nil {
 		http.Error(w, `{"error":"invalid credentials"}`, http.StatusUnauthorized)
 		return
 	}
 
-	user, ok := userInterface.(*storage.User)
-	if !ok {
-		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
-		return
-	}
-
-	token, err := GenerateJWT(user.ID, user.Username, user.Role)
+	token, err := GenerateJWT(int(user.ID), user.Username, user.Role)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to generate token: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -60,90 +56,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Token: token,
 		User:  user,
 	})
-}
-
-// ListUsers returns all users
-func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.db.ListUsers()
-	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to list users: %s"}`, err), http.StatusInternalServerError)
-		return
-	}
-
-	// Ensure we return empty array instead of null
-	if users == nil {
-		users = []storage.User{}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
-}
-
-// CreateUser creates a new user
-func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var req CreateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"invalid request: %s"}`, err), http.StatusBadRequest)
-		return
-	}
-
-	user, err := h.db.CreateUser(req.Username, req.Password, req.Role)
-	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to create user: %s"}`, err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
-}
-
-// UpdateUser updates a user's information
-func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
-		return
-	}
-
-	var req UpdateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"invalid request: %s"}`, err), http.StatusBadRequest)
-		return
-	}
-
-	if err := h.db.UpdateUser(id, req.Username, req.Role); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to update user: %s"}`, err), http.StatusInternalServerError)
-		return
-	}
-
-	user, err := h.db.GetUser(id)
-	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to get user: %s"}`, err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
-}
-
-// DeleteUser deletes a user
-func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
-		return
-	}
-
-	if err := h.db.DeleteUser(id); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to delete user: %s"}`, err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "user deleted"})
 }
 
 // ListACL returns all ACL rules
@@ -171,7 +83,7 @@ func (h *Handler) CreateACL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.db.CreateACLRule(req.UserID, req.TopicPattern, req.Permission)
+	rule, err := h.db.CreateACLRule(req.MQTTUserID, req.TopicPattern, req.Permission)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to create ACL rule: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -179,6 +91,31 @@ func (h *Handler) CreateACL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(rule)
+}
+
+// UpdateACL updates an existing ACL rule
+func (h *Handler) UpdateACL(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid ACL rule ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateACLRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"invalid request: %s"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	rule, err := h.db.UpdateACLRule(id, req.TopicPattern, req.Permission)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to update ACL rule: %s"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rule)
 }
 
