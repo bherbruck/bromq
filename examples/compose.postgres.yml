@@ -1,0 +1,58 @@
+# Docker Compose configuration for MQTT Server with PostgreSQL
+# Usage: docker compose -f compose.postgres.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mqtt-postgres
+    environment:
+      POSTGRES_USER: mqtt
+      POSTGRES_PASSWORD: mqtt_password
+      POSTGRES_DB: mqtt
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mqtt"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mqtt-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mqtt-server-postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Admin credentials (ONLY used on first run)
+      # Uncomment and set these for production deployments
+      # ADMIN_USERNAME: myadmin
+      # ADMIN_PASSWORD: ${ADMIN_PASSWORD}  # Use .env file or Docker secrets
+
+      # Database configuration
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: mqtt
+      DB_PASSWORD: mqtt_password
+      DB_NAME: mqtt
+      DB_SSLMODE: disable
+    ports:
+      - "1883:1883"   # MQTT TCP
+      - "8883:8883"   # MQTT WebSocket
+      - "8080:8080"   # HTTP API + Web UI
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres-data:
+    driver: local

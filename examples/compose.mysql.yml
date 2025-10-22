@@ -1,0 +1,59 @@
+# Docker Compose configuration for MQTT Server with MySQL
+# Usage: docker compose -f compose.mysql.yml up -d
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: mqtt-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: mqtt
+      MYSQL_USER: mqtt
+      MYSQL_PASSWORD: mqtt_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mqtt", "-pmqtt_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mqtt-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mqtt-server-mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # Admin credentials (ONLY used on first run)
+      # Uncomment and set these for production deployments
+      # ADMIN_USERNAME: myadmin
+      # ADMIN_PASSWORD: ${ADMIN_PASSWORD}  # Use .env file or Docker secrets
+
+      # Database configuration
+      DB_TYPE: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: mqtt
+      DB_PASSWORD: mqtt_password
+      DB_NAME: mqtt
+    ports:
+      - "1883:1883"   # MQTT TCP
+      - "8883:8883"   # MQTT WebSocket
+      - "8080:8080"   # HTTP API + Web UI
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mysql-data:
+    driver: local
