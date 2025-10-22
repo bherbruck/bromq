@@ -1,6 +1,7 @@
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Route } from './+types/users'
+import { useAuth } from '~/lib/auth-context'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,28 +34,30 @@ import {
   TableHeader,
   TableRow,
 } from '~/components/ui/table'
-import { api, type User } from '~/lib/api'
+import { api, type DashboardUser } from '~/lib/api'
 
-export const meta: Route.MetaFunction = () => [{ title: 'Users - MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'Dashboard Users - MQTT Server' }]
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([])
+  const { user: currentUser } = useAuth()
+  const [users, setUsers] = useState<DashboardUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [deleteUser, setDeleteUser] = useState<User | null>(null)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [deleteUser, setDeleteUser] = useState<DashboardUser | null>(null)
+  const [editingUser, setEditingUser] = useState<DashboardUser | null>(null)
 
   // Form state
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'user' | 'admin'>('user')
+  const [role, setRole] = useState<'viewer' | 'admin'>('viewer')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   const fetchUsers = async () => {
     try {
-      const data = await api.getUsers()
+      const data = await api.getDashboardUsers()
       setUsers(data)
     } catch (error) {
       console.error('Failed to fetch users:', error)
@@ -70,7 +73,8 @@ export default function UsersPage() {
   const resetForm = () => {
     setUsername('')
     setPassword('')
-    setRole('user')
+    setRole('viewer')
+    setIsChangingPassword(false)
     setError('')
   }
 
@@ -80,7 +84,7 @@ export default function UsersPage() {
     setIsSubmitting(true)
 
     try {
-      await api.createUser(username, password, role)
+      await api.createDashboardUser(username, password, role)
       setIsCreateDialogOpen(false)
       resetForm()
       fetchUsers()
@@ -99,7 +103,14 @@ export default function UsersPage() {
     setIsSubmitting(true)
 
     try {
-      await api.updateUser(editingUser.id, username, role)
+      // Update username and role
+      await api.updateDashboardUser(editingUser.id, username, role)
+
+      // Update password if changed
+      if (isChangingPassword && password) {
+        await api.updateDashboardUserPassword(editingUser.id, password)
+      }
+
       setIsEditDialogOpen(false)
       setEditingUser(null)
       resetForm()
@@ -115,7 +126,7 @@ export default function UsersPage() {
     if (!deleteUser) return
 
     try {
-      await api.deleteUser(deleteUser.id)
+      await api.deleteDashboardUser(deleteUser.id)
       setDeleteUser(null)
       fetchUsers()
     } catch (error) {
@@ -123,10 +134,12 @@ export default function UsersPage() {
     }
   }
 
-  const openEditDialog = (user: User) => {
+  const openEditDialog = (user: DashboardUser) => {
     setEditingUser(user)
     setUsername(user.username)
     setRole(user.role)
+    setPassword('')
+    setIsChangingPassword(false)
     setIsEditDialogOpen(true)
   }
 
@@ -134,19 +147,23 @@ export default function UsersPage() {
     return <div className="text-muted-foreground">Loading users...</div>
   }
 
+  const isAdmin = currentUser?.role === 'admin'
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add User
-        </Button>
-      </div>
+      {isAdmin && (
+        <div className="flex items-center justify-end">
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add User
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
-          <CardTitle>User Accounts</CardTitle>
-          <CardDescription>{users.length} total users</CardDescription>
+          <CardTitle>Dashboard Users</CardTitle>
+          <CardDescription>{users.length} dashboard user{users.length !== 1 ? 's' : ''} - these accounts can log in to this web interface</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -155,7 +172,7 @@ export default function UsersPage() {
                 <TableHead>Username</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -170,16 +187,18 @@ export default function UsersPage() {
                   <TableCell className="text-muted-foreground">
                     {new Date(user.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => setDeleteUser(user)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {isAdmin && (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => setDeleteUser(user)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -194,8 +213,8 @@ export default function UsersPage() {
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create User</DialogTitle>
-            <DialogDescription>Add a new user to the MQTT server</DialogDescription>
+            <DialogTitle>Create Dashboard User</DialogTitle>
+            <DialogDescription>Add a new user who can log in to the web dashboard</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate}>
             <div className="space-y-4 py-4">
@@ -220,13 +239,13 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="create-role">Role</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as 'user' | 'admin')}>
+                <Select value={role} onValueChange={(v) => setRole(v as 'viewer' | 'admin')}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="viewer">Viewer (Read Only)</SelectItem>
+                    <SelectItem value="admin">Admin (Full Access)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -252,10 +271,10 @@ export default function UsersPage() {
           resetForm()
         }
       }}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information</DialogDescription>
+            <DialogDescription>Update user information or password</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdate}>
             <div className="space-y-4 py-4">
@@ -270,16 +289,49 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-role">Role</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as 'user' | 'admin')}>
+                <Select value={role} onValueChange={(v) => setRole(v as 'viewer' | 'admin')}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="viewer">Viewer (Read Only)</SelectItem>
+                    <SelectItem value="admin">Admin (Full Access)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Password Change Section */}
+              <div className="border-t pt-4 space-y-3">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="change-password"
+                    checked={isChangingPassword}
+                    onChange={(e) => {
+                      setIsChangingPassword(e.target.checked)
+                      if (!e.target.checked) setPassword('')
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="change-password" className="cursor-pointer font-medium">
+                    Change password
+                  </Label>
+                </div>
+                {isChangingPassword && (
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New Password</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      required={isChangingPassword}
+                    />
+                  </div>
+                )}
+              </div>
+
               {error && <div className="text-destructive text-sm">{error}</div>}
             </div>
             <DialogFooter>
@@ -287,7 +339,7 @@ export default function UsersPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Updating...' : 'Update User'}
+                {isSubmitting ? 'Updating...' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>
@@ -298,10 +350,10 @@ export default function UsersPage() {
       <AlertDialog open={!!deleteUser} onOpenChange={() => setDeleteUser(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogTitle>Delete Dashboard User</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete user <strong>{deleteUser?.username}</strong>? This
-              action cannot be undone and will also delete all ACL rules associated with this user.
+              action cannot be undone and they will no longer be able to log into the web dashboard.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

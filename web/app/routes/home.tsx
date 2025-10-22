@@ -1,18 +1,12 @@
-import { Button } from '~/components/ui/button'
-
+import { Navigate } from 'react-router'
 import type { Route } from './+types/home'
 
-export function meta({}: Route.MetaArgs) {
-  return [
-    { title: 'New React Router App' },
-    { name: 'description', content: 'Welcome to React Router!' },
-  ]
-}
+export const meta: Route.MetaFunction = () => [{ title: 'MQTT Server' }]
 
 export default function Home() {
-  return (
-    <div className="flex min-h-svh flex-col items-center justify-center">
-      <Button>Click me</Button>
-    </div>
-  )
+  // Check if user is authenticated
+  const token = localStorage.getItem('mqtt_token')
+
+  // Redirect to dashboard if authenticated, otherwise to login
+  return <Navigate to={token ? '/dashboard' : '/login'} replace />
 }

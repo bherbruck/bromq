@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  // Redirect to dashboard if already authenticated
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />
   }
