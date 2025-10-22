@@ -56,6 +56,13 @@ func (s *Server) Start() error {
 	// Mount API under /api
 	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
+	// Health check endpoint (no auth required)
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"healthy"}`))
+	})
+
 	// Prometheus metrics endpoint (no auth required)
 	mux.Handle("/metrics", promhttp.Handler())
 

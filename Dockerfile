@@ -42,7 +42,7 @@ FROM alpine:latest
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apk --no-cache add ca-certificates tzdata wget
+RUN apk --no-cache add ca-certificates tzdata curl
 
 # Copy binary from builder
 COPY --from=backend /app/mqtt-server .
@@ -63,9 +63,9 @@ RUN addgroup -g 1000 mqtt && \
 
 USER mqtt
 
-# Health check
+# Health check - verify HTTP server is responding
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/metrics || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Start server
 CMD ["./mqtt-server", "-db", "/app/data/mqtt-server.db"]
