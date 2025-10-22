@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { api, type User } from './api'
+import { api, type DashboardUser } from './api'
 
 interface AuthContextType {
-  user: User | null
+  user: DashboardUser | null
   login: (username: string, password: string) => Promise<void>
   logout: () => void
   isAuthenticated: boolean
@@ -13,7 +13,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<DashboardUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const navigate = useNavigate()
 

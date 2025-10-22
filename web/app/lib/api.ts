@@ -2,16 +2,41 @@
 
 const API_BASE = '/api'
 
-export interface User {
+// DashboardUser - Dashboard users (login to web UI)
+export interface DashboardUser {
   id: number
   username: string
-  role: 'user' | 'admin'
+  role: 'viewer' | 'admin'
   created_at: string
+}
+
+// MQTTUser - MQTT credentials for connecting to broker
+export interface MQTTUser {
+  id: number
+  username: string
+  description?: string
+  metadata?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+// MQTTClient - Connected device tracking
+export interface MQTTClient {
+  id: number
+  client_id: string
+  mqtt_user_id?: number
+  username?: string
+  remote_addr: string
+  connected_at: string
+  disconnected_at?: string
+  last_seen: string
+  is_active: boolean
+  metadata?: Record<string, any>
 }
 
 export interface ACLRule {
   id: number
-  user_id: number
+  mqtt_user_id: number
   topic_pattern: string
   permission: 'pub' | 'sub' | 'pubsub'
 }
@@ -122,8 +147,8 @@ class APIClient {
   }
 
   // Auth
-  async login(username: string, password: string): Promise<{ token: string; user: User }> {
-    const result = await this.request<{ token: string; user: User }>('/auth/login', {
+  async login(username: string, password: string): Promise<{ token: string; user: DashboardUser }> {
+    const result = await this.request<{ token: string; user: DashboardUser }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     })
@@ -131,27 +156,96 @@ class APIClient {
     return result
   }
 
-  // Users
-  async getUsers(): Promise<User[]> {
-    return this.request<User[]>('/users')
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    return this.request<void>('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    })
   }
 
-  async createUser(username: string, password: string, role: 'user' | 'admin'): Promise<User> {
-    return this.request<User>('/users', {
+  // Dashboard Users (Users who log into the web interface)
+  async getDashboardUsers(): Promise<DashboardUser[]> {
+    return this.request<DashboardUser[]>('/dashboard/users')
+  }
+
+  async createDashboardUser(username: string, password: string, role: 'viewer' | 'admin'): Promise<DashboardUser> {
+    return this.request<DashboardUser>('/dashboard/users', {
       method: 'POST',
       body: JSON.stringify({ username, password, role }),
     })
   }
 
-  async updateUser(id: number, username: string, role: 'user' | 'admin'): Promise<User> {
-    return this.request<User>(`/users/${id}`, {
+  async updateDashboardUser(id: number, username: string, role: 'viewer' | 'admin'): Promise<DashboardUser> {
+    return this.request<DashboardUser>(`/dashboard/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ username, role }),
     })
   }
 
-  async deleteUser(id: number): Promise<void> {
-    return this.request<void>(`/users/${id}`, {
+  async updateDashboardUserPassword(id: number, password: string): Promise<void> {
+    return this.request<void>(`/dashboard/users/${id}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ password }),
+    })
+  }
+
+  async deleteDashboardUser(id: number): Promise<void> {
+    return this.request<void>(`/dashboard/users/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // MQTT Users (Credentials for MQTT broker authentication)
+  async getMQTTUsers(): Promise<MQTTUser[]> {
+    return this.request<MQTTUser[]>('/mqtt/credentials')
+  }
+
+  async createMQTTUser(username: string, password: string, description?: string, metadata?: Record<string, any>): Promise<MQTTUser> {
+    return this.request<MQTTUser>('/mqtt/credentials', {
+      method: 'POST',
+      body: JSON.stringify({ username, password, description, metadata }),
+    })
+  }
+
+  async updateMQTTUser(id: number, username: string, description?: string, metadata?: Record<string, any>): Promise<MQTTUser> {
+    return this.request<MQTTUser>(`/mqtt/credentials/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ username, description, metadata }),
+    })
+  }
+
+  async updateMQTTUserPassword(id: number, password: string): Promise<void> {
+    return this.request<void>(`/mqtt/credentials/${id}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ password }),
+    })
+  }
+
+  async deleteMQTTUser(id: number): Promise<void> {
+    return this.request<void>(`/mqtt/credentials/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // MQTT Clients (Connected device tracking)
+  async getMQTTClients(activeOnly: boolean = false): Promise<MQTTClient[]> {
+    const query = activeOnly ? '?active=true' : ''
+    return this.request<MQTTClient[]>(`/mqtt/clients${query}`)
+  }
+
+  async getMQTTClientDetails(clientId: string): Promise<MQTTClient> {
+    return this.request<MQTTClient>(`/mqtt/clients/${clientId}`)
+  }
+
+  async updateMQTTClientMetadata(clientId: string, metadata: Record<string, any>): Promise<void> {
+    return this.request<void>(`/mqtt/clients/${clientId}/metadata`, {
+      method: 'PUT',
+      body: JSON.stringify({ metadata }),
+    })
+  }
+
+  async deleteMQTTClient(id: number): Promise<void> {
+    return this.request<void>(`/mqtt/clients/${id}`, {
       method: 'DELETE',
     })
   }
@@ -162,13 +256,24 @@ class APIClient {
   }
 
   async createACLRule(
-    user_id: number,
+    mqtt_user_id: number,
     topic_pattern: string,
     permission: 'pub' | 'sub' | 'pubsub'
   ): Promise<ACLRule> {
     return this.request<ACLRule>('/acl', {
       method: 'POST',
-      body: JSON.stringify({ user_id, topic_pattern, permission }),
+      body: JSON.stringify({ mqtt_user_id, topic_pattern, permission }),
+    })
+  }
+
+  async updateACLRule(
+    id: number,
+    topic_pattern: string,
+    permission: 'pub' | 'sub' | 'pubsub'
+  ): Promise<ACLRule> {
+    return this.request<ACLRule>(`/acl/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ topic_pattern, permission }),
     })
   }
 
