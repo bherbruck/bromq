@@ -50,6 +50,10 @@ COPY --from=backend /app/mqtt-server .
 # Create data directory
 RUN mkdir -p /app/data
 
+# Default database configuration (SQLite in mounted volume)
+ENV DB_TYPE=sqlite \
+    DB_PATH=/app/data/mqtt-server.db
+
 # Expose ports
 # 1883: MQTT TCP
 # 8883: MQTT WebSocket
@@ -68,4 +72,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Start server
-CMD ["/app/mqtt-server", "-db", "/app/data/mqtt-server.db"]
+# Database configured via environment variables (see compose.yml)
+CMD ["/app/mqtt-server"]

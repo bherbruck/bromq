@@ -11,6 +11,15 @@ services:
       - "8080:8080" # HTTP API & Web UI
     volumes:
       - mqtt-data:/app/data
+    environment:
+      # Admin credentials (ONLY used on first run)
+      # Uncomment and set these for production deployments
+      # ADMIN_USERNAME: myadmin
+      # ADMIN_PASSWORD: ${ADMIN_PASSWORD}  # Use .env file or Docker secrets
+
+      # Database configuration (SQLite by default)
+      DB_TYPE: sqlite
+      DB_PATH: /app/data/mqtt-server.db
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

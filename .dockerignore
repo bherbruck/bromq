@@ -44,3 +44,5 @@ Dockerfile*
 
 # Test files
 *_test.go
+
+__debug_bin*

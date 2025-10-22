@@ -45,3 +45,5 @@ vendor/
 
 .local/
 tmp/
+
+__debug_bin*
