@@ -10,7 +10,7 @@ build: ## Build the Go binary locally
 	cd web && npm run build
 	go build -o bin/mqtt-server .
 
-run: build ## Run the server locally
+run: build stop ## Run the server locally
 	./bin/mqtt-server
 
 stop: ## Stop any running mqtt-server processes

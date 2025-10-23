@@ -25,7 +25,7 @@ func (m *MockACLChecker) AddRule(username, topic, action string, allowed bool) {
 	m.rules[username][key] = allowed
 }
 
-func (m *MockACLChecker) CheckACL(username, topic, action string) (bool, error) {
+func (m *MockACLChecker) CheckACL(username, clientID, topic, action string) (bool, error) {
 	if m.rules[username] == nil {
 		return false, nil
 	}

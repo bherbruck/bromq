@@ -227,6 +227,7 @@ func TestCheckACL(t *testing.T) {
 	tests := []struct {
 		name         string
 		username     string
+		clientID     string
 		topic        string
 		action       string
 		wantAllowed  bool
@@ -236,6 +237,7 @@ func TestCheckACL(t *testing.T) {
 		{
 			name:        "regular user can publish to matching pattern",
 			username:    "regularuser",
+			clientID:    "client1",
 			topic:       "devices/sensor1/telemetry",
 			action:      "pub",
 			wantAllowed: true,
@@ -244,6 +246,7 @@ func TestCheckACL(t *testing.T) {
 		{
 			name:        "regular user cannot publish to non-matching topic",
 			username:    "regularuser",
+			clientID:    "client1",
 			topic:       "devices/sensor1/status",
 			action:      "pub",
 			wantAllowed: false,
@@ -252,6 +255,7 @@ func TestCheckACL(t *testing.T) {
 		{
 			name:        "regular user cannot publish to subscribe-only topic",
 			username:    "regularuser",
+			clientID:    "client1",
 			topic:       "commands/device1",
 			action:      "pub",
 			wantAllowed: false,
@@ -262,6 +266,7 @@ func TestCheckACL(t *testing.T) {
 		{
 			name:        "regular user can subscribe to wildcard pattern",
 			username:    "regularuser",
+			clientID:    "client1",
 			topic:       "commands/device1/start",
 			action:      "sub",
 			wantAllowed: true,
@@ -270,6 +275,7 @@ func TestCheckACL(t *testing.T) {
 		{
 			name:        "regular user cannot subscribe to publish-only topic",
 			username:    "regularuser",
+			clientID:    "client1",
 			topic:       "devices/sensor1/telemetry",
 			action:      "sub",
 			wantAllowed: false,
@@ -280,6 +286,7 @@ func TestCheckACL(t *testing.T) {
 		{
 			name:        "regular user can publish to pubsub topic",
 			username:    "regularuser",
+			clientID:    "client1",
 			topic:       "chat/room1",
 			action:      "pub",
 			wantAllowed: true,
@@ -288,6 +295,7 @@ func TestCheckACL(t *testing.T) {
 		{
 			name:        "regular user can subscribe to pubsub topic",
 			username:    "regularuser",
+			clientID:    "client1",
 			topic:       "chat/room1",
 			action:      "sub",
 			wantAllowed: true,
@@ -298,6 +306,7 @@ func TestCheckACL(t *testing.T) {
 		{
 			name:        "non-existent user denied",
 			username:    "nonexistent",
+			clientID:    "client1",
 			topic:       "any/topic",
 			action:      "pub",
 			wantAllowed: false,
@@ -307,7 +316,7 @@ func TestCheckACL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			allowed, err := db.CheckACL(tt.username, tt.topic, tt.action)
+			allowed, err := db.CheckACL(tt.username, tt.clientID, tt.topic, tt.action)
 
 			if tt.wantErr {
 				if err == nil {
@@ -535,5 +544,183 @@ func TestDuplicateACLRulePrevention(t *testing.T) {
 	_, err = db.CreateACLRule(int(user.ID), "sensor/+/humidity", "pub")
 	if err != nil {
 		t.Errorf("CreateACLRule() should allow different topic for same user but failed: %v", err)
+	}
+}
+
+func TestReplacePlaceholders(t *testing.T) {
+	tests := []struct {
+		name     string
+		pattern  string
+		username string
+		clientID string
+		want     string
+	}{
+		{
+			name:     "replace username placeholder",
+			pattern:  "user/${username}/data",
+			username: "alice",
+			clientID: "device1",
+			want:     "user/alice/data",
+		},
+		{
+			name:     "replace clientid placeholder",
+			pattern:  "device/${clientid}/telemetry",
+			username: "alice",
+			clientID: "sensor-001",
+			want:     "device/sensor-001/telemetry",
+		},
+		{
+			name:     "replace both placeholders",
+			pattern:  "users/${username}/devices/${clientid}/status",
+			username: "bob",
+			clientID: "device-123",
+			want:     "users/bob/devices/device-123/status",
+		},
+		{
+			name:     "no placeholders",
+			pattern:  "static/topic/path",
+			username: "alice",
+			clientID: "device1",
+			want:     "static/topic/path",
+		},
+		{
+			name:     "multiple username placeholders",
+			pattern:  "${username}/${username}/data",
+			username: "charlie",
+			clientID: "device1",
+			want:     "charlie/charlie/data",
+		},
+		{
+			name:     "with wildcards and placeholders",
+			pattern:  "user/${username}/+/${clientid}/#",
+			username: "dave",
+			clientID: "dev-999",
+			want:     "user/dave/+/dev-999/#",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := replacePlaceholders(tt.pattern, tt.username, tt.clientID)
+			if got != tt.want {
+				t.Errorf("replacePlaceholders(%q, %q, %q) = %q, want %q",
+					tt.pattern, tt.username, tt.clientID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCheckACLWithPlaceholders(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Create test users
+	alice := createTestMQTTUser(t, db, "alice", "password123", "Alice")
+	bob := createTestMQTTUser(t, db, "bob", "password123", "Bob")
+
+	// Create ACL rules with placeholders
+	createTestACLRule(t, db, alice.ID, "user/${username}/data", "pubsub")
+	createTestACLRule(t, db, alice.ID, "device/${clientid}/telemetry", "pub")
+	createTestACLRule(t, db, alice.ID, "users/${username}/devices/${clientid}/#", "pubsub")
+	createTestACLRule(t, db, bob.ID, "user/${username}/#", "pubsub")
+
+	tests := []struct {
+		name        string
+		username    string
+		clientID    string
+		topic       string
+		action      string
+		wantAllowed bool
+	}{
+		// Username placeholder tests
+		{
+			name:        "alice can publish to own user data topic",
+			username:    "alice",
+			clientID:    "device1",
+			topic:       "user/alice/data",
+			action:      "pub",
+			wantAllowed: true,
+		},
+		{
+			name:        "alice cannot publish to bob's user data topic",
+			username:    "alice",
+			clientID:    "device1",
+			topic:       "user/bob/data",
+			action:      "pub",
+			wantAllowed: false,
+		},
+		{
+			name:        "bob can publish to any subtopic under their user namespace",
+			username:    "bob",
+			clientID:    "device1",
+			topic:       "user/bob/data/sensor/temp",
+			action:      "pub",
+			wantAllowed: true,
+		},
+
+		// ClientID placeholder tests
+		{
+			name:        "alice can publish telemetry from device matching clientID",
+			username:    "alice",
+			clientID:    "sensor-001",
+			topic:       "device/sensor-001/telemetry",
+			action:      "pub",
+			wantAllowed: true,
+		},
+		{
+			name:        "alice cannot publish telemetry from device not matching clientID",
+			username:    "alice",
+			clientID:    "sensor-001",
+			topic:       "device/sensor-002/telemetry",
+			action:      "pub",
+			wantAllowed: false,
+		},
+
+		// Combined placeholders
+		{
+			name:        "alice can access topic with both username and clientID",
+			username:    "alice",
+			clientID:    "device-123",
+			topic:       "users/alice/devices/device-123/status",
+			action:      "pub",
+			wantAllowed: true,
+		},
+		{
+			name:        "alice can access nested topics with placeholders and wildcards",
+			username:    "alice",
+			clientID:    "device-456",
+			topic:       "users/alice/devices/device-456/sensors/temp",
+			action:      "sub",
+			wantAllowed: true,
+		},
+		{
+			name:        "alice cannot access topic with wrong username",
+			username:    "alice",
+			clientID:    "device-123",
+			topic:       "users/bob/devices/device-123/status",
+			action:      "pub",
+			wantAllowed: false,
+		},
+		{
+			name:        "alice cannot access topic with wrong clientID",
+			username:    "alice",
+			clientID:    "device-123",
+			topic:       "users/alice/devices/device-999/status",
+			action:      "pub",
+			wantAllowed: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			allowed, err := db.CheckACL(tt.username, tt.clientID, tt.topic, tt.action)
+			if err != nil {
+				t.Fatalf("CheckACL() unexpected error: %v", err)
+			}
+
+			if allowed != tt.wantAllowed {
+				t.Errorf("CheckACL() allowed = %v, want %v", allowed, tt.wantAllowed)
+			}
+		})
 	}
 }

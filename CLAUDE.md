@@ -204,7 +204,7 @@ The system uses a three-table architecture to separate concerns between dashboar
 4. **`acl_rules`**: Access control rules for MQTT topics
    - `id` (uint, primary key)
    - `mqtt_user_id` (uint, foreign key to mqtt_users, cascade delete)
-   - `topic_pattern` (string, not null) - Supports MQTT wildcards (+, #)
+   - `topic_pattern` (string, not null) - Supports MQTT wildcards (+, #) and dynamic placeholders (${username}, ${clientid})
    - `permission` (string, not null) - 'pub', 'sub', or 'pubsub'
    - `created_at` (timestamp)
 
@@ -330,8 +330,32 @@ time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Connecting to database" type=
 - `db.ListACLRules()` - List all ACL rules
 - `db.GetACLRulesByMQTTUserID(mqttUserID)` - Get rules for specific MQTT user
 - `db.DeleteACLRule(id)` - Delete ACL rule
-- `db.CheckACL(username, topic, action)` - Check if MQTT user can pub/sub to topic
-- Topic matching supports MQTT wildcards: `+` (single level), `#` (multi-level)
+- `db.CheckACL(username, clientID, topic, action)` - Check if MQTT user can pub/sub to topic
+- Topic matching supports:
+  - MQTT wildcards: `+` (single level), `#` (multi-level)
+  - Dynamic placeholders: `${username}`, `${clientid}` (replaced at runtime)
+
+**Topic Pattern Examples:**
+```
+# Static patterns with wildcards
+devices/+/telemetry        # Matches devices/sensor1/telemetry, devices/sensor2/telemetry
+commands/#                 # Matches all subtopics under commands/
+
+# Dynamic patterns with ${username} placeholder (multi-tenant isolation)
+user/${username}/data      # alice can only access user/alice/data
+user/${username}/#         # bob can access all subtopics under user/bob/
+
+# Dynamic patterns with ${clientid} placeholder (per-device isolation)
+device/${clientid}/status  # client "sensor-001" can only access device/sensor-001/status
+
+# Combined placeholders and wildcards
+users/${username}/devices/${clientid}/#  # Full isolation per user and device
+```
+
+**Use Cases for Placeholders:**
+- **Multi-tenant systems**: Users can only access their own namespace
+- **IoT deployments**: Devices can only publish to topics matching their client ID
+- **Security**: No need to create individual ACL rules per user/device
 
 **Auto-Migration:**
 To add a new column to a table, simply update the struct in `models.go`:
@@ -691,11 +715,29 @@ curl -X PUT http://localhost:8080/api/mqtt/clients/sensor-device-001/metadata \
   -d '{"location":"warehouse-A","device_type":"temperature_sensor"}'
 
 # === ACL Rules ===
-# Create ACL rule for MQTT user
+# Create ACL rule with wildcards
 curl -X POST http://localhost:8080/api/acl \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"mqtt_user_id":1,"topic_pattern":"sensor/+/temp","permission":"pubsub"}'
+
+# Create ACL rule with ${username} placeholder (multi-tenant isolation)
+curl -X POST http://localhost:8080/api/acl \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mqtt_user_id":1,"topic_pattern":"user/${username}/#","permission":"pubsub"}'
+
+# Create ACL rule with ${clientid} placeholder (per-device isolation)
+curl -X POST http://localhost:8080/api/acl \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mqtt_user_id":1,"topic_pattern":"device/${clientid}/status","permission":"pub"}'
+
+# Create ACL rule with combined placeholders
+curl -X POST http://localhost:8080/api/acl \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"mqtt_user_id":1,"topic_pattern":"users/${username}/devices/${clientid}/#","permission":"pubsub"}'
 
 # List ACL rules
 curl -H "Authorization: Bearer $TOKEN" \

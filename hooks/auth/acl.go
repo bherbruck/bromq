@@ -14,8 +14,9 @@ type ACLHook struct {
 }
 
 // ACLChecker interface for checking ACL permissions
+// Supports dynamic placeholders: ${username} and ${clientid}
 type ACLChecker interface {
-	CheckACL(username, topic, action string) (bool, error)
+	CheckACL(username, clientID, topic, action string) (bool, error)
 }
 
 // NewACLHook creates a new ACL hook
@@ -45,16 +46,19 @@ func (h *ACLHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) bool {
 		username = "anonymous"
 	}
 
+	// Get client ID
+	clientID := cl.ID
+
 	// Determine action (publish or subscribe)
 	action := "sub"
 	if write {
 		action = "pub"
 	}
 
-	// Check ACL
-	allowed, err := h.checker.CheckACL(username, topic, action)
+	// Check ACL with placeholder support
+	allowed, err := h.checker.CheckACL(username, clientID, topic, action)
 	if err != nil {
-		slog.Error("ACL check error", "username", username, "topic", topic, "action", action, "error", err)
+		slog.Error("ACL check error", "username", username, "clientid", clientID, "topic", topic, "action", action, "error", err)
 		return false
 	}
 

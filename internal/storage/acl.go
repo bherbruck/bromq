@@ -96,7 +96,8 @@ func (db *DB) DeleteACLRule(id int) error {
 
 // CheckACL checks if an MQTT user has permission for a specific topic and action
 // Note: This is for MQTT users only. Admin users (dashboard) don't use MQTT ACL checks.
-func (db *DB) CheckACL(username, topic, action string) (bool, error) {
+// Supports dynamic placeholders: ${username} and ${clientid}
+func (db *DB) CheckACL(username, clientID, topic, action string) (bool, error) {
 	// Get MQTT user
 	user, err := db.GetMQTTUserByUsername(username)
 	if err != nil {
@@ -118,7 +119,10 @@ func (db *DB) CheckACL(username, topic, action string) (bool, error) {
 
 	// Check if any rule matches the topic
 	for _, rule := range rules {
-		if matchTopic(rule.TopicPattern, topic) {
+		// Replace placeholders in the pattern before matching
+		expandedPattern := replacePlaceholders(rule.TopicPattern, username, clientID)
+
+		if matchTopic(expandedPattern, topic) {
 			// Check if permission matches action
 			switch action {
 			case "pub":
@@ -134,6 +138,15 @@ func (db *DB) CheckACL(username, topic, action string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// replacePlaceholders replaces dynamic placeholders in topic patterns
+// Supports: ${username} and ${clientid}
+func replacePlaceholders(pattern, username, clientID string) string {
+	result := pattern
+	result = strings.ReplaceAll(result, "${username}", username)
+	result = strings.ReplaceAll(result, "${clientid}", clientID)
+	return result
 }
 
 // matchTopic checks if a topic matches a pattern with MQTT wildcards (+ and #)
