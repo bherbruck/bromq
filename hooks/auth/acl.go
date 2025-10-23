@@ -2,7 +2,7 @@ package auth
 
 import (
 	"bytes"
-	"log"
+	"log/slog"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 )
@@ -54,7 +54,7 @@ func (h *ACLHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) bool {
 	// Check ACL
 	allowed, err := h.checker.CheckACL(username, topic, action)
 	if err != nil {
-		log.Printf("ACL check error for user %s, topic %s, action %s: %v", username, topic, action, err)
+		slog.Error("ACL check error", "username", username, "topic", topic, "action", action, "error", err)
 		return false
 	}
 

@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -126,12 +126,11 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(rw, r)
 
-		log.Printf(
-			"%s %s %d %s",
-			r.Method,
-			r.RequestURI,
-			rw.statusCode,
-			time.Since(start),
+		slog.Info("HTTP request",
+			"method", r.Method,
+			"uri", r.RequestURI,
+			"status", rw.statusCode,
+			"duration", time.Since(start),
 		)
 	})
 }

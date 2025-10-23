@@ -2,9 +2,10 @@ package main
 
 import (
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github/bherbruck/mqtt-server/hooks/auth"
@@ -18,6 +19,9 @@ import (
 )
 
 func main() {
+	// Set up structured logging
+	setupLogging()
+
 	// Parse command line flags
 	dbType := flag.String("db-type", "", "Database type (sqlite, postgres, mysql). Defaults to DB_TYPE env var or 'sqlite'")
 	dbPath := flag.String("db-path", "", "SQLite database file path. Defaults to DB_PATH env var or 'mqtt-server.db'")
@@ -32,7 +36,7 @@ func main() {
 	httpAddr := flag.String("http", ":8080", "HTTP API server address")
 	flag.Parse()
 
-	log.Println("Starting MQTT Server...")
+	slog.Info("Starting MQTT Server")
 
 	// Load database configuration from environment variables first
 	dbConfig := storage.LoadConfigFromEnv()
@@ -64,10 +68,11 @@ func main() {
 	}
 
 	// Initialize database
-	log.Printf("Connecting to database (type: %s)", dbConfig.Type)
+	slog.Info("Connecting to database", "type", dbConfig.Type)
 	db, err := storage.Open(dbConfig)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		slog.Error("Failed to open database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -84,44 +89,50 @@ func main() {
 	// Add authentication hook
 	authHook := auth.NewAuthHook(db)
 	if err := mqttServer.AddAuthHook(authHook); err != nil {
-		log.Fatalf("Failed to add auth hook: %v", err)
+		slog.Error("Failed to add auth hook", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Authentication hook registered")
+	slog.Info("Authentication hook registered")
 
 	// Add ACL hook
 	aclHook := auth.NewACLHook(db)
 	if err := mqttServer.AddACLHook(aclHook); err != nil {
-		log.Fatalf("Failed to add ACL hook: %v", err)
+		slog.Error("Failed to add ACL hook", "error", err)
+		os.Exit(1)
 	}
-	log.Println("ACL hook registered")
+	slog.Info("ACL hook registered")
 
 	// Add metrics tracking hook with Prometheus
 	promMetrics := mqtt.NewPrometheusMetrics()
 	metricsHook := metrics.NewMetricsHook(promMetrics)
 	if err := mqttServer.AddHook(metricsHook, nil); err != nil {
-		log.Fatalf("Failed to add metrics hook: %v", err)
+		slog.Error("Failed to add metrics hook", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Metrics hook registered")
+	slog.Info("Metrics hook registered")
 
 	// Add retained message persistence hook
 	// The hook will automatically load retained messages on startup via StoredRetainedMessages()
 	retainedHook := retained.NewRetainedHook(db)
 	if err := mqttServer.AddHook(retainedHook, nil); err != nil {
-		log.Fatalf("Failed to add retained hook: %v", err)
+		slog.Error("Failed to add retained hook", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Retained message hook registered")
+	slog.Info("Retained message hook registered")
 
 	// Add client tracking hook
 	trackingHook := tracking.NewTrackingHook(db)
 	if err := mqttServer.AddHook(trackingHook, nil); err != nil {
-		log.Fatalf("Failed to add tracking hook: %v", err)
+		slog.Error("Failed to add tracking hook", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Client tracking hook registered")
+	slog.Info("Client tracking hook registered")
 
 	// Start MQTT server in a goroutine
 	go func() {
 		if err := mqttServer.Start(); err != nil {
-			log.Fatalf("Failed to start MQTT server: %v", err)
+			slog.Error("Failed to start MQTT server", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -129,30 +140,66 @@ func main() {
 	apiServer := api.NewServer(*httpAddr, db, mqttServer, web.FS)
 	go func() {
 		if err := apiServer.Start(); err != nil {
-			log.Fatalf("Failed to start HTTP server: %v", err)
+			slog.Error("Failed to start HTTP server", "error", err)
+			os.Exit(1)
 		}
 	}()
 
-	log.Println("===========================================")
-	log.Println("MQTT Server is running")
-	log.Printf("  MQTT TCP:       %s", *mqttTCP)
-	log.Printf("  MQTT WebSocket: %s", *mqttWS)
-	log.Printf("  HTTP API:       %s", *httpAddr)
+	slog.Info("===========================================")
+	slog.Info("MQTT Server is running")
+	slog.Info("  MQTT TCP", "address", *mqttTCP)
+	slog.Info("  MQTT WebSocket", "address", *mqttWS)
+	slog.Info("  HTTP API", "address", *httpAddr)
 	if dbConfig.Type == "sqlite" {
-		log.Printf("  Database:       %s (%s)", dbConfig.Type, dbConfig.FilePath)
+		slog.Info("  Database", "type", dbConfig.Type, "path", dbConfig.FilePath)
 	} else {
-		log.Printf("  Database:       %s (%s:%d/%s)", dbConfig.Type, dbConfig.Host, dbConfig.Port, dbConfig.DBName)
+		slog.Info("  Database", "type", dbConfig.Type, "host", dbConfig.Host, "port", dbConfig.Port, "database", dbConfig.DBName)
 	}
-	log.Println("===========================================")
-	log.Println("Default credentials: admin / admin")
-	log.Println("Press Ctrl+C to stop")
+	slog.Info("===========================================")
+	slog.Info("Default credentials: admin / admin")
+	slog.Info("Press Ctrl+C to stop")
 
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("Shutting down...")
+	slog.Info("Shutting down")
 	mqttServer.Close()
-	log.Println("Server stopped")
+	slog.Info("Server stopped")
+}
+
+// setupLogging configures slog based on environment variables
+func setupLogging() {
+	// Get log level from environment (default: info)
+	logLevel := strings.ToLower(os.Getenv("LOG_LEVEL"))
+	var level slog.Level
+	switch logLevel {
+	case "debug":
+		level = slog.LevelDebug
+	case "info", "":
+		level = slog.LevelInfo
+	case "warn", "warning":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	// Get log format from environment (default: text)
+	logFormat := strings.ToLower(os.Getenv("LOG_FORMAT"))
+	var handler slog.Handler
+	opts := &slog.HandlerOptions{Level: level}
+
+	switch logFormat {
+	case "json":
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	case "text", "":
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	default:
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	}
+
+	slog.SetDefault(slog.New(handler))
 }

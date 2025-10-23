@@ -2,7 +2,7 @@ package api
 
 import (
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -96,13 +96,13 @@ func (s *Server) Start() error {
 		fileServer := http.FileServer(http.FS(s.webFS))
 		mux.Handle("/", spaHandler(s.webFS, fileServer))
 	} else {
-		log.Printf("Warning: frontend not available")
+		slog.Warn("Frontend not available")
 	}
 
 	// Apply middleware
 	handler := LoggingMiddleware(CORSMiddleware(mux))
 
-	log.Printf("HTTP API server started on %s", s.addr)
+	slog.Info("HTTP API server started", "address", s.addr)
 	return http.ListenAndServe(s.addr, handler)
 }
 

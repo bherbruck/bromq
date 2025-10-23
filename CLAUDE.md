@@ -14,6 +14,7 @@ A single-node MQTT broker with embedded web UI built on mochi-mqtt/server. Featu
 - Database support: SQLite (default), PostgreSQL, MySQL
 - stdlib net/http (Go 1.22+) - HTTP server and routing
 - JWT (golang-jwt/jwt/v5) - API authentication
+- slog (stdlib log/slog) - Structured logging with configurable levels and formats
 
 **Frontend:**
 - React Router v7 (SPA mode) - Routing and build tool
@@ -253,6 +254,39 @@ ADMIN_PASSWORD=admin     # Default admin password (default: admin)
 - `compose.yml` - SQLite (default, embedded database)
 - `examples/compose.postgres.yml` - PostgreSQL with separate database container
 - `examples/compose.mysql.yml` - MySQL with separate database container
+
+**Logging Configuration:**
+The server uses Go's `log/slog` for structured logging with configurable levels and output formats:
+
+```bash
+# Logging Configuration (environment variables)
+LOG_LEVEL=info          # Log level: debug, info, warn, error (default: info)
+LOG_FORMAT=text         # Output format: text, json (default: text)
+
+# Examples:
+# Development with debug logging
+LOG_LEVEL=debug LOG_FORMAT=text ./mqtt-server
+
+# Production with JSON logging for aggregation tools
+LOG_LEVEL=info LOG_FORMAT=json ./mqtt-server
+```
+
+Log levels:
+- `debug` - Verbose logging including client connections/disconnections, tracking details
+- `info` - Standard operational logging (default)
+- `warn` - Warning messages (auth failures, errors that don't stop execution)
+- `error` - Error messages (ACL check errors, database errors)
+
+Output format examples:
+```
+# Text format (human-readable, for development)
+time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Starting MQTT Server"
+time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Connecting to database" type=sqlite
+
+# JSON format (machine-readable, for production log aggregation)
+{"time":"2025-10-23T08:02:38.347-04:00","level":"INFO","msg":"Starting MQTT Server"}
+{"time":"2025-10-23T08:02:38.347-04:00","level":"INFO","msg":"Connecting to database","type":"sqlite"}
+```
 
 **Key functions:**
 
@@ -704,3 +738,4 @@ curl http://localhost:8080/metrics
 - Implement rate limiting on API endpoints for production
 - Consider using proper secrets management for production databases (use Docker secrets or cloud provider secrets)
 - Review CORS policy before production deployment
+- use slog for golang logging

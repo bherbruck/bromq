@@ -2,7 +2,7 @@ package auth
 
 import (
 	"bytes"
-	"log"
+	"log/slog"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
@@ -47,24 +47,24 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 
 	// Allow anonymous connections if no username provided
 	if username == "" {
-		log.Printf("Client %s connecting anonymously", cl.ID)
+		slog.Debug("Client connecting anonymously", "client_id", cl.ID)
 		return true
 	}
 
 	// Authenticate user
 	user, err := h.authenticator.AuthenticateUser(username, password)
 	if err != nil {
-		log.Printf("Authentication failed for user %s: %v", username, err)
+		slog.Warn("Authentication failed", "username", username, "error", err)
 		return false
 	}
 
 	if user == nil {
-		log.Printf("Authentication failed for user %s: user not found", username)
+		slog.Warn("Authentication failed - user not found", "username", username)
 		return false
 	}
 
 	// Username is already stored in cl.Properties.Username by mochi-mqtt
-	log.Printf("Client %s authenticated as user %s", cl.ID, username)
+	slog.Info("Client authenticated", "client_id", cl.ID, "username", username)
 	return true
 }
 
@@ -74,6 +74,6 @@ func (h *AuthHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
 	if username == "" {
 		username = "anonymous"
 	}
-	log.Printf("Client %s connected (user: %s)", cl.ID, username)
+	slog.Info("Client connected", "client_id", cl.ID, "username", username)
 	return nil
 }

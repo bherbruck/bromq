@@ -2,7 +2,7 @@ package tracking
 
 import (
 	"bytes"
-	"log"
+	"log/slog"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
@@ -53,7 +53,7 @@ func (h *TrackingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
 	// Get the MQTT user ID for this username
 	userInterface, err := h.tracker.GetMQTTUserByUsernameInterface(username)
 	if err != nil {
-		log.Printf("Failed to get MQTT user for tracking: %v", err)
+		slog.Warn("Failed to get MQTT user for tracking", "error", err)
 		return nil // Don't fail the connection
 	}
 
@@ -74,18 +74,18 @@ func (h *TrackingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
 	} else {
 		// Try direct field access via reflection
 		// For now, just log and skip
-		log.Printf("Unable to extract user ID from type %T", userInterface)
+		slog.Warn("Unable to extract user ID", "type", userInterface)
 		return nil
 	}
 
 	// Create or update client record
 	_, err = h.tracker.UpsertMQTTClientInterface(cl.ID, mqttUserID, nil)
 	if err != nil {
-		log.Printf("Failed to track client connection: %v", err)
+		slog.Warn("Failed to track client connection", "error", err)
 		return nil // Don't fail the connection
 	}
 
-	log.Printf("Client %s (user: %s) connection tracked", cl.ID, username)
+	slog.Debug("Client connection tracked", "client_id", cl.ID, "username", username)
 	return nil
 }
 
@@ -93,8 +93,8 @@ func (h *TrackingHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
 // This marks the client as inactive
 func (h *TrackingHook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
 	if err := h.tracker.MarkMQTTClientInactive(cl.ID); err != nil {
-		log.Printf("Failed to mark client %s as inactive: %v", cl.ID, err)
+		slog.Warn("Failed to mark client as inactive", "client_id", cl.ID, "error", err)
 	} else {
-		log.Printf("Client %s marked as disconnected", cl.ID)
+		slog.Debug("Client marked as disconnected", "client_id", cl.ID)
 	}
 }

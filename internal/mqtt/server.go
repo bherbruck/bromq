@@ -2,7 +2,7 @@ package mqtt
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/listeners"
@@ -56,7 +56,7 @@ func (s *Server) Start() error {
 		if err != nil {
 			return fmt.Errorf("failed to add TCP listener: %w", err)
 		}
-		log.Printf("MQTT TCP listener started on %s", s.config.TCPAddr)
+		slog.Info("MQTT TCP listener started", "address", s.config.TCPAddr)
 	}
 
 	// Add WebSocket listener
@@ -69,7 +69,7 @@ func (s *Server) Start() error {
 		if err != nil {
 			return fmt.Errorf("failed to add WebSocket listener: %w", err)
 		}
-		log.Printf("MQTT WebSocket listener started on %s", s.config.WSAddr)
+		slog.Info("MQTT WebSocket listener started", "address", s.config.WSAddr)
 	}
 
 	// Start the server

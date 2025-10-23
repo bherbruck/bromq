@@ -2,7 +2,7 @@ package retained
 
 import (
 	"bytes"
-	"log"
+	"log/slog"
 	"time"
 
 	mqtt "github.com/mochi-mqtt/server/v2"
@@ -53,7 +53,7 @@ func (h *RetainedHook) OnRetainMessage(cl *mqtt.Client, pk packets.Packet, r int
 	// r == -1 means delete the retained message (empty payload)
 	if r == -1 {
 		if err := h.store.DeleteRetainedMessage(topic); err != nil {
-			log.Printf("Failed to delete retained message for topic %s: %v", topic, err)
+			slog.Error("Failed to delete retained message", "topic", topic, "error", err)
 		}
 		return
 	}
@@ -61,7 +61,7 @@ func (h *RetainedHook) OnRetainMessage(cl *mqtt.Client, pk packets.Packet, r int
 	// Save retained message (upsert)
 	qos := pk.FixedHeader.Qos
 	if err := h.store.SaveRetainedMessage(topic, pk.Payload, qos); err != nil {
-		log.Printf("Failed to save retained message for topic %s: %v", topic, err)
+		slog.Error("Failed to save retained message", "topic", topic, "error", err)
 	}
 }
 
@@ -70,7 +70,7 @@ func (h *RetainedHook) OnRetainMessage(cl *mqtt.Client, pk packets.Packet, r int
 func (h *RetainedHook) StoredRetainedMessages() ([]storage.Message, error) {
 	dbMessages, err := h.store.GetAllRetainedMessages()
 	if err != nil {
-		log.Printf("Failed to load retained messages from database: %v", err)
+		slog.Error("Failed to load retained messages from database", "error", err)
 		return nil, err
 	}
 
@@ -90,14 +90,14 @@ func (h *RetainedHook) StoredRetainedMessages() ([]storage.Message, error) {
 		})
 	}
 
-	log.Printf("Loaded %d retained messages from database", len(messages))
+	slog.Info("Loaded retained messages from database", "count", len(messages))
 	return messages, nil
 }
 
 // OnRetainedExpired is called when a retained message expires
 func (h *RetainedHook) OnRetainedExpired(filter string) {
 	if err := h.store.DeleteRetainedMessage(filter); err != nil {
-		log.Printf("Failed to delete expired retained message for filter %s: %v", filter, err)
+		slog.Error("Failed to delete expired retained message", "filter", filter, "error", err)
 	}
 }
 

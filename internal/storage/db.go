@@ -2,7 +2,7 @@ package storage
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	sqlite "github.com/glebarez/sqlite" // Pure Go SQLite driver (no CGO required)
 	"golang.org/x/crypto/bcrypt"
@@ -79,10 +79,10 @@ func Open(config *DatabaseConfig) (*DB, error) {
 
 	// Create default admin user if not exists
 	if err := storage.createDefaultAdmin(); err != nil {
-		log.Printf("Warning: failed to create default admin: %v", err)
+		slog.Warn("Failed to create default admin", "error", err)
 	}
 
-	log.Printf("Database connected successfully (type: %s)", config.Type)
+	slog.Info("Database connected successfully", "type", config.Type)
 	return storage, nil
 }
 
@@ -119,11 +119,11 @@ func (db *DB) createDefaultAdmin() error {
 	usingDefaults := adminUsername == "admin" && adminPassword == "admin"
 
 	if usingDefaults {
-		log.Println("⚠️  WARNING: Creating admin with default credentials (admin/admin)")
-		log.Println("⚠️  Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables for production!")
-		log.Println("⚠️  Change the password immediately after first login!")
+		slog.Warn("Creating admin with default credentials (admin/admin)")
+		slog.Warn("Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables for production!")
+		slog.Warn("Change the password immediately after first login!")
 	} else {
-		log.Printf("Creating admin user: %s", adminUsername)
+		slog.Info("Creating admin user", "username", adminUsername)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
@@ -141,7 +141,7 @@ func (db *DB) createDefaultAdmin() error {
 		return err
 	}
 
-	log.Printf("✓ Admin user created successfully: %s", adminUsername)
+	slog.Info("Admin user created successfully", "username", adminUsername)
 	return nil
 }
 
@@ -150,7 +150,7 @@ func (db *DB) createDefaultAdmin() error {
 func (db *DB) migrateAdminUsersToDashboardUsers(dbType string) error {
 	// Check if admin_users table exists
 	if db.Migrator().HasTable("admin_users") {
-		log.Println("Migrating admin_users table to dashboard_users...")
+		slog.Info("Migrating admin_users table to dashboard_users")
 
 		// Rename the table based on database type
 		switch dbType {
