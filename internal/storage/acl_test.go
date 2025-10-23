@@ -496,3 +496,44 @@ func TestDeleteUserCascadesACLRules(t *testing.T) {
 		t.Errorf("Expected 0 rules after user deletion (cascade), got %d", len(rulesAfter))
 	}
 }
+
+func TestDuplicateACLRulePrevention(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user := createTestMQTTUser(t, db, "testuser", "password123", "Test MQTT user")
+
+	// Create first ACL rule
+	_, err := db.CreateACLRule(int(user.ID), "sensor/+/temp", "pub")
+	if err != nil {
+		t.Fatalf("CreateACLRule() first call failed: %v", err)
+	}
+
+	// Try to create duplicate ACL rule (same user, same topic pattern)
+	_, err = db.CreateACLRule(int(user.ID), "sensor/+/temp", "sub")
+	if err == nil {
+		t.Error("CreateACLRule() should have failed for duplicate user+topic_pattern but succeeded")
+	}
+
+	// Verify only one rule exists
+	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	if err != nil {
+		t.Fatalf("GetACLRulesByMQTTUserID() failed: %v", err)
+	}
+	if len(rules) != 1 {
+		t.Errorf("Expected 1 rule after duplicate attempt, got %d", len(rules))
+	}
+
+	// Verify different user with same topic pattern is allowed
+	user2 := createTestMQTTUser(t, db, "testuser2", "password123", "Test MQTT user 2")
+	_, err = db.CreateACLRule(int(user2.ID), "sensor/+/temp", "pub")
+	if err != nil {
+		t.Errorf("CreateACLRule() should allow same topic for different user but failed: %v", err)
+	}
+
+	// Verify same user with different topic pattern is allowed
+	_, err = db.CreateACLRule(int(user.ID), "sensor/+/humidity", "pub")
+	if err != nil {
+		t.Errorf("CreateACLRule() should allow different topic for same user but failed: %v", err)
+	}
+}

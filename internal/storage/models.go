@@ -68,8 +68,8 @@ func (MQTTClient) TableName() string {
 // Rules are associated with MQTTUser (credentials), not individual clients
 type ACLRule struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
-	MQTTUserID   uint      `gorm:"index:idx_acl_mqtt_user;not null" json:"mqtt_user_id"`
-	TopicPattern string    `gorm:"not null" json:"topic_pattern"`
+	MQTTUserID   uint      `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"mqtt_user_id"`
+	TopicPattern string    `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"topic_pattern"`
 	Permission   string    `gorm:"not null;check:permission IN ('pub', 'sub', 'pubsub')" json:"permission"`
 	CreatedAt    time.Time `json:"created_at"`
 	MQTTUser     MQTTUser  `gorm:"foreignKey:MQTTUserID;constraint:OnDelete:CASCADE" json:"-"`
