@@ -1,4 +1,4 @@
-import { ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import type { Route } from './+types/mqtt-users'
@@ -24,7 +24,9 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
+import { Field, FieldLabel, FieldError } from '~/components/ui/field'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
+import { Spinner } from '~/components/ui/spinner'
 import {
   Table,
   TableBody,
@@ -144,7 +146,12 @@ export default function MQTTUsersPage() {
   }
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading MQTT users...</div>
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Spinner />
+        Loading MQTT users...
+      </div>
+    )
   }
 
   const canEdit = currentUser?.role === 'admin'
@@ -170,9 +177,23 @@ export default function MQTTUsersPage() {
         </CardHeader>
         <CardContent>
           {users.length === 0 ? (
-            <div className="text-muted-foreground py-8 text-center">
-              No MQTT users configured. Add an MQTT user to allow devices to connect.
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Users />
+                </EmptyMedia>
+                <EmptyTitle>No MQTT users</EmptyTitle>
+                <EmptyDescription>
+                  Add an MQTT user to allow devices to connect to the broker.
+                </EmptyDescription>
+              </EmptyHeader>
+              {canEdit && (
+                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add MQTT User
+                </Button>
+              )}
+            </Empty>
           ) : (
             <Table>
               <TableHeader>
@@ -251,8 +272,8 @@ export default function MQTTUsersPage() {
           </DialogHeader>
           <form onSubmit={handleCreate}>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="create-username">Username</Label>
+              <Field>
+                <FieldLabel htmlFor="create-username">Username</FieldLabel>
                 <Input
                   id="create-username"
                   value={username}
@@ -260,9 +281,9 @@ export default function MQTTUsersPage() {
                   placeholder="device-001"
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-password">Password</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="create-password">Password</FieldLabel>
                 <Input
                   id="create-password"
                   type="password"
@@ -270,9 +291,9 @@ export default function MQTTUsersPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-description">Description (optional)</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="create-description">Description (optional)</FieldLabel>
                 <Textarea
                   id="create-description"
                   value={description}
@@ -280,14 +301,15 @@ export default function MQTTUsersPage() {
                   placeholder="Temperature sensor in building A"
                   rows={3}
                 />
-              </div>
-              {error && <div className="text-destructive text-sm">{error}</div>}
+              </Field>
+              <FieldError>{error}</FieldError>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Spinner className="mr-2" />}
                 {isSubmitting ? 'Creating...' : 'Create MQTT User'}
               </Button>
             </DialogFooter>
@@ -313,17 +335,17 @@ export default function MQTTUsersPage() {
           </DialogHeader>
           <form onSubmit={handleUpdate}>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-username">Username</Label>
+              <Field>
+                <FieldLabel htmlFor="edit-username">Username</FieldLabel>
                 <Input
                   id="edit-username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-description">Description</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="edit-description">Description</FieldLabel>
                 <Textarea
                   id="edit-description"
                   value={description}
@@ -331,7 +353,7 @@ export default function MQTTUsersPage() {
                   placeholder="Temperature sensor in building A"
                   rows={3}
                 />
-              </div>
+              </Field>
 
               {/* Password Change Section */}
               <div className="border-t pt-4 space-y-3">
@@ -346,13 +368,13 @@ export default function MQTTUsersPage() {
                     }}
                     className="rounded border-gray-300"
                   />
-                  <Label htmlFor="change-password" className="cursor-pointer font-medium">
+                  <FieldLabel htmlFor="change-password" className="cursor-pointer font-medium">
                     Change password
-                  </Label>
+                  </FieldLabel>
                 </div>
                 {isChangingPassword && (
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
+                  <Field>
+                    <FieldLabel htmlFor="new-password">New Password</FieldLabel>
                     <Input
                       id="new-password"
                       type="password"
@@ -361,17 +383,18 @@ export default function MQTTUsersPage() {
                       placeholder="Enter new password"
                       required={isChangingPassword}
                     />
-                  </div>
+                  </Field>
                 )}
               </div>
 
-              {error && <div className="text-destructive text-sm">{error}</div>}
+              <FieldError>{error}</FieldError>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Spinner className="mr-2" />}
                 {isSubmitting ? 'Updating...' : 'Save Changes'}
               </Button>
             </DialogFooter>

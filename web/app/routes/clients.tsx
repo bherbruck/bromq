@@ -1,4 +1,4 @@
-import { ArrowRight, UserX } from 'lucide-react'
+import { ArrowRight, Users, UserX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import type { Route } from './+types/clients'
@@ -15,6 +15,8 @@ import {
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
+import { Spinner } from '~/components/ui/spinner'
 import {
   Table,
   TableBody,
@@ -94,7 +96,12 @@ export default function ClientsPage() {
   }
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading clients...</div>
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Spinner />
+        Loading clients...
+      </div>
+    )
   }
 
   return (
@@ -108,9 +115,17 @@ export default function ClientsPage() {
         </CardHeader>
         <CardContent>
           {clients.length === 0 ? (
-            <div className="text-muted-foreground py-8 text-center">
-              No clients currently connected
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Users />
+                </EmptyMedia>
+                <EmptyTitle>No connected clients</EmptyTitle>
+                <EmptyDescription>
+                  Clients will appear here when they connect to the MQTT broker
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <Table>
               <TableHeader>

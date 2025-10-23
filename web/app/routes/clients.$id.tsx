@@ -1,4 +1,4 @@
-import { ChevronRight, Home } from 'lucide-react'
+import { ChevronRight, Home, Inbox } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import type { Route } from './+types/clients.$id'
@@ -12,6 +12,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '~/components/ui/chart'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
+import { Spinner } from '~/components/ui/spinner'
 import {
   Table,
   TableBody,
@@ -115,7 +117,12 @@ export default function ClientDetailPage() {
   }
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading client details...</div>
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Spinner />
+        Loading client details...
+      </div>
+    )
   }
 
   if (error || !client) {
@@ -220,9 +227,17 @@ export default function ClientDetailPage() {
         </CardHeader>
         <CardContent>
           {client.subscriptions.length === 0 ? (
-            <div className="text-muted-foreground py-8 text-center">
-              No active subscriptions
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Inbox />
+                </EmptyMedia>
+                <EmptyTitle>No subscriptions</EmptyTitle>
+                <EmptyDescription>
+                  This client is not subscribed to any topics
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <Table>
               <TableHeader>

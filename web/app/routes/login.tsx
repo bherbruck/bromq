@@ -4,7 +4,8 @@ import type { Route } from './+types/login'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
+import { Field, FieldLabel, FieldError } from '~/components/ui/field'
+import { Spinner } from '~/components/ui/spinner'
 import { useAuth } from '~/lib/auth-context'
 
 export const meta: Route.MetaFunction = () => [{ title: 'Login - MQTT Server' }]
@@ -44,8 +45,8 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+            <Field>
+              <FieldLabel htmlFor="username">Username</FieldLabel>
               <Input
                 id="username"
                 type="text"
@@ -55,9 +56,9 @@ export default function LoginPage() {
                 required
                 autoComplete="username"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
               <Input
                 id="password"
                 type="password"
@@ -67,13 +68,14 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
               />
-            </div>
+            </Field>
             {error && (
               <div className="text-destructive text-sm rounded-md border border-destructive/50 bg-destructive/10 p-3">
                 {error}
               </div>
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading && <Spinner className="mr-2" />}
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
             <p className="text-muted-foreground text-center text-sm">

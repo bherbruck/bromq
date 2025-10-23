@@ -1,4 +1,4 @@
-import { HelpCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { HelpCircle, Pencil, Plus, Shield, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuth } from '~/lib/auth-context'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '~/components/ui/hover-card'
@@ -24,7 +24,9 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
+import { Field, FieldLabel, FieldError } from '~/components/ui/field'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
+import { Spinner } from '~/components/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import {
   Table,
@@ -180,7 +182,12 @@ export function ACLRules({
   }
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading ACL rules...</div>
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Spinner />
+        Loading ACL rules...
+      </div>
+    )
   }
 
   const canEdit = currentUser?.role === 'admin'
@@ -199,10 +206,17 @@ export function ACLRules({
       {mqttUsers.length === 0 ? (
         <Card>
           <CardContent className="py-8">
-            <div className="text-muted-foreground text-center">
-              <p className="mb-2">No MQTT users available</p>
-              <p className="text-sm">Create MQTT credentials first before adding ACL rules</p>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Shield />
+                </EmptyMedia>
+                <EmptyTitle>No MQTT users available</EmptyTitle>
+                <EmptyDescription>
+                  Create MQTT credentials first before adding ACL rules
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : (
@@ -256,9 +270,23 @@ export function ACLRules({
           )}
           <CardContent className={showHeader ? '' : 'pt-6'}>
             {rules.length === 0 ? (
-              <div className="text-muted-foreground py-8 text-center">
-                No ACL rules configured. Add a rule to control topic access.
-              </div>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Shield />
+                  </EmptyMedia>
+                  <EmptyTitle>No ACL rules</EmptyTitle>
+                  <EmptyDescription>
+                    Add a rule to control topic access for MQTT users
+                  </EmptyDescription>
+                </EmptyHeader>
+                {canEdit && (
+                  <Button onClick={() => setIsCreateDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Rule
+                  </Button>
+                )}
+              </Empty>
             ) : (
               <Table>
                 <TableHeader>
@@ -323,8 +351,8 @@ export function ACLRules({
             <div className="space-y-4 py-4">
               {/* Only show MQTT user selector if not filtering by user */}
               {!mqttUserId && (
-                <div className="space-y-2">
-                  <Label htmlFor="mqtt-user">MQTT User</Label>
+                <Field>
+                  <FieldLabel htmlFor="mqtt-user">MQTT User</FieldLabel>
                   <Select
                     value={selectedMqttUserId.toString()}
                     onValueChange={(v) => setSelectedMqttUserId(parseInt(v))}
@@ -340,10 +368,10 @@ export function ACLRules({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </Field>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="topic">Topic Pattern</Label>
+              <Field>
+                <FieldLabel htmlFor="topic">Topic Pattern</FieldLabel>
                 <Input
                   id="topic"
                   placeholder="e.g., sensor/+/temp or device/#"
@@ -351,9 +379,9 @@ export function ACLRules({
                   onChange={(e) => setTopicPattern(e.target.value)}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="permission">Permission</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="permission">Permission</FieldLabel>
                 <Select
                   value={permission}
                   onValueChange={(v) => setPermission(v as 'pub' | 'sub' | 'pubsub')}
@@ -367,14 +395,15 @@ export function ACLRules({
                     <SelectItem value="pubsub">Publish & Subscribe</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              {error && <div className="text-destructive text-sm">{error}</div>}
+              </Field>
+              <FieldError>{error}</FieldError>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Spinner className="mr-2" />}
                 {isSubmitting ? 'Creating...' : 'Create Rule'}
               </Button>
             </DialogFooter>
@@ -402,8 +431,8 @@ export function ACLRules({
           </DialogHeader>
           <form onSubmit={handleUpdate}>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-topic">Topic Pattern</Label>
+              <Field>
+                <FieldLabel htmlFor="edit-topic">Topic Pattern</FieldLabel>
                 <Input
                   id="edit-topic"
                   placeholder="e.g., sensor/+/temp or device/#"
@@ -411,9 +440,9 @@ export function ACLRules({
                   onChange={(e) => setTopicPattern(e.target.value)}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-permission">Permission</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="edit-permission">Permission</FieldLabel>
                 <Select
                   value={permission}
                   onValueChange={(v) => setPermission(v as 'pub' | 'sub' | 'pubsub')}
@@ -427,14 +456,15 @@ export function ACLRules({
                     <SelectItem value="pubsub">Publish & Subscribe</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              {error && <div className="text-destructive text-sm">{error}</div>}
+              </Field>
+              <FieldError>{error}</FieldError>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Spinner className="mr-2" />}
                 {isSubmitting ? 'Updating...' : 'Update Rule'}
               </Button>
             </DialogFooter>

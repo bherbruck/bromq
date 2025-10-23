@@ -24,7 +24,8 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
+import { Field, FieldLabel, FieldError } from '~/components/ui/field'
+import { Spinner } from '~/components/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import {
   Table,
@@ -144,7 +145,12 @@ export default function UsersPage() {
   }
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading users...</div>
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Spinner />
+        Loading users...
+      </div>
+    )
   }
 
   const isAdmin = currentUser?.role === 'admin'
@@ -218,17 +224,17 @@ export default function UsersPage() {
           </DialogHeader>
           <form onSubmit={handleCreate}>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="create-username">Username</Label>
+              <Field>
+                <FieldLabel htmlFor="create-username">Username</FieldLabel>
                 <Input
                   id="create-username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-password">Password</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="create-password">Password</FieldLabel>
                 <Input
                   id="create-password"
                   type="password"
@@ -236,9 +242,9 @@ export default function UsersPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="create-role">Role</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="create-role">Role</FieldLabel>
                 <Select value={role} onValueChange={(v) => setRole(v as 'viewer' | 'admin')}>
                   <SelectTrigger>
                     <SelectValue />
@@ -248,14 +254,15 @@ export default function UsersPage() {
                     <SelectItem value="admin">Admin (Full Access)</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              {error && <div className="text-destructive text-sm">{error}</div>}
+              </Field>
+              <FieldError>{error}</FieldError>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Spinner className="mr-2" />}
                 {isSubmitting ? 'Creating...' : 'Create User'}
               </Button>
             </DialogFooter>
@@ -278,17 +285,17 @@ export default function UsersPage() {
           </DialogHeader>
           <form onSubmit={handleUpdate}>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-username">Username</Label>
+              <Field>
+                <FieldLabel htmlFor="edit-username">Username</FieldLabel>
                 <Input
                   id="edit-username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-role">Role</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="edit-role">Role</FieldLabel>
                 <Select value={role} onValueChange={(v) => setRole(v as 'viewer' | 'admin')}>
                   <SelectTrigger>
                     <SelectValue />
@@ -298,7 +305,7 @@ export default function UsersPage() {
                     <SelectItem value="admin">Admin (Full Access)</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
 
               {/* Password Change Section */}
               <div className="border-t pt-4 space-y-3">
@@ -313,13 +320,13 @@ export default function UsersPage() {
                     }}
                     className="rounded border-gray-300"
                   />
-                  <Label htmlFor="change-password" className="cursor-pointer font-medium">
+                  <FieldLabel htmlFor="change-password" className="cursor-pointer font-medium">
                     Change password
-                  </Label>
+                  </FieldLabel>
                 </div>
                 {isChangingPassword && (
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
+                  <Field>
+                    <FieldLabel htmlFor="new-password">New Password</FieldLabel>
                     <Input
                       id="new-password"
                       type="password"
@@ -328,17 +335,18 @@ export default function UsersPage() {
                       placeholder="Enter new password"
                       required={isChangingPassword}
                     />
-                  </div>
+                  </Field>
                 )}
               </div>
 
-              {error && <div className="text-destructive text-sm">{error}</div>}
+              <FieldError>{error}</FieldError>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Spinner className="mr-2" />}
                 {isSubmitting ? 'Updating...' : 'Save Changes'}
               </Button>
             </DialogFooter>

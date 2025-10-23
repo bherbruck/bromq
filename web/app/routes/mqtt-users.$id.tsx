@@ -19,6 +19,8 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
+import { Field, FieldLabel, FieldError } from '~/components/ui/field'
+import { Spinner } from '~/components/ui/spinner'
 import { Separator } from '~/components/ui/separator'
 import { Textarea } from '~/components/ui/textarea'
 import { api, type MQTTUser } from '~/lib/api'
@@ -127,11 +129,20 @@ export default function MQTTUserDetailPage() {
   }
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading MQTT user...</div>
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Spinner />
+        Loading MQTT user...
+      </div>
+    )
   }
 
   if (!mqttUser) {
-    return <div className="text-muted-foreground">MQTT user not found</div>
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        MQTT user not found
+      </div>
+    )
   }
 
   const canEdit = currentUser?.role === 'admin'
@@ -157,7 +168,8 @@ export default function MQTTUserDetailPage() {
                   Cancel
                 </Button>
                 <Button onClick={handleSave} disabled={isSubmitting}>
-                  <Save className="mr-2 h-4 w-4" />
+                  {isSubmitting && <Spinner className="mr-2" />}
+                  {!isSubmitting && <Save className="mr-2 h-4 w-4" />}
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </Button>
               </>
@@ -182,14 +194,10 @@ export default function MQTTUserDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {error && (
-            <div className="bg-destructive/10 text-destructive border border-destructive/20 rounded-md p-3 text-sm">
-              {error}
-            </div>
-          )}
+          <FieldError>{error}</FieldError>
 
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+          <Field>
+            <FieldLabel htmlFor="username">Username</FieldLabel>
             <Input
               id="username"
               value={username}
@@ -198,10 +206,10 @@ export default function MQTTUserDetailPage() {
               disabled={!canEdit}
               className="font-mono"
             />
-          </div>
+          </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+          <Field>
+            <FieldLabel htmlFor="description">Description</FieldLabel>
             <Textarea
               id="description"
               value={description}
@@ -210,7 +218,7 @@ export default function MQTTUserDetailPage() {
               rows={3}
               disabled={!canEdit}
             />
-          </div>
+          </Field>
 
           <Separator />
 
@@ -228,13 +236,13 @@ export default function MQTTUserDetailPage() {
                   }}
                   className="rounded border-gray-300"
                 />
-                <Label htmlFor="change-password" className="cursor-pointer font-medium">
+                <FieldLabel htmlFor="change-password" className="cursor-pointer font-medium">
                   Change password
-                </Label>
+                </FieldLabel>
               </div>
               {isChangingPassword && (
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
+                <Field>
+                  <FieldLabel htmlFor="new-password">New Password</FieldLabel>
                   <Input
                     id="new-password"
                     type="password"
@@ -242,7 +250,7 @@ export default function MQTTUserDetailPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter new password"
                   />
-                </div>
+                </Field>
               )}
             </div>
           )}
