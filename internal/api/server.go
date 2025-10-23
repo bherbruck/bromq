@@ -1,7 +1,6 @@
 package api
 
 import (
-	"embed"
 	"io/fs"
 	"log"
 	"net/http"
@@ -15,11 +14,11 @@ import (
 type Server struct {
 	handler *Handler
 	addr    string
-	webFS   embed.FS
+	webFS   fs.FS
 }
 
 // NewServer creates a new API server
-func NewServer(addr string, db *storage.DB, mqttServer *mqtt.Server, webFS embed.FS) *Server {
+func NewServer(addr string, db *storage.DB, mqttServer *mqtt.Server, webFS fs.FS) *Server {
 	return &Server{
 		handler: NewHandler(db, mqttServer),
 		addr:    addr,
@@ -93,13 +92,11 @@ func (s *Server) Start() error {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	// Serve frontend (embedded)
-	frontendFS, err := fs.Sub(s.webFS, "web/dist/client")
-	if err != nil {
-		log.Printf("Warning: failed to load frontend: %v", err)
+	if s.webFS != nil {
+		fileServer := http.FileServer(http.FS(s.webFS))
+		mux.Handle("/", spaHandler(s.webFS, fileServer))
 	} else {
-		// Serve static files
-		fileServer := http.FileServer(http.FS(frontendFS))
-		mux.Handle("/", spaHandler(frontendFS, fileServer))
+		log.Printf("Warning: frontend not available")
 	}
 
 	// Apply middleware

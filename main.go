@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"flag"
 	"log"
 	"os"
@@ -15,10 +14,8 @@ import (
 	"github/bherbruck/mqtt-server/internal/api"
 	"github/bherbruck/mqtt-server/internal/mqtt"
 	"github/bherbruck/mqtt-server/internal/storage"
+	"github/bherbruck/mqtt-server/web"
 )
-
-//go:embed all:web/dist/client
-var webFS embed.FS
 
 func main() {
 	// Parse command line flags
@@ -129,7 +126,7 @@ func main() {
 	}()
 
 	// Start HTTP API server in a goroutine
-	apiServer := api.NewServer(*httpAddr, db, mqttServer, webFS)
+	apiServer := api.NewServer(*httpAddr, db, mqttServer, web.FS)
 	go func() {
 		if err := apiServer.Start(); err != nil {
 			log.Fatalf("Failed to start HTTP server: %v", err)
