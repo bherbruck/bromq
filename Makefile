@@ -1,4 +1,4 @@
-.PHONY: help build run dev-up dev-down prod-up prod-down logs clean test
+.PHONY: help build run stop dev-up dev-down prod-up prod-down logs clean test
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -12,6 +12,10 @@ build: ## Build the Go binary locally
 
 run: build ## Run the server locally
 	./bin/mqtt-server
+
+stop: ## Stop any running mqtt-server processes
+	@echo "Stopping mqtt-server processes..."
+	@-killall mqtt-server 2>/dev/null || echo "No mqtt-server processes found"
 
 dev-up: ## Start development environment (hot reload)
 	docker compose -f compose.dev.yml up -d
