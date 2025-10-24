@@ -75,20 +75,43 @@ export default function ClientDetailPage() {
           const timeDiffSec = (now - lastPoint.timestamp) / 1000
 
           if (timeDiffSec > 0) {
-            const rate: RateDataPoint = {
-              timestamp: now,
-              messages_received_rate:
-                (metricsData.messages_received - lastPoint.messages_received) / timeDiffSec,
-              messages_sent_rate: (metricsData.messages_sent - lastPoint.messages_sent) / timeDiffSec,
-              bytes_received_rate:
-                (metricsData.bytes_received - lastPoint.bytes_received) / timeDiffSec,
-              bytes_sent_rate: (metricsData.bytes_sent - lastPoint.bytes_sent) / timeDiffSec,
-            }
+            // Handle counter resets like Prometheus:
+            // If new value < old value, assume counter reset and use new value as delta
+            const calcDelta = (newVal: number, oldVal: number) =>
+              newVal >= oldVal ? newVal - oldVal : newVal
 
-            setRateData((prevRates) => {
-              const updated = [...prevRates, rate]
-              return updated.slice(-100)
-            })
+            const messagesReceivedDelta = calcDelta(
+              metricsData.messages_received,
+              lastPoint.messages_received,
+            )
+            const messagesSentDelta = calcDelta(metricsData.messages_sent, lastPoint.messages_sent)
+            const bytesReceivedDelta = calcDelta(
+              metricsData.bytes_received,
+              lastPoint.bytes_received,
+            )
+            const bytesSentDelta = calcDelta(metricsData.bytes_sent, lastPoint.bytes_sent)
+
+            // Only add rate data if there's any activity (non-zero delta)
+            const hasActivity =
+              messagesReceivedDelta > 0 ||
+              messagesSentDelta > 0 ||
+              bytesReceivedDelta > 0 ||
+              bytesSentDelta > 0
+
+            if (hasActivity) {
+              const rate: RateDataPoint = {
+                timestamp: now,
+                messages_received_rate: messagesReceivedDelta / timeDiffSec,
+                messages_sent_rate: messagesSentDelta / timeDiffSec,
+                bytes_received_rate: bytesReceivedDelta / timeDiffSec,
+                bytes_sent_rate: bytesSentDelta / timeDiffSec,
+              }
+
+              setRateData((prevRates) => {
+                const updated = [...prevRates, rate]
+                return updated.slice(-100)
+              })
+            }
           }
 
           return prev
@@ -118,7 +141,7 @@ export default function ClientDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2">
         <Spinner />
         Loading client details...
       </div>
@@ -128,7 +151,7 @@ export default function ClientDetailPage() {
   if (error || !client) {
     return (
       <div className="space-y-4">
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+        <nav className="text-muted-foreground flex items-center gap-2 text-sm">
           <Link to="/dashboard" className="hover:text-foreground">
             <Home className="h-4 w-4" />
           </Link>
@@ -154,7 +177,7 @@ export default function ClientDetailPage() {
   return (
     <div className="space-y-6">
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+      <nav className="text-muted-foreground flex items-center gap-2 text-sm">
         <Link to="/dashboard" className="hover:text-foreground">
           <Home className="h-4 w-4" />
         </Link>
@@ -177,40 +200,40 @@ export default function ClientDetailPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
             <div>
-              <p className="text-muted-foreground text-sm mb-1">Username</p>
+              <p className="text-muted-foreground mb-1 text-sm">Username</p>
               <p className="font-medium">{client.username || 'anonymous'}</p>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm mb-1">Remote Address</p>
+              <p className="text-muted-foreground mb-1 text-sm">Remote Address</p>
               <p className="font-mono text-sm">{client.remote}</p>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm mb-1">Listener</p>
+              <p className="text-muted-foreground mb-1 text-sm">Listener</p>
               <Badge variant="outline">{client.listener}</Badge>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm mb-1">Protocol Version</p>
+              <p className="text-muted-foreground mb-1 text-sm">Protocol Version</p>
               <Badge variant="outline">{getProtocolVersion(client.protocol_version)}</Badge>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm mb-1">Keepalive</p>
+              <p className="text-muted-foreground mb-1 text-sm">Keepalive</p>
               <p>{client.keepalive}s</p>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm mb-1">Clean Session</p>
+              <p className="text-muted-foreground mb-1 text-sm">Clean Session</p>
               <Badge variant={client.clean ? 'default' : 'secondary'}>
                 {client.clean ? 'Yes' : 'No'}
               </Badge>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm mb-1">Subscriptions</p>
-              <p className="font-semibold text-lg">{client.subscriptions.length}</p>
+              <p className="text-muted-foreground mb-1 text-sm">Subscriptions</p>
+              <p className="text-lg font-semibold">{client.subscriptions.length}</p>
             </div>
             <div>
-              <p className="text-muted-foreground text-sm mb-1">In-Flight Messages</p>
-              <p className="font-semibold text-lg">{client.inflight_count}</p>
+              <p className="text-muted-foreground mb-1 text-sm">In-Flight Messages</p>
+              <p className="text-lg font-semibold">{client.inflight_count}</p>
             </div>
           </div>
         </CardContent>
@@ -233,9 +256,7 @@ export default function ClientDetailPage() {
                   <Inbox />
                 </EmptyMedia>
                 <EmptyTitle>No subscriptions</EmptyTitle>
-                <EmptyDescription>
-                  This client is not subscribed to any topics
-                </EmptyDescription>
+                <EmptyDescription>This client is not subscribed to any topics</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -271,7 +292,7 @@ export default function ClientDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <div className="space-y-1">
                 <p className="text-muted-foreground text-sm">Messages Received</p>
                 <p className="text-2xl font-bold">{metrics.messages_received.toLocaleString()}</p>
@@ -302,122 +323,139 @@ export default function ClientDetailPage() {
       )}
 
       {/* Charts */}
-      {rateData.length > 1 && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Message Rate</CardTitle>
-              <CardDescription>PUBLISH messages per second</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={messageChartConfig} className="h-[400px] w-full">
-                <LineChart data={rateData}>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="timestamp"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value) =>
-                      new Date(value).toLocaleTimeString([], {
+      <Card>
+        <CardHeader>
+          <CardTitle>Message Rate</CardTitle>
+          <CardDescription>PUBLISH messages per second</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={messageChartConfig} className="h-[400px] w-full">
+            <LineChart data={rateData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="timestamp"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) =>
+                  new Date(value).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })
+                }
+              />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} domain={[0, 'auto']} />
+              <ChartTooltip
+                cursor={false}
+                content={({ active, payload }) => {
+                  if (!active || !payload || payload.length === 0) return null
+                  const timestamp = payload[0].payload.timestamp
+                  return (
+                    <ChartTooltipContent
+                      active={active}
+                      payload={payload}
+                      label={new Date(timestamp).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit',
-                      })
-                    }
-                  />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                  <ChartTooltip
-                    cursor={false}
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => `${Number(value).toFixed(2)} msg/sec`}
-                        indicator="line"
-                      />
-                    }
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="messages_sent_rate"
-                    stroke="var(--color-messages_sent_rate)"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="messages_received_rate"
-                    stroke="var(--color-messages_received_rate)"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                  <ChartLegend content={<ChartLegendContent />} />
-                </LineChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
+                      })}
+                      indicator="line"
+                    />
+                  )
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="messages_sent_rate"
+                stroke="var(--color-messages_sent_rate)"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="messages_received_rate"
+                stroke="var(--color-messages_received_rate)"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+            </LineChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Bandwidth</CardTitle>
-              <CardDescription>Bytes per second</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={bandwidthChartConfig} className="h-[400px] w-full">
-                <LineChart data={rateData}>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="timestamp"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value) =>
-                      new Date(value).toLocaleTimeString([], {
+      <Card>
+        <CardHeader>
+          <CardTitle>Bandwidth</CardTitle>
+          <CardDescription>Bytes per second</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={bandwidthChartConfig} className="h-[400px] w-full">
+            <LineChart data={rateData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="timestamp"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) =>
+                  new Date(value).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })
+                }
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                domain={[0, 'auto']}
+                tickFormatter={(value) => formatBytesForAxis(value)}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={({ active, payload }) => {
+                  if (!active || !payload || payload.length === 0) return null
+                  const timestamp = payload[0].payload.timestamp
+                  return (
+                    <ChartTooltipContent
+                      active={active}
+                      payload={payload}
+                      label={new Date(timestamp).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit',
-                      })
-                    }
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                    tickFormatter={(value) => formatBytesForAxis(value)}
-                  />
-                  <ChartTooltip
-                    cursor={false}
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) => `${formatBytesForTooltip(Number(value))}/s`}
-                        indicator="line"
-                      />
-                    }
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="bytes_sent_rate"
-                    stroke="var(--color-bytes_sent_rate)"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="bytes_received_rate"
-                    stroke="var(--color-bytes_received_rate)"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                  <ChartLegend content={<ChartLegendContent />} />
-                </LineChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </>
-      )}
+                      })}
+                      indicator="line"
+                    />
+                  )
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="bytes_sent_rate"
+                stroke="var(--color-bytes_sent_rate)"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="bytes_received_rate"
+                stroke="var(--color-bytes_received_rate)"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+            </LineChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
     </div>
   )
 }
