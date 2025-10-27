@@ -29,6 +29,9 @@ COPY main.go ./
 COPY internal/ ./internal/
 COPY hooks/ ./hooks/
 
+# Copy web package embed file
+COPY web/embed.go ./web/
+
 # Copy built frontend from previous stage
 COPY --from=frontend /app/web/dist/client ./web/dist/client
 
