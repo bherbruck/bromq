@@ -185,19 +185,22 @@ func TestListACL(t *testing.T) {
 		t.Errorf("ListACL() status = %v, want %v", rec.Code, http.StatusOK)
 	}
 
-	var rules []storage.ACLRule
-	if err := json.NewDecoder(rec.Body).Decode(&rules); err != nil {
+	var response struct {
+		Data       []storage.ACLRule  `json:"data"`
+		Pagination PaginationMetadata `json:"pagination"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if len(rules) != 2 {
-		t.Errorf("ListACL() returned %d rules, want 2", len(rules))
+	if len(response.Data) != 2 {
+		t.Errorf("ListACL() returned %d rules, want 2", len(response.Data))
 	}
 
 	// Verify rule content
 	foundRule1 := false
 	foundRule2 := false
-	for _, rule := range rules {
+	for _, rule := range response.Data {
 		if rule.ID == rule1.ID && rule.TopicPattern == "sensor/#" {
 			foundRule1 = true
 		}
@@ -226,17 +229,20 @@ func TestListACL_Empty(t *testing.T) {
 		t.Errorf("ListACL() empty status = %v, want %v", rec.Code, http.StatusOK)
 	}
 
-	var rules []storage.ACLRule
-	if err := json.NewDecoder(rec.Body).Decode(&rules); err != nil {
+	var response struct {
+		Data       []storage.ACLRule  `json:"data"`
+		Pagination PaginationMetadata `json:"pagination"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if rules == nil {
-		t.Errorf("ListACL() returned nil, should return empty array")
+	if response.Data == nil {
+		t.Errorf("ListACL() returned nil data, should return empty array")
 	}
 
-	if len(rules) != 0 {
-		t.Errorf("ListACL() empty returned %d rules, want 0", len(rules))
+	if len(response.Data) != 0 {
+		t.Errorf("ListACL() empty returned %d rules, want 0", len(response.Data))
 	}
 }
 
@@ -369,7 +375,7 @@ func TestDeleteACL(t *testing.T) {
 		{
 			name:           "delete non-existent rule",
 			id:             "999999",
-			wantStatusCode: http.StatusInternalServerError,
+			wantStatusCode: http.StatusNotFound,
 		},
 		{
 			name:           "delete with invalid ID",
@@ -588,10 +594,13 @@ func TestHandlerCRUD_ACL_Integration(t *testing.T) {
 		t.Fatalf("Initial ListACL() status = %v, want %v", rec.Code, http.StatusOK)
 	}
 
-	var rules []storage.ACLRule
-	json.NewDecoder(rec.Body).Decode(&rules)
-	if len(rules) != 0 {
-		t.Fatalf("Initial ListACL() returned %d rules, want 0", len(rules))
+	var response1 struct {
+		Data       []storage.ACLRule  `json:"data"`
+		Pagination PaginationMetadata `json:"pagination"`
+	}
+	json.NewDecoder(rec.Body).Decode(&response1)
+	if len(response1.Data) != 0 {
+		t.Fatalf("Initial ListACL() returned %d rules, want 0", len(response1.Data))
 	}
 
 	// 2. Create ACL rule
@@ -622,9 +631,13 @@ func TestHandlerCRUD_ACL_Integration(t *testing.T) {
 		t.Fatalf("ListACL() after create status = %v, want %v", rec.Code, http.StatusOK)
 	}
 
-	json.NewDecoder(rec.Body).Decode(&rules)
-	if len(rules) != 1 {
-		t.Fatalf("ListACL() after create returned %d rules, want 1", len(rules))
+	var response2 struct {
+		Data       []storage.ACLRule  `json:"data"`
+		Pagination PaginationMetadata `json:"pagination"`
+	}
+	json.NewDecoder(rec.Body).Decode(&response2)
+	if len(response2.Data) != 1 {
+		t.Fatalf("ListACL() after create returned %d rules, want 1", len(response2.Data))
 	}
 
 	// 4. Delete ACL rule
@@ -646,8 +659,12 @@ func TestHandlerCRUD_ACL_Integration(t *testing.T) {
 		t.Fatalf("Final ListACL() status = %v, want %v", rec.Code, http.StatusOK)
 	}
 
-	json.NewDecoder(rec.Body).Decode(&rules)
-	if len(rules) != 0 {
-		t.Fatalf("Final ListACL() returned %d rules, want 0", len(rules))
+	var response3 struct {
+		Data       []storage.ACLRule  `json:"data"`
+		Pagination PaginationMetadata `json:"pagination"`
+	}
+	json.NewDecoder(rec.Body).Decode(&response3)
+	if len(response3.Data) != 0 {
+		t.Fatalf("Final ListACL() returned %d rules, want 0", len(response3.Data))
 	}
 }

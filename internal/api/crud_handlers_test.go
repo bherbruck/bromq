@@ -70,14 +70,17 @@ func TestListDashboardUsers(t *testing.T) {
 		t.Errorf("ListDashboardUsers() status = %v, want %v", rec.Code, http.StatusOK)
 	}
 
-	var users []storage.DashboardUser
-	if err := json.NewDecoder(rec.Body).Decode(&users); err != nil {
+	var response struct {
+		Data       []storage.DashboardUser `json:"data"`
+		Pagination PaginationMetadata      `json:"pagination"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
 	// Should have at least 3 users (default admin + 2 created)
-	if len(users) < 3 {
-		t.Errorf("ListDashboardUsers() returned %d users, want at least 3", len(users))
+	if len(response.Data) < 3 {
+		t.Errorf("ListDashboardUsers() returned %d users, want at least 3", len(response.Data))
 	}
 }
 
@@ -346,7 +349,7 @@ func TestListMQTTUsers(t *testing.T) {
 	handler.db.CreateMQTTUser("device1", "password123", "Device 1", nil)
 	handler.db.CreateMQTTUser("device2", "password123", "Device 2", nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/mqtt/credentials", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/mqtt/users", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ListMQTTUsers(rec, req)
@@ -355,13 +358,16 @@ func TestListMQTTUsers(t *testing.T) {
 		t.Errorf("ListMQTTUsers() status = %v, want %v", rec.Code, http.StatusOK)
 	}
 
-	var users []storage.MQTTUser
-	if err := json.NewDecoder(rec.Body).Decode(&users); err != nil {
+	var response struct {
+		Data       []storage.MQTTUser `json:"data"`
+		Pagination PaginationMetadata `json:"pagination"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if len(users) != 2 {
-		t.Errorf("ListMQTTUsers() returned %d users, want 2", len(users))
+	if len(response.Data) != 2 {
+		t.Errorf("ListMQTTUsers() returned %d users, want 2", len(response.Data))
 	}
 }
 
@@ -404,7 +410,7 @@ func TestCreateMQTTUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body, _ := json.Marshal(tt.request)
-			req := httptest.NewRequest(http.MethodPost, "/api/mqtt/credentials", bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/mqtt/users", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 
@@ -456,7 +462,7 @@ func TestUpdateMQTTUser(t *testing.T) {
 			request: UpdateMQTTUserRequest{
 				Username: "ghost",
 			},
-			wantStatusCode: http.StatusInternalServerError,
+			wantStatusCode: http.StatusNotFound,
 		},
 		{
 			name: "update with invalid ID",
@@ -471,7 +477,7 @@ func TestUpdateMQTTUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body, _ := json.Marshal(tt.request)
-			req := httptest.NewRequest(http.MethodPut, "/api/mqtt/credentials/"+tt.id, bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPut, "/api/mqtt/users/"+tt.id, bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.SetPathValue("id", tt.id)
 			rec := httptest.NewRecorder()
@@ -512,7 +518,7 @@ func TestUpdateMQTTUserPassword(t *testing.T) {
 			request: UpdateMQTTPasswordRequest{
 				Password: "password",
 			},
-			wantStatusCode: http.StatusInternalServerError,
+			wantStatusCode: http.StatusNotFound,
 		},
 		{
 			name: "update with invalid ID",
@@ -527,7 +533,7 @@ func TestUpdateMQTTUserPassword(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body, _ := json.Marshal(tt.request)
-			req := httptest.NewRequest(http.MethodPut, "/api/mqtt/credentials/"+tt.id+"/password", bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPut, "/api/mqtt/users/"+tt.id+"/password", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.SetPathValue("id", tt.id)
 			rec := httptest.NewRecorder()
@@ -561,7 +567,7 @@ func TestDeleteMQTTUser(t *testing.T) {
 		{
 			name:           "delete non-existent user",
 			id:             "999999",
-			wantStatusCode: http.StatusInternalServerError,
+			wantStatusCode: http.StatusNotFound,
 		},
 		{
 			name:           "delete with invalid ID",
@@ -572,7 +578,7 @@ func TestDeleteMQTTUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodDelete, "/api/mqtt/credentials/"+tt.id, nil)
+			req := httptest.NewRequest(http.MethodDelete, "/api/mqtt/users/"+tt.id, nil)
 			req.SetPathValue("id", tt.id)
 			rec := httptest.NewRecorder()
 
@@ -626,13 +632,16 @@ func TestListMQTTClients(t *testing.T) {
 				t.Errorf("ListMQTTClients() status = %v, want %v", rec.Code, http.StatusOK)
 			}
 
-			var clients []storage.MQTTClient
-			if err := json.NewDecoder(rec.Body).Decode(&clients); err != nil {
+			var response struct {
+				Data       []storage.MQTTClient `json:"data"`
+				Pagination PaginationMetadata   `json:"pagination"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
 
-			if len(clients) != tt.wantCount {
-				t.Errorf("ListMQTTClients() returned %d clients, want %d", len(clients), tt.wantCount)
+			if len(response.Data) != tt.wantCount {
+				t.Errorf("ListMQTTClients() returned %d clients, want %d", len(response.Data), tt.wantCount)
 			}
 		})
 	}
@@ -911,7 +920,7 @@ func TestBlockProvisionedMQTTUserUpdate(t *testing.T) {
 				Username:    "updated_name",
 				Description: "Updated description",
 			})
-			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/mqtt/credentials/%d", tt.userID), bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/mqtt/users/%d", tt.userID), bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.SetPathValue("id", fmt.Sprintf("%d", tt.userID))
 			rec := httptest.NewRecorder()
@@ -960,7 +969,7 @@ func TestBlockProvisionedMQTTUserDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/mqtt/credentials/%d", tt.userID), nil)
+			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/mqtt/users/%d", tt.userID), nil)
 			req.SetPathValue("id", fmt.Sprintf("%d", tt.userID))
 			rec := httptest.NewRecorder()
 
@@ -1011,7 +1020,7 @@ func TestBlockProvisionedMQTTUserPasswordUpdate(t *testing.T) {
 			body, _ := json.Marshal(UpdateMQTTPasswordRequest{
 				Password: "newpassword123",
 			})
-			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/mqtt/credentials/%d/password", tt.userID), bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/mqtt/users/%d/password", tt.userID), bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 			req.SetPathValue("id", fmt.Sprintf("%d", tt.userID))
 			rec := httptest.NewRecorder()
