@@ -468,3 +468,93 @@ func TestAuthenticateUser_Compatibility(t *testing.T) {
 		t.Error("AuthenticateUser() with wrong password should return error")
 	}
 }
+
+func TestMarkAsProvisioned(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Create a test MQTT user
+	user := createTestMQTTUser(t, db, "testuser", "password123", "Test user")
+
+	// Initially should not be provisioned
+	if user.ProvisionedFromConfig {
+		t.Error("newly created user should not be marked as provisioned")
+	}
+
+	// Mark as provisioned
+	err := db.MarkAsProvisioned(user.ID, true)
+	if err != nil {
+		t.Fatalf("MarkAsProvisioned() unexpected error: %v", err)
+	}
+
+	// Verify it was marked
+	updated, err := db.GetMQTTUser(int(user.ID))
+	if err != nil {
+		t.Fatalf("GetMQTTUser() failed: %v", err)
+	}
+	if !updated.ProvisionedFromConfig {
+		t.Error("user should be marked as provisioned")
+	}
+
+	// Unmark as provisioned
+	err = db.MarkAsProvisioned(user.ID, false)
+	if err != nil {
+		t.Fatalf("MarkAsProvisioned(false) unexpected error: %v", err)
+	}
+
+	// Verify it was unmarked
+	updated, err = db.GetMQTTUser(int(user.ID))
+	if err != nil {
+		t.Fatalf("GetMQTTUser() failed: %v", err)
+	}
+	if updated.ProvisionedFromConfig {
+		t.Error("user should not be marked as provisioned")
+	}
+
+	// Test marking non-existent user
+	err = db.MarkAsProvisioned(999999, true)
+	if err == nil {
+		t.Error("MarkAsProvisioned() for non-existent user should return error")
+	}
+}
+
+func TestListProvisionedMQTTUsers(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Create test users - some provisioned, some manual
+	user1 := createTestMQTTUser(t, db, "provisioned1", "pass1", "Provisioned 1")
+	_ = createTestMQTTUser(t, db, "manual1", "pass2", "Manual 1")
+	user3 := createTestMQTTUser(t, db, "provisioned2", "pass3", "Provisioned 2")
+
+	// Mark some as provisioned
+	db.MarkAsProvisioned(user1.ID, true)
+	db.MarkAsProvisioned(user3.ID, true)
+	// user2 stays manual (not provisioned)
+
+	// List provisioned users
+	provisioned, err := db.ListProvisionedMQTTUsers()
+	if err != nil {
+		t.Fatalf("ListProvisionedMQTTUsers() unexpected error: %v", err)
+	}
+
+	if len(provisioned) != 2 {
+		t.Errorf("expected 2 provisioned users, got %d", len(provisioned))
+	}
+
+	// Verify correct users are in the list
+	usernames := make(map[string]bool)
+	for _, user := range provisioned {
+		usernames[user.Username] = true
+	}
+
+	if !usernames["provisioned1"] {
+		t.Error("provisioned1 should be in the list")
+	}
+	if !usernames["provisioned2"] {
+		t.Error("provisioned2 should be in the list")
+	}
+	if usernames["manual1"] {
+		t.Error("manual1 should not be in the list")
+	}
+}

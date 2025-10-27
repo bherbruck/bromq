@@ -25,13 +25,14 @@ func (DashboardUser) TableName() string {
 
 // MQTTUser represents MQTT authentication credentials (can be shared by multiple devices)
 type MQTTUser struct {
-	ID           uint           `gorm:"primaryKey" json:"id"`
-	Username     string         `gorm:"uniqueIndex;not null" json:"username"`
-	PasswordHash string         `gorm:"not null" json:"-"` // Never expose password hash in JSON
-	Description  string         `gorm:"type:text" json:"description"`
-	Metadata     datatypes.JSON `gorm:"type:jsonb" json:"metadata,omitempty"` // Custom attributes
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID                   uint           `gorm:"primaryKey" json:"id"`
+	Username             string         `gorm:"uniqueIndex;not null" json:"username"`
+	PasswordHash         string         `gorm:"not null" json:"-"` // Never expose password hash in JSON
+	Description          string         `gorm:"type:text" json:"description"`
+	Metadata             datatypes.JSON `gorm:"type:jsonb" json:"metadata,omitempty"` // Custom attributes
+	ProvisionedFromConfig bool          `gorm:"default:false" json:"provisioned_from_config"` // Managed by config file
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
 }
 
 // TableName specifies the table name for MQTTUser model
@@ -67,12 +68,13 @@ func (MQTTClient) TableName() string {
 // ACLRule represents an access control rule for MQTT topics
 // Rules are associated with MQTTUser (credentials), not individual clients
 type ACLRule struct {
-	ID           uint      `gorm:"primaryKey" json:"id"`
-	MQTTUserID   uint      `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"mqtt_user_id"`
-	TopicPattern string    `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"topic_pattern"`
-	Permission   string    `gorm:"not null;check:permission IN ('pub', 'sub', 'pubsub')" json:"permission"`
-	CreatedAt    time.Time `json:"created_at"`
-	MQTTUser     MQTTUser  `gorm:"foreignKey:MQTTUserID;constraint:OnDelete:CASCADE" json:"-"`
+	ID                   uint      `gorm:"primaryKey" json:"id"`
+	MQTTUserID           uint      `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"mqtt_user_id"`
+	TopicPattern         string    `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"topic_pattern"`
+	Permission           string    `gorm:"not null;check:permission IN ('pub', 'sub', 'pubsub')" json:"permission"`
+	ProvisionedFromConfig bool     `gorm:"default:false" json:"provisioned_from_config"` // Managed by config file
+	CreatedAt            time.Time `json:"created_at"`
+	MQTTUser             MQTTUser  `gorm:"foreignKey:MQTTUserID;constraint:OnDelete:CASCADE" json:"-"`
 }
 
 // TableName specifies the table name for ACLRule model

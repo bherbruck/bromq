@@ -1,0 +1,12 @@
+# Minimal MQTT Server Configuration Example
+# For testing and simple deployments
+
+users:
+  - username: test_device
+    password: ${TEST_PASSWORD}
+    description: "Test device"
+
+acl_rules:
+  - mqtt_username: test_device
+    topic_pattern: "test/${username}/#"
+    permission: pubsub

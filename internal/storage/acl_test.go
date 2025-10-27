@@ -724,3 +724,159 @@ func TestCheckACLWithPlaceholders(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateProvisionedACLRule(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user := createTestMQTTUser(t, db, "testuser", "password123", "Test user")
+
+	tests := []struct {
+		name         string
+		userID       uint
+		topicPattern string
+		permission   string
+		wantErr      bool
+	}{
+		{
+			name:         "create provisioned pub rule",
+			userID:       user.ID,
+			topicPattern: "test/pub/#",
+			permission:   "pub",
+			wantErr:      false,
+		},
+		{
+			name:         "create provisioned sub rule",
+			userID:       user.ID,
+			topicPattern: "test/sub/#",
+			permission:   "sub",
+			wantErr:      false,
+		},
+		{
+			name:         "create provisioned pubsub rule",
+			userID:       user.ID,
+			topicPattern: "test/pubsub/#",
+			permission:   "pubsub",
+			wantErr:      false,
+		},
+		{
+			name:         "invalid permission",
+			userID:       user.ID,
+			topicPattern: "test/#",
+			permission:   "invalid",
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := db.CreateProvisionedACLRule(tt.userID, tt.topicPattern, tt.permission)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("CreateProvisionedACLRule() expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("CreateProvisionedACLRule() unexpected error: %v", err)
+			}
+
+			// Verify the rule was created and marked as provisioned
+			rules, err := db.GetACLRulesByMQTTUserID(int(tt.userID))
+			if err != nil {
+				t.Fatalf("GetACLRulesByMQTTUserID() failed: %v", err)
+			}
+
+			found := false
+			for _, rule := range rules {
+				if rule.TopicPattern == tt.topicPattern && rule.Permission == tt.permission {
+					found = true
+					if !rule.ProvisionedFromConfig {
+						t.Error("rule should be marked as provisioned")
+					}
+					break
+				}
+			}
+
+			if !found {
+				t.Errorf("rule with pattern '%s' not found", tt.topicPattern)
+			}
+		})
+	}
+}
+
+func TestDeleteProvisionedACLRules(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user := createTestMQTTUser(t, db, "testuser", "password123", "Test user")
+
+	// Create both provisioned and manual rules
+	db.CreateProvisionedACLRule(user.ID, "provisioned/1/#", "pub")
+	db.CreateProvisionedACLRule(user.ID, "provisioned/2/#", "sub")
+	db.CreateACLRule(int(user.ID), "manual/1/#", "pubsub")
+
+	// Verify all rules exist
+	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	if err != nil {
+		t.Fatalf("GetACLRulesByMQTTUserID() failed: %v", err)
+	}
+	if len(rules) != 3 {
+		t.Fatalf("expected 3 rules initially, got %d", len(rules))
+	}
+
+	// Delete only provisioned rules
+	err = db.DeleteProvisionedACLRules(user.ID)
+	if err != nil {
+		t.Fatalf("DeleteProvisionedACLRules() unexpected error: %v", err)
+	}
+
+	// Verify only manual rule remains
+	rules, err = db.GetACLRulesByMQTTUserID(int(user.ID))
+	if err != nil {
+		t.Fatalf("GetACLRulesByMQTTUserID() failed: %v", err)
+	}
+	if len(rules) != 1 {
+		t.Fatalf("expected 1 rule after deletion, got %d", len(rules))
+	}
+
+	// Verify the remaining rule is the manual one
+	if rules[0].TopicPattern != "manual/1/#" {
+		t.Errorf("expected manual rule to remain, got '%s'", rules[0].TopicPattern)
+	}
+	if rules[0].ProvisionedFromConfig {
+		t.Error("remaining rule should not be marked as provisioned")
+	}
+}
+
+func TestDeleteProvisionedACLRules_MultipleUsers(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	user1 := createTestMQTTUser(t, db, "user1", "pass1", "User 1")
+	user2 := createTestMQTTUser(t, db, "user2", "pass2", "User 2")
+
+	// Create provisioned rules for both users
+	db.CreateProvisionedACLRule(user1.ID, "user1/#", "pubsub")
+	db.CreateProvisionedACLRule(user2.ID, "user2/#", "pubsub")
+
+	// Delete provisioned rules for user1 only
+	err := db.DeleteProvisionedACLRules(user1.ID)
+	if err != nil {
+		t.Fatalf("DeleteProvisionedACLRules() unexpected error: %v", err)
+	}
+
+	// Verify user1's rules are deleted
+	rules1, _ := db.GetACLRulesByMQTTUserID(int(user1.ID))
+	if len(rules1) != 0 {
+		t.Errorf("expected 0 rules for user1, got %d", len(rules1))
+	}
+
+	// Verify user2's rules are untouched
+	rules2, _ := db.GetACLRulesByMQTTUserID(int(user2.ID))
+	if len(rules2) != 1 {
+		t.Errorf("expected 1 rule for user2, got %d", len(rules2))
+	}
+}

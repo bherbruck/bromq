@@ -147,3 +147,26 @@ func (db *DB) AuthenticateUser(username, password string) (interface{}, error) {
 func (db *DB) GetMQTTUserByUsernameInterface(username string) (interface{}, error) {
 	return db.GetMQTTUserByUsername(username)
 }
+
+// MarkAsProvisioned marks an MQTT user as provisioned from config file
+func (db *DB) MarkAsProvisioned(id uint, provisioned bool) error {
+	result := db.Model(&MQTTUser{}).Where("id = ?", id).Update("provisioned_from_config", provisioned)
+	if result.Error != nil {
+		return fmt.Errorf("failed to mark user as provisioned: %w", result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("MQTT user not found")
+	}
+
+	return nil
+}
+
+// ListProvisionedMQTTUsers returns all MQTT users that were provisioned from config
+func (db *DB) ListProvisionedMQTTUsers() ([]MQTTUser, error) {
+	var users []MQTTUser
+	if err := db.Where("provisioned_from_config = ?", true).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}

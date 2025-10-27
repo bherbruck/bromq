@@ -1,0 +1,46 @@
+# Multi-tenant MQTT Configuration Example
+# For SaaS IoT platforms with isolated tenant namespaces
+
+users:
+  # Tenant A devices
+  - username: tenant_a_devices
+    password: ${TENANT_A_PASSWORD}
+    description: "Tenant A IoT devices"
+    metadata:
+      tenant_id: "tenant-a"
+      plan: "premium"
+      max_devices: 100
+
+  # Tenant B devices
+  - username: tenant_b_devices
+    password: ${TENANT_B_PASSWORD}
+    description: "Tenant B IoT devices"
+    metadata:
+      tenant_id: "tenant-b"
+      plan: "basic"
+      max_devices: 10
+
+  # Tenant C devices
+  - username: tenant_c_devices
+    password: ${TENANT_C_PASSWORD}
+    description: "Tenant C IoT devices"
+    metadata:
+      tenant_id: "tenant-c"
+      plan: "enterprise"
+      max_devices: 1000
+
+acl_rules:
+  # Tenant A - isolated namespace with ${username} and ${clientid}
+  - mqtt_username: tenant_a_devices
+    topic_pattern: "tenants/tenant-a/${clientid}/#"
+    permission: pubsub
+
+  # Tenant B - isolated namespace
+  - mqtt_username: tenant_b_devices
+    topic_pattern: "tenants/tenant-b/${clientid}/#"
+    permission: pubsub
+
+  # Tenant C - isolated namespace
+  - mqtt_username: tenant_c_devices
+    topic_pattern: "tenants/tenant-c/${clientid}/#"
+    permission: pubsub

@@ -13,7 +13,9 @@ import (
 	"github/bherbruck/mqtt-server/hooks/retained"
 	"github/bherbruck/mqtt-server/hooks/tracking"
 	"github/bherbruck/mqtt-server/internal/api"
+	"github/bherbruck/mqtt-server/internal/config"
 	"github/bherbruck/mqtt-server/internal/mqtt"
+	"github/bherbruck/mqtt-server/internal/provisioning"
 	"github/bherbruck/mqtt-server/internal/storage"
 	"github/bherbruck/mqtt-server/web"
 )
@@ -31,6 +33,7 @@ func main() {
 	dbPassword := flag.String("db-password", "", "Database password (postgres/mysql). Defaults to DB_PASSWORD env var")
 	dbName := flag.String("db-name", "", "Database name (postgres/mysql). Defaults to DB_NAME env var or 'mqtt'")
 	dbSSLMode := flag.String("db-sslmode", "", "SSL mode for postgres (disable, require, verify-ca, verify-full). Defaults to DB_SSLMODE env var or 'disable'")
+	configFile := flag.String("config", "", "Path to configuration file for provisioning MQTT users and ACL rules. Defaults to CONFIG_FILE env var")
 	mqttTCP := flag.String("mqtt-tcp", ":1883", "MQTT TCP listener address")
 	mqttWS := flag.String("mqtt-ws", ":8883", "MQTT WebSocket listener address")
 	httpAddr := flag.String("http", ":8080", "HTTP API server address")
@@ -75,6 +78,25 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	// Load and provision configuration if provided
+	configPath := *configFile
+	if configPath == "" {
+		configPath = os.Getenv("CONFIG_FILE")
+	}
+	if configPath != "" {
+		slog.Info("Loading configuration file", "path", configPath)
+		cfg, err := config.Load(configPath)
+		if err != nil {
+			slog.Error("Failed to load configuration file", "error", err)
+			os.Exit(1)
+		}
+
+		if err := provisioning.Provision(db, cfg); err != nil {
+			slog.Error("Failed to provision configuration", "error", err)
+			os.Exit(1)
+		}
+	}
 
 	// Create MQTT server
 	mqttConfig := &mqtt.Config{

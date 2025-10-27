@@ -79,6 +79,15 @@ func (db *DB) UpdateACLRule(id int, topicPattern, permission string) (*ACLRule, 
 	return &rule, nil
 }
 
+// GetACLRule retrieves an ACL rule by ID
+func (db *DB) GetACLRule(id int) (*ACLRule, error) {
+	var rule ACLRule
+	if err := db.First(&rule, id).Error; err != nil {
+		return nil, fmt.Errorf("ACL rule not found")
+	}
+	return &rule, nil
+}
+
 // DeleteACLRule deletes an ACL rule by ID
 func (db *DB) DeleteACLRule(id int) error {
 	result := db.Delete(&ACLRule{}, id)
@@ -181,4 +190,35 @@ func matchTopic(pattern, topic string) bool {
 
 	// If pattern has no wildcard at end, lengths must match
 	return pLen == tLen
+}
+
+// DeleteProvisionedACLRules deletes all ACL rules that were provisioned from config for a specific user
+func (db *DB) DeleteProvisionedACLRules(mqttUserID uint) error {
+	result := db.Where("mqtt_user_id = ? AND provisioned_from_config = ?", mqttUserID, true).Delete(&ACLRule{})
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete provisioned ACL rules: %w", result.Error)
+	}
+	return nil
+}
+
+// CreateProvisionedACLRule creates a new ACL rule marked as provisioned from config
+func (db *DB) CreateProvisionedACLRule(mqttUserID uint, topicPattern, permission string) error {
+	// Validate permission
+	if permission != "pub" && permission != "sub" && permission != "pubsub" {
+		return fmt.Errorf("invalid permission: must be 'pub', 'sub', or 'pubsub'")
+	}
+
+	// Create rule marked as provisioned
+	rule := ACLRule{
+		MQTTUserID:           mqttUserID,
+		TopicPattern:         topicPattern,
+		Permission:           permission,
+		ProvisionedFromConfig: true,
+	}
+
+	if err := db.Create(&rule).Error; err != nil {
+		return fmt.Errorf("failed to create provisioned ACL rule: %w", err)
+	}
+
+	return nil
 }

@@ -1,0 +1,113 @@
+# MQTT Server Configuration File
+#
+# This file is used to provision MQTT users and ACL rules.
+# The configuration is synced to the database on every startup.
+# This file is the source of truth for provisioned items (like Grafana provisioning).
+#
+# Environment variable interpolation is supported: ${VAR_NAME} or $VAR_NAME
+# Reserved placeholders are preserved: ${username} and ${clientid}
+#   - ${username} is replaced at runtime with the authenticated MQTT username
+#   - ${clientid} is replaced at runtime with the MQTT client ID
+#
+# Usage:
+#   ./mqtt-server -config config.yml
+#   Or set CONFIG_FILE environment variable:
+#   CONFIG_FILE=/etc/mqtt-server/config.yml ./mqtt-server
+
+# MQTT Users (device credentials for MQTT connections)
+# These are NOT dashboard admin users - they are for MQTT client authentication
+users:
+  # Basic user with environment variable password
+  - username: sensor_user
+    password: ${SENSOR_PASSWORD}
+    description: "Temperature and humidity sensors"
+    metadata:
+      location: "warehouse-a"
+      device_type: "environmental_sensor"
+
+  # Admin MQTT user for management devices
+  - username: admin_device
+    password: ${ADMIN_DEVICE_PASSWORD}
+    description: "Administrative MQTT clients"
+
+  # Camera/video devices
+  - username: camera_user
+    password: ${CAMERA_PASSWORD}
+    description: "Security cameras"
+    metadata:
+      location: "building-perimeter"
+      device_type: "ip_camera"
+
+  # Building automation controllers
+  - username: automation_user
+    password: ${AUTOMATION_PASSWORD}
+    description: "Building automation systems"
+
+# ACL Rules (topic access control)
+# Rules reference users by username and define topic patterns with permissions
+acl_rules:
+  # ===== Sensor User Rules =====
+  # Sensors can publish/subscribe to their own namespace using ${username} placeholder
+  - mqtt_username: sensor_user
+    topic_pattern: "sensors/${username}/#"
+    permission: pubsub
+
+  # Sensors can publish telemetry using ${clientid} placeholder (per-device isolation)
+  - mqtt_username: sensor_user
+    topic_pattern: "telemetry/${clientid}/data"
+    permission: pub
+
+  # Sensors can subscribe to commands for their specific device
+  - mqtt_username: sensor_user
+    topic_pattern: "commands/${clientid}/#"
+    permission: sub
+
+  # Sensors can publish to shared data topics with wildcards
+  - mqtt_username: sensor_user
+    topic_pattern: "data/+/temperature"
+    permission: pub
+
+  - mqtt_username: sensor_user
+    topic_pattern: "data/+/humidity"
+    permission: pub
+
+  # ===== Camera User Rules =====
+  # Cameras can publish video streams
+  - mqtt_username: camera_user
+    topic_pattern: "video/${clientid}/stream"
+    permission: pub
+
+  # Cameras receive control commands
+  - mqtt_username: camera_user
+    topic_pattern: "camera/${clientid}/control"
+    permission: sub
+
+  # ===== Automation User Rules =====
+  # Automation can read all sensor data
+  - mqtt_username: automation_user
+    topic_pattern: "sensors/#"
+    permission: sub
+
+  - mqtt_username: automation_user
+    topic_pattern: "data/#"
+    permission: sub
+
+  # Automation can publish commands to all devices
+  - mqtt_username: automation_user
+    topic_pattern: "commands/#"
+    permission: pub
+
+  # Automation can access building systems
+  - mqtt_username: automation_user
+    topic_pattern: "building/hvac/#"
+    permission: pubsub
+
+  - mqtt_username: automation_user
+    topic_pattern: "building/lighting/#"
+    permission: pubsub
+
+  # ===== Admin Device Rules =====
+  # Admin devices have full access
+  - mqtt_username: admin_device
+    topic_pattern: "#"
+    permission: pubsub

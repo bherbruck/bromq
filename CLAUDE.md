@@ -37,6 +37,10 @@ mqtt-server/
 │   │   ├── mqtt_clients.go        # Client connection tracking CRUD
 │   │   ├── acl.go                 # ACL rules CRUD + topic matching
 │   │   └── retained.go            # Retained message persistence
+│   ├── config/                     # Configuration file support
+│   │   └── config.go              # YAML parsing with env var interpolation
+│   ├── provisioning/               # Configuration provisioning
+│   │   └── provisioning.go        # Sync config to database (Grafana-style)
 │   ├── mqtt/                       # MQTT server wrapper
 │   │   ├── config.go              # Configuration struct
 │   │   ├── server.go              # Server initialization
@@ -64,6 +68,13 @@ mqtt-server/
 │   │   ├── routes/               # Page routes
 │   │   └── lib/                  # API client and utilities
 │   └── dist/client/              # Build output (embedded via go:embed)
+├── examples/
+│   ├── config/
+│   │   ├── config.example.yml          # Full provisioning example
+│   │   ├── config.minimal.example.yml  # Minimal example
+│   │   └── config.multitenant.example.yml  # Multi-tenant example
+│   ├── compose.postgres.yml    # PostgreSQL compose example
+│   └── compose.mysql.yml       # MySQL compose example
 ├── Dockerfile                  # Multi-stage build (Node → Go → Alpine)
 └── go.mod
 ```
@@ -161,6 +172,87 @@ go test -count=1 ./...
 
 # Tidy dependencies
 go mod tidy
+
+# Run with configuration file
+./bin/mqtt-server -config config.yml
+
+# Set environment variables for config passwords
+export SENSOR_PASSWORD="secret123"
+export ADMIN_DEVICE_PASSWORD="admin456"
+./bin/mqtt-server -config config.yml
+```
+
+## Configuration File (Provisioning)
+
+The server supports YAML configuration files for provisioning MQTT users and ACL rules. The config file is the source of truth and syncs to the database on every startup (like Grafana provisioning).
+
+**Features:**
+- Environment variable interpolation: `${VAR_NAME}` or `$VAR_NAME`
+- Automatic sync on startup: Create, update, and remove provisioned items
+- Coexists with manually created items via API (provisioned items tracked separately)
+- Provisioned items can be updated via API, but changes are overwritten on next restart
+
+**Configuration:**
+```bash
+# Via command-line flag
+./mqtt-server -config config.yml
+
+# Via environment variable
+CONFIG_FILE=/etc/mqtt-server/config.yml ./mqtt-server
+```
+
+**Config file structure:**
+```yaml
+# MQTT users (device credentials)
+users:
+  - username: sensor_user
+    password: ${SENSOR_PASSWORD}  # Environment variable
+    description: "Temperature sensors"
+    metadata:
+      location: "warehouse"
+      device_type: "sensor"
+
+# ACL rules (topic access control)
+acl_rules:
+  - mqtt_username: sensor_user
+    topic_pattern: "sensors/${username}/#"  # Dynamic placeholder
+    permission: pubsub  # pub, sub, or pubsub
+```
+
+**Example files:**
+- `examples/config/config.example.yml` - Full example with multiple users and rules
+- `examples/config/config.minimal.example.yml` - Minimal example for testing
+- `examples/config/config.multitenant.example.yml` - Multi-tenant SaaS example
+
+**Provisioning behavior:**
+- **Users**: Created if missing, updated if exists (password, description, metadata)
+- **ACL rules**: Old provisioned rules deleted, new rules created from config
+- **Orphaned users**: Users provisioned but no longer in config are removed
+- **Manual items**: Items created via API (not provisioned) are never touched
+- **Modification protection**: Provisioned items **cannot be modified or deleted** via API/UI
+  - API returns `409 Conflict` with helpful error message
+  - Frontend UI shows "Config File" badge and disables edit/delete buttons
+  - To modify: Edit the config file and restart the server
+
+**Usage example:**
+```bash
+# Set passwords via environment
+export SENSOR_PASSWORD="super_secret_123"
+export CAMERA_PASSWORD="camera_pass_456"
+
+# Run with config
+./mqtt-server -config config.yml
+
+# Docker Compose
+services:
+  mqtt-server:
+    image: mqtt-server
+    environment:
+      - SENSOR_PASSWORD=super_secret_123
+      - CAMERA_PASSWORD=camera_pass_456
+    volumes:
+      - ./config.yml:/app/config.yml
+    command: ["-config", "/app/config.yml"]
 ```
 
 ## Architecture & Key Concepts
@@ -190,6 +282,7 @@ The system uses a three-table architecture to separate concerns between dashboar
    - `password_hash` (string, not null, bcrypt)
    - `description` (text) - Human-readable description
    - `metadata` (jsonb) - Custom attributes
+   - `provisioned_from_config` (boolean, default=false) - Managed by config file
    - `created_at`, `updated_at` (timestamps)
 
 3. **`mqtt_clients`**: Individual MQTT device/client connection tracking
@@ -206,6 +299,7 @@ The system uses a three-table architecture to separate concerns between dashboar
    - `mqtt_user_id` (uint, foreign key to mqtt_users, cascade delete)
    - `topic_pattern` (string, not null) - Supports MQTT wildcards (+, #) and dynamic placeholders (${username}, ${clientid})
    - `permission` (string, not null) - 'pub', 'sub', or 'pubsub'
+   - `provisioned_from_config` (boolean, default=false) - Managed by config file
    - `created_at` (timestamp)
 
 5. **`retained_messages`**: Retained MQTT messages
