@@ -37,7 +37,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30">
+    <div className="bg-muted/30 flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">MQTT Server</CardTitle>
@@ -70,7 +70,7 @@ export default function LoginPage() {
               />
             </Field>
             {error && (
-              <div className="text-destructive text-sm rounded-md border border-destructive/50 bg-destructive/10 p-3">
+              <div className="text-destructive border-destructive/50 bg-destructive/10 rounded-md border p-3 text-sm">
                 {error}
               </div>
             )}
@@ -78,9 +78,6 @@ export default function LoginPage() {
               {isLoading && <Spinner className="mr-2" />}
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
-            <p className="text-muted-foreground text-center text-sm">
-              Default credentials: admin / admin
-            </p>
           </form>
         </CardContent>
       </Card>
