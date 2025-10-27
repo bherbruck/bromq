@@ -15,6 +15,43 @@ func (db *DB) ListACLRules() ([]ACLRule, error) {
 	return rules, nil
 }
 
+// ListACLRulesPaginated returns paginated ACL rules with optional search and sorting
+func (db *DB) ListACLRulesPaginated(page, pageSize int, search, sortBy, sortOrder string) ([]ACLRule, int64, error) {
+	var rules []ACLRule
+	var total int64
+
+	query := db.Model(&ACLRule{})
+
+	// Apply search filter (search in topic_pattern)
+	if search != "" {
+		query = query.Where("topic_pattern LIKE ?", "%"+search+"%")
+	}
+
+	// Get total count
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count ACL rules: %w", err)
+	}
+
+	// Apply sorting
+	if sortBy == "" {
+		sortBy = "mqtt_user_id"
+	}
+	if sortOrder == "" || (sortOrder != "asc" && sortOrder != "desc") {
+		sortOrder = "asc"
+	}
+	query = query.Order(fmt.Sprintf("%s %s, topic_pattern", sortBy, sortOrder))
+
+	// Apply pagination
+	offset := (page - 1) * pageSize
+	query = query.Offset(offset).Limit(pageSize)
+
+	if err := query.Find(&rules).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list ACL rules: %w", err)
+	}
+
+	return rules, total, nil
+}
+
 // GetACLRulesByMQTTUserID returns all ACL rules for a specific MQTT user
 func (db *DB) GetACLRulesByMQTTUserID(mqttUserID int) ([]ACLRule, error) {
 	var rules []ACLRule

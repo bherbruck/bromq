@@ -58,9 +58,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ListACL returns all ACL rules
+// ListACL returns paginated ACL rules
 func (h *Handler) ListACL(w http.ResponseWriter, r *http.Request) {
-	rules, err := h.db.ListACLRules()
+	// Parse pagination parameters
+	params := parsePaginationParams(r)
+
+	// Get paginated rules
+	rules, total, err := h.db.ListACLRulesPaginated(params.Page, params.PageSize, params.Search, params.SortBy, params.SortOrder)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to list ACL rules: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -71,8 +75,25 @@ func (h *Handler) ListACL(w http.ResponseWriter, r *http.Request) {
 		rules = []storage.ACLRule{}
 	}
 
+	// Calculate total pages
+	totalPages := 0
+	if params.PageSize > 0 {
+		totalPages = int((total + int64(params.PageSize) - 1) / int64(params.PageSize))
+	}
+
+	// Build paginated response
+	response := PaginatedResponse{
+		Data: rules,
+		Pagination: PaginationMetadata{
+			Total:      total,
+			Page:       params.Page,
+			PageSize:   params.PageSize,
+			TotalPages: totalPages,
+		},
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rules)
+	json.NewEncoder(w).Encode(response)
 }
 
 // CreateACL creates a new ACL rule

@@ -59,6 +59,45 @@ func (db *DB) ListMQTTUsers() ([]MQTTUser, error) {
 	return users, nil
 }
 
+// ListMQTTUsersPaginated returns paginated MQTT users with search and sorting
+func (db *DB) ListMQTTUsersPaginated(page, pageSize int, search, sortBy, sortOrder string) ([]MQTTUser, int64, error) {
+	var users []MQTTUser
+	var total int64
+
+	query := db.Model(&MQTTUser{})
+
+	// Apply search filter
+	if search != "" {
+		query = query.Where("username LIKE ? OR description LIKE ?",
+			"%"+search+"%", "%"+search+"%")
+	}
+
+	// Get total count
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count MQTT users: %w", err)
+	}
+
+	// Apply sorting
+	if sortBy == "" {
+		sortBy = "created_at"
+	}
+	if sortOrder == "" || (sortOrder != "asc" && sortOrder != "desc") {
+		sortOrder = "desc"
+	}
+	query = query.Order(fmt.Sprintf("%s %s", sortBy, sortOrder))
+
+	// Apply pagination
+	offset := (page - 1) * pageSize
+	query = query.Offset(offset).Limit(pageSize)
+
+	// Execute query
+	if err := query.Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list MQTT users: %w", err)
+	}
+
+	return users, total, nil
+}
+
 // UpdateMQTTUser updates an MQTT user's information
 func (db *DB) UpdateMQTTUser(id int, username, description string, metadata datatypes.JSON) error {
 	updates := map[string]interface{}{

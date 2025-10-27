@@ -3,19 +3,54 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 
 	"github/bherbruck/mqtt-server/internal/storage"
 )
 
+// parsePaginationParams parses pagination parameters from request
+func parsePaginationParams(r *http.Request) PaginationQuery {
+	query := PaginationQuery{
+		Page:     1,
+		PageSize: 25, // Default page size
+		Search:   "",
+		SortBy:   "",
+		SortOrder: "desc",
+	}
+
+	if page := r.URL.Query().Get("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil && p > 0 {
+			query.Page = p
+		}
+	}
+
+	if pageSize := r.URL.Query().Get("pageSize"); pageSize != "" {
+		if ps, err := strconv.Atoi(pageSize); err == nil && ps > 0 && ps <= 100 {
+			query.PageSize = ps
+		}
+	}
+
+	query.Search = r.URL.Query().Get("search")
+	query.SortBy = r.URL.Query().Get("sortBy")
+
+	if sortOrder := r.URL.Query().Get("sortOrder"); sortOrder == "asc" || sortOrder == "desc" {
+		query.SortOrder = sortOrder
+	}
+
+	return query
+}
+
 // === MQTT User (Credentials) Management Handlers ===
 
-// ListMQTTUsers returns all MQTT credentials
+// ListMQTTUsers returns paginated MQTT users
 func (h *Handler) ListMQTTUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.db.ListMQTTUsers()
+	params := parsePaginationParams(r)
+
+	users, total, err := h.db.ListMQTTUsersPaginated(params.Page, params.PageSize, params.Search, params.SortBy, params.SortOrder)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to list MQTT credentials: %s"}`, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf(`{"error":"failed to list MQTT users: %s"}`, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -24,11 +59,24 @@ func (h *Handler) ListMQTTUsers(w http.ResponseWriter, r *http.Request) {
 		users = []storage.MQTTUser{}
 	}
 
+	// Calculate total pages
+	totalPages := int(math.Ceil(float64(total) / float64(params.PageSize)))
+
+	response := PaginatedResponse{
+		Data: users,
+		Pagination: PaginationMetadata{
+			Total:      total,
+			Page:       params.Page,
+			PageSize:   params.PageSize,
+			TotalPages: totalPages,
+		},
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
+	json.NewEncoder(w).Encode(response)
 }
 
-// CreateMQTTUser creates new MQTT credentials
+// CreateMQTTUser creates new MQTT user
 func (h *Handler) CreateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	var req CreateMQTTUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -38,7 +86,7 @@ func (h *Handler) CreateMQTTUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.db.CreateMQTTUser(req.Username, req.Password, req.Description, req.Metadata)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to create MQTT credentials: %s"}`, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf(`{"error":"failed to create MQTT user: %s"}`, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -47,19 +95,38 @@ func (h *Handler) CreateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// UpdateMQTTUser updates MQTT credentials information
+// GetMQTTUser returns a single MQTT user by ID
+func (h *Handler) GetMQTTUser(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.db.GetMQTTUser(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"MQTT user not found: %s"}`, err), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
+}
+
+// UpdateMQTTUser updates MQTT user information
 func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid credentials ID"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
 
 	// Check if user is provisioned from config
 	user, err := h.db.GetMQTTUser(id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"MQTT credentials not found: %s"}`, err), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf(`{"error":"MQTT user not found: %s"}`, err), http.StatusNotFound)
 		return
 	}
 
@@ -75,13 +142,13 @@ func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.UpdateMQTTUser(id, req.Username, req.Description, req.Metadata); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to update MQTT credentials: %s"}`, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf(`{"error":"failed to update MQTT user: %s"}`, err), http.StatusInternalServerError)
 		return
 	}
 
 	user, err = h.db.GetMQTTUser(id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to get MQTT credentials: %s"}`, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf(`{"error":"failed to get MQTT user: %s"}`, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -89,19 +156,19 @@ func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// DeleteMQTTUser deletes MQTT credentials
+// DeleteMQTTUser deletes MQTT user
 func (h *Handler) DeleteMQTTUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid credentials ID"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
 
 	// Check if user is provisioned from config
 	user, err := h.db.GetMQTTUser(id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"MQTT credentials not found: %s"}`, err), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf(`{"error":"MQTT user not found: %s"}`, err), http.StatusNotFound)
 		return
 	}
 
@@ -111,27 +178,27 @@ func (h *Handler) DeleteMQTTUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.DeleteMQTTUser(id); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to delete MQTT credentials: %s"}`, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf(`{"error":"failed to delete MQTT user: %s"}`, err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "MQTT credentials deleted"})
+	json.NewEncoder(w).Encode(SuccessResponse{Message: "MQTT user deleted"})
 }
 
-// UpdateMQTTUserPassword updates MQTT credentials password
+// UpdateMQTTUserPassword updates MQTT user password
 func (h *Handler) UpdateMQTTUserPassword(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, `{"error":"invalid credentials ID"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
 
 	// Check if user is provisioned from config
 	user, err := h.db.GetMQTTUser(id)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"MQTT credentials not found: %s"}`, err), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf(`{"error":"MQTT user not found: %s"}`, err), http.StatusNotFound)
 		return
 	}
 
@@ -162,12 +229,16 @@ func (h *Handler) UpdateMQTTUserPassword(w http.ResponseWriter, r *http.Request)
 
 // === MQTT Client Management Handlers ===
 
-// ListMQTTClients returns all MQTT clients (connected devices)
+// ListMQTTClients returns paginated MQTT clients (connected devices)
 func (h *Handler) ListMQTTClients(w http.ResponseWriter, r *http.Request) {
+	// Parse pagination parameters
+	params := parsePaginationParams(r)
+
 	// Check query parameter for active filter
 	activeOnly := r.URL.Query().Get("active") == "true"
 
-	clients, err := h.db.ListMQTTClients(activeOnly)
+	// Get paginated clients
+	clients, total, err := h.db.ListMQTTClientsPaginated(params.Page, params.PageSize, params.Search, params.SortBy, params.SortOrder, activeOnly)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to list MQTT clients: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -178,8 +249,25 @@ func (h *Handler) ListMQTTClients(w http.ResponseWriter, r *http.Request) {
 		clients = []storage.MQTTClient{}
 	}
 
+	// Calculate total pages
+	totalPages := 0
+	if params.PageSize > 0 {
+		totalPages = int((total + int64(params.PageSize) - 1) / int64(params.PageSize))
+	}
+
+	// Build paginated response
+	response := PaginatedResponse{
+		Data: clients,
+		Pagination: PaginationMetadata{
+			Total:      total,
+			Page:       params.Page,
+			PageSize:   params.PageSize,
+			TotalPages: totalPages,
+		},
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(clients)
+	json.NewEncoder(w).Encode(response)
 }
 
 // GetMQTTClientDetails returns details about a specific MQTT client

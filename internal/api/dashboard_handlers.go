@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -11,9 +12,11 @@ import (
 
 // === Admin User Management Handlers ===
 
-// ListDashboardUsers returns all admin users
+// ListDashboardUsers returns paginated admin users
 func (h *Handler) ListDashboardUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.db.ListDashboardUsers()
+	params := parsePaginationParams(r)
+
+	users, total, err := h.db.ListDashboardUsersPaginated(params.Page, params.PageSize, params.Search, params.SortBy, params.SortOrder)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to list admin users: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -24,8 +27,21 @@ func (h *Handler) ListDashboardUsers(w http.ResponseWriter, r *http.Request) {
 		users = []storage.DashboardUser{}
 	}
 
+	// Calculate total pages
+	totalPages := int(math.Ceil(float64(total) / float64(params.PageSize)))
+
+	response := PaginatedResponse{
+		Data: users,
+		Pagination: PaginationMetadata{
+			Total:      total,
+			Page:       params.Page,
+			PageSize:   params.PageSize,
+			TotalPages: totalPages,
+		},
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
+	json.NewEncoder(w).Encode(response)
 }
 
 // CreateDashboardUser creates a new admin user
@@ -44,6 +60,25 @@ func (h *Handler) CreateDashboardUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(user)
+}
+
+// GetDashboardUser returns a single dashboard user by ID
+func (h *Handler) GetDashboardUser(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.db.GetDashboardUser(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"admin user not found: %s"}`, err), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
 }
 

@@ -104,6 +104,48 @@ func (db *DB) ListMQTTClients(activeOnly bool) ([]MQTTClient, error) {
 	return clients, nil
 }
 
+// ListMQTTClientsPaginated returns paginated MQTT clients with optional search and sorting
+func (db *DB) ListMQTTClientsPaginated(page, pageSize int, search, sortBy, sortOrder string, activeOnly bool) ([]MQTTClient, int64, error) {
+	var clients []MQTTClient
+	var total int64
+
+	query := db.Model(&MQTTClient{}).Preload("MQTTUser")
+
+	// Apply active filter
+	if activeOnly {
+		query = query.Where("is_active = ?", true)
+	}
+
+	// Apply search filter (search in client_id)
+	if search != "" {
+		query = query.Where("client_id LIKE ?", "%"+search+"%")
+	}
+
+	// Get total count
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count MQTT clients: %w", err)
+	}
+
+	// Apply sorting
+	if sortBy == "" {
+		sortBy = "last_seen"
+	}
+	if sortOrder == "" || (sortOrder != "asc" && sortOrder != "desc") {
+		sortOrder = "desc"
+	}
+	query = query.Order(fmt.Sprintf("%s %s", sortBy, sortOrder))
+
+	// Apply pagination
+	offset := (page - 1) * pageSize
+	query = query.Offset(offset).Limit(pageSize)
+
+	if err := query.Find(&clients).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list MQTT clients: %w", err)
+	}
+
+	return clients, total, nil
+}
+
 // ListMQTTClientsByUser returns all clients for a specific MQTT user
 func (db *DB) ListMQTTClientsByUser(mqttUserID uint, activeOnly bool) ([]MQTTClient, error) {
 	var clients []MQTTClient

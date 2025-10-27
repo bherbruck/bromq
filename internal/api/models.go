@@ -87,6 +87,29 @@ type UpdateACLRequest struct {
 	Permission   string `json:"permission"`
 }
 
+// PaginationQuery represents pagination query parameters
+type PaginationQuery struct {
+	Page     int    `json:"page"`
+	PageSize int    `json:"page_size"`
+	Search   string `json:"search"`
+	SortBy   string `json:"sort_by"`
+	SortOrder string `json:"sort_order"` // "asc" or "desc"
+}
+
+// PaginationMetadata represents pagination metadata in responses
+type PaginationMetadata struct {
+	Total       int64 `json:"total"`
+	Page        int   `json:"page"`
+	PageSize    int   `json:"page_size"`
+	TotalPages  int   `json:"total_pages"`
+}
+
+// PaginatedResponse represents a paginated response
+type PaginatedResponse struct {
+	Data       interface{}         `json:"data"`
+	Pagination PaginationMetadata  `json:"pagination"`
+}
+
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error string `json:"error"`
