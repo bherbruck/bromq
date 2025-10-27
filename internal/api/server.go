@@ -42,6 +42,7 @@ func (s *Server) Start() error {
 	// === Dashboard User Management ===
 	// List dashboard users - any authenticated user can view
 	apiMux.Handle("GET /dashboard/users", AuthMiddleware(http.HandlerFunc(s.handler.ListDashboardUsers)))
+	apiMux.Handle("GET /dashboard/users/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetDashboardUser)))
 	// Manage dashboard users - admin only
 	apiMux.Handle("POST /dashboard/users", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateDashboardUser))))
 	apiMux.Handle("PUT /dashboard/users/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateDashboardUser))))
@@ -50,16 +51,17 @@ func (s *Server) Start() error {
 
 	// === MQTT Management ===
 	// View MQTT resources - any authenticated user can view
-	apiMux.Handle("GET /mqtt/credentials", AuthMiddleware(http.HandlerFunc(s.handler.ListMQTTUsers)))
+	apiMux.Handle("GET /mqtt/users", AuthMiddleware(http.HandlerFunc(s.handler.ListMQTTUsers)))
+	apiMux.Handle("GET /mqtt/users/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetMQTTUser)))
 	apiMux.Handle("GET /mqtt/clients", AuthMiddleware(http.HandlerFunc(s.handler.ListMQTTClients)))
 	apiMux.Handle("GET /mqtt/clients/{client_id}", AuthMiddleware(http.HandlerFunc(s.handler.GetMQTTClientDetails)))
 	apiMux.Handle("GET /acl", AuthMiddleware(http.HandlerFunc(s.handler.ListACL)))
 
 	// Manage MQTT users - admin only
-	apiMux.Handle("POST /mqtt/credentials", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateMQTTUser))))
-	apiMux.Handle("PUT /mqtt/credentials/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTUser))))
-	apiMux.Handle("PUT /mqtt/credentials/{id}/password", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTUserPassword))))
-	apiMux.Handle("DELETE /mqtt/credentials/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteMQTTUser))))
+	apiMux.Handle("POST /mqtt/users", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateMQTTUser))))
+	apiMux.Handle("PUT /mqtt/users/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTUser))))
+	apiMux.Handle("PUT /mqtt/users/{id}/password", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTUserPassword))))
+	apiMux.Handle("DELETE /mqtt/users/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteMQTTUser))))
 
 	// Manage MQTT clients - admin only
 	apiMux.Handle("PUT /mqtt/clients/{client_id}/metadata", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTClientMetadata))))

@@ -545,12 +545,12 @@ Protected (admin only - all routes below):
 - `PUT /api/admin/users/{id}/password` - Reset admin password
 - `DELETE /api/admin/users/{id}` - Delete admin user
 
-*MQTT Credentials Management:*
-- `GET /api/mqtt/credentials` - List all MQTT credentials
-- `POST /api/mqtt/credentials` - Create MQTT credentials
-- `PUT /api/mqtt/credentials/{id}` - Update MQTT credentials
-- `PUT /api/mqtt/credentials/{id}/password` - Reset MQTT password
-- `DELETE /api/mqtt/credentials/{id}` - Delete MQTT credentials (cascades to clients and ACL)
+*MQTT User Management:*
+- `GET /api/mqtt/users` - List all MQTT users
+- `POST /api/mqtt/users` - Create MQTT user
+- `PUT /api/mqtt/users/{id}` - Update MQTT user
+- `PUT /api/mqtt/users/{id}/password` - Reset MQTT user password
+- `DELETE /api/mqtt/users/{id}` - Delete MQTT user (cascades to clients and ACL)
 
 *MQTT Clients (Connected Devices):*
 - `GET /api/mqtt/clients` - List all MQTT clients (with active status)
@@ -782,16 +782,16 @@ curl -X POST http://localhost:8080/api/admin/users \
   -H "Content-Type: application/json" \
   -d '{"username":"newadmin","password":"secure123","role":"admin"}'
 
-# === MQTT Credentials Management ===
-# Create MQTT credentials
-curl -X POST http://localhost:8080/api/mqtt/credentials \
+# === MQTT User Management ===
+# Create MQTT user
+curl -X POST http://localhost:8080/api/mqtt/users \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"username":"sensor_user","password":"sensor123","description":"Sensor credentials"}'
 
-# List MQTT credentials
+# List MQTT users
 curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/mqtt/credentials
+  http://localhost:8080/api/mqtt/users
 
 # === MQTT Clients Tracking ===
 # List all connected clients
@@ -851,7 +851,7 @@ curl -X PUT http://localhost:8080/api/admin/users/2/password \
   -d '{"password":"reset_password_123"}'
 
 # Reset MQTT user password
-curl -X PUT http://localhost:8080/api/mqtt/credentials/1/password \
+curl -X PUT http://localhost:8080/api/mqtt/users/1/password \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"password":"new_mqtt_password"}'
