@@ -294,17 +294,27 @@ export function ACLRules({
                     {showMQTTUserColumn && <TableHead>MQTT User</TableHead>}
                     <TableHead>Topic Pattern</TableHead>
                     <TableHead>Permission</TableHead>
+                    <TableHead>Source</TableHead>
                     {canEdit && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rules.map((rule) => (
-                    <TableRow key={rule.id}>
+                    <TableRow key={rule.id} className={rule.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}>
                       {showMQTTUserColumn && (
                         <TableCell className="font-medium">{getMQTTUsernameById(rule.mqtt_user_id)}</TableCell>
                       )}
                       <TableCell className="font-mono text-sm">{rule.topic_pattern}</TableCell>
                       <TableCell>{getPermissionBadge(rule.permission)}</TableCell>
+                      <TableCell>
+                        {rule.provisioned_from_config ? (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                            Provisioned
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Manual</span>
+                        )}
+                      </TableCell>
                       {canEdit && (
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -312,6 +322,8 @@ export function ACLRules({
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditClick(rule)}
+                              disabled={rule.provisioned_from_config}
+                              title={rule.provisioned_from_config ? "Edit config file to modify" : "Edit rule"}
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -319,6 +331,8 @@ export function ACLRules({
                               variant="destructive"
                               size="sm"
                               onClick={() => setDeleteRule(rule)}
+                              disabled={rule.provisioned_from_config}
+                              title={rule.provisioned_from_config ? "Remove from config file to delete" : "Delete rule"}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

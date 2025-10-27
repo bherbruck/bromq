@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '~/components/ui/alert-dialog'
+import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import {
@@ -131,8 +132,9 @@ export default function MQTTUsersPage() {
       await api.deleteMQTTUser(deleteUser.id)
       setDeleteUser(null)
       fetchUsers()
-    } catch (error) {
-      console.error('Failed to delete MQTT user:', error)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete MQTT user')
+      setDeleteUser(null)
     }
   }
 
@@ -206,8 +208,17 @@ export default function MQTTUsersPage() {
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium font-mono">{user.username}</TableCell>
+                  <TableRow key={user.id} className={user.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {user.username}
+                        {user.provisioned_from_config && (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                            Provisioned
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {user.description || <span className="italic">No description</span>}
                     </TableCell>
@@ -217,10 +228,22 @@ export default function MQTTUsersPage() {
                     {canEdit && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(user)}
+                            disabled={user.provisioned_from_config}
+                            title={user.provisioned_from_config ? "Edit config file to modify" : "Edit user"}
+                          >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => setDeleteUser(user)}>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleteUser(user)}
+                            disabled={user.provisioned_from_config}
+                            title={user.provisioned_from_config ? "Remove from config file to delete" : "Delete user"}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" asChild>

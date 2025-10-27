@@ -30,9 +30,9 @@ export default function AppLayout() {
           <h1 className="text-base font-semibold">{pageTitle}</h1>
         </header>
         <main className="flex-1 p-4 lg:p-6">
-          <div className="container mx-auto max-w-7xl">
+          {/* <div className="container mx-auto max-w-7xl"> */}
             <Outlet />
-          </div>
+          {/* </div> */}
         </main>
       </SidebarInset>
     </SidebarProvider>

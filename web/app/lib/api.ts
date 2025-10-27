@@ -16,6 +16,7 @@ export interface MQTTUser {
   username: string
   description?: string
   metadata?: Record<string, any>
+  provisioned_from_config: boolean
   created_at: string
   updated_at: string
 }
@@ -39,6 +40,7 @@ export interface ACLRule {
   mqtt_user_id: number
   topic_pattern: string
   permission: 'pub' | 'sub' | 'pubsub'
+  provisioned_from_config: boolean
 }
 
 export interface Client {

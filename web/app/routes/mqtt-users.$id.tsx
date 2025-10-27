@@ -123,8 +123,9 @@ export default function MQTTUserDetailPage() {
     try {
       await api.deleteMQTTUser(mqttUser.id)
       navigate('/mqtt-users')
-    } catch (error) {
-      console.error('Failed to delete MQTT user:', error)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete MQTT user')
+      setIsDeleteDialogOpen(false)
     }
   }
 
@@ -146,6 +147,8 @@ export default function MQTTUserDetailPage() {
   }
 
   const canEdit = currentUser?.role === 'admin'
+  const isProvisioned = mqttUser.provisioned_from_config
+  const canEditProvisioned = canEdit && !isProvisioned
 
   return (
     <div className="space-y-6">
@@ -161,7 +164,7 @@ export default function MQTTUserDetailPage() {
         </div>
         {canEdit && (
           <div className="flex gap-2">
-            {!isSaved && (
+            {!isSaved && !isProvisioned && (
               <>
                 <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
                   <X className="mr-2 h-4 w-4" />
@@ -174,7 +177,12 @@ export default function MQTTUserDetailPage() {
                 </Button>
               </>
             )}
-            <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+            <Button
+              variant="destructive"
+              onClick={() => setIsDeleteDialogOpen(true)}
+              disabled={isProvisioned}
+              title={isProvisioned ? "Remove from config file to delete" : "Delete user"}
+            >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete User
             </Button>
@@ -183,17 +191,33 @@ export default function MQTTUserDetailPage() {
       </div>
 
       {/* User Details Card */}
-      <Card>
+      <Card className={isProvisioned ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-2xl">MQTT User Details</CardTitle>
               <CardDescription>User #{mqttUser.id}</CardDescription>
             </div>
-            <Badge variant="outline">MQTT Credentials</Badge>
+            <div className="flex gap-2">
+              {isProvisioned && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  Provisioned
+                </Badge>
+              )}
+              <Badge variant="outline">MQTT Credentials</Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {isProvisioned && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
+              <p className="font-medium">This user is managed by the config file.</p>
+              <p className="mt-1 text-blue-700 dark:text-blue-300">
+                Edit the config file and restart the server to modify.
+              </p>
+            </div>
+          )}
+
           <FieldError>{error}</FieldError>
 
           <Field>
@@ -203,7 +227,7 @@ export default function MQTTUserDetailPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="device-001"
-              disabled={!canEdit}
+              disabled={!canEditProvisioned}
               className="font-mono"
             />
           </Field>
@@ -216,14 +240,14 @@ export default function MQTTUserDetailPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Temperature sensor in building A"
               rows={3}
-              disabled={!canEdit}
+              disabled={!canEditProvisioned}
             />
           </Field>
 
           <Separator />
 
           {/* Password Change Section */}
-          {canEdit && (
+          {canEditProvisioned && (
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <input
