@@ -875,3 +875,282 @@ func TestUpdateDashboardUserPassword_InvalidJSON(t *testing.T) {
 		t.Errorf("UpdateDashboardUserPassword() invalid JSON status = %v, want %v", rec.Code, http.StatusBadRequest)
 	}
 }
+// ==================== Provisioned Item Protection Tests ====================
+
+func TestBlockProvisionedMQTTUserUpdate(t *testing.T) {
+	handler := setupTestHandler(t)
+
+	// Create a manual user and a provisioned user
+	manualUser, _ := handler.db.CreateMQTTUser("manual_user", "password123", "Manual user", nil)
+	provisionedUser, _ := handler.db.CreateMQTTUser("provisioned_user", "password123", "Provisioned user", nil)
+	handler.db.MarkAsProvisioned(provisionedUser.ID, true)
+
+	tests := []struct {
+		name           string
+		userID         uint
+		wantStatusCode int
+		wantError      string
+	}{
+		{
+			name:           "update manual user succeeds",
+			userID:         manualUser.ID,
+			wantStatusCode: http.StatusOK,
+			wantError:      "",
+		},
+		{
+			name:           "update provisioned user blocked",
+			userID:         provisionedUser.ID,
+			wantStatusCode: http.StatusConflict,
+			wantError:      "Cannot modify provisioned user",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(UpdateMQTTUserRequest{
+				Username:    "updated_name",
+				Description: "Updated description",
+			})
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/mqtt/credentials/%d", tt.userID), bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.SetPathValue("id", fmt.Sprintf("%d", tt.userID))
+			rec := httptest.NewRecorder()
+
+			handler.UpdateMQTTUser(rec, req)
+
+			if rec.Code != tt.wantStatusCode {
+				t.Errorf("UpdateMQTTUser() status = %v, want %v", rec.Code, tt.wantStatusCode)
+				t.Logf("Response: %s", rec.Body.String())
+			}
+
+			if tt.wantError != "" && !bytes.Contains(rec.Body.Bytes(), []byte(tt.wantError)) {
+				t.Errorf("Expected error message containing '%s', got: %s", tt.wantError, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestBlockProvisionedMQTTUserDelete(t *testing.T) {
+	handler := setupTestHandler(t)
+
+	// Create a manual user and a provisioned user
+	manualUser, _ := handler.db.CreateMQTTUser("manual_user_del", "password123", "Manual user", nil)
+	provisionedUser, _ := handler.db.CreateMQTTUser("provisioned_user_del", "password123", "Provisioned user", nil)
+	handler.db.MarkAsProvisioned(provisionedUser.ID, true)
+
+	tests := []struct {
+		name           string
+		userID         uint
+		wantStatusCode int
+		wantError      string
+	}{
+		{
+			name:           "delete manual user succeeds",
+			userID:         manualUser.ID,
+			wantStatusCode: http.StatusOK,
+			wantError:      "",
+		},
+		{
+			name:           "delete provisioned user blocked",
+			userID:         provisionedUser.ID,
+			wantStatusCode: http.StatusConflict,
+			wantError:      "Cannot delete provisioned user",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/mqtt/credentials/%d", tt.userID), nil)
+			req.SetPathValue("id", fmt.Sprintf("%d", tt.userID))
+			rec := httptest.NewRecorder()
+
+			handler.DeleteMQTTUser(rec, req)
+
+			if rec.Code != tt.wantStatusCode {
+				t.Errorf("DeleteMQTTUser() status = %v, want %v", rec.Code, tt.wantStatusCode)
+				t.Logf("Response: %s", rec.Body.String())
+			}
+
+			if tt.wantError != "" && !bytes.Contains(rec.Body.Bytes(), []byte(tt.wantError)) {
+				t.Errorf("Expected error message containing '%s', got: %s", tt.wantError, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestBlockProvisionedMQTTUserPasswordUpdate(t *testing.T) {
+	handler := setupTestHandler(t)
+
+	// Create a manual user and a provisioned user
+	manualUser, _ := handler.db.CreateMQTTUser("manual_user_pw", "password123", "Manual user", nil)
+	provisionedUser, _ := handler.db.CreateMQTTUser("provisioned_user_pw", "password123", "Provisioned user", nil)
+	handler.db.MarkAsProvisioned(provisionedUser.ID, true)
+
+	tests := []struct {
+		name           string
+		userID         uint
+		wantStatusCode int
+		wantError      string
+	}{
+		{
+			name:           "update manual user password succeeds",
+			userID:         manualUser.ID,
+			wantStatusCode: http.StatusOK,
+			wantError:      "",
+		},
+		{
+			name:           "update provisioned user password blocked",
+			userID:         provisionedUser.ID,
+			wantStatusCode: http.StatusConflict,
+			wantError:      "Cannot modify provisioned user password",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(UpdateMQTTPasswordRequest{
+				Password: "newpassword123",
+			})
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/mqtt/credentials/%d/password", tt.userID), bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.SetPathValue("id", fmt.Sprintf("%d", tt.userID))
+			rec := httptest.NewRecorder()
+
+			handler.UpdateMQTTUserPassword(rec, req)
+
+			if rec.Code != tt.wantStatusCode {
+				t.Errorf("UpdateMQTTUserPassword() status = %v, want %v", rec.Code, tt.wantStatusCode)
+				t.Logf("Response: %s", rec.Body.String())
+			}
+
+			if tt.wantError != "" && !bytes.Contains(rec.Body.Bytes(), []byte(tt.wantError)) {
+				t.Errorf("Expected error message containing '%s', got: %s", tt.wantError, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestBlockProvisionedACLRuleUpdate(t *testing.T) {
+	handler := setupTestHandler(t)
+
+	// Create user and ACL rules
+	user, _ := handler.db.CreateMQTTUser("acl_test_user", "password123", "Test user", nil)
+	
+	// Create manual rule
+	manualRule, _ := handler.db.CreateACLRule(int(user.ID), "manual/topic/#", "pubsub")
+	
+	// Create provisioned rule
+	handler.db.CreateProvisionedACLRule(user.ID, "provisioned/topic/#", "pubsub")
+	provisionedRule, _ := handler.db.GetACLRulesByMQTTUserID(int(user.ID))
+	var provisionedRuleID int
+	for _, rule := range provisionedRule {
+		if rule.ProvisionedFromConfig {
+			provisionedRuleID = int(rule.ID)
+			break
+		}
+	}
+
+	tests := []struct {
+		name           string
+		ruleID         int
+		wantStatusCode int
+		wantError      string
+	}{
+		{
+			name:           "update manual ACL rule succeeds",
+			ruleID:         int(manualRule.ID),
+			wantStatusCode: http.StatusOK,
+			wantError:      "",
+		},
+		{
+			name:           "update provisioned ACL rule blocked",
+			ruleID:         provisionedRuleID,
+			wantStatusCode: http.StatusConflict,
+			wantError:      "Cannot modify provisioned ACL rule",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(UpdateACLRequest{
+				TopicPattern: "updated/topic/#",
+				Permission:   "pub",
+			})
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/acl/%d", tt.ruleID), bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.SetPathValue("id", fmt.Sprintf("%d", tt.ruleID))
+			rec := httptest.NewRecorder()
+
+			handler.UpdateACL(rec, req)
+
+			if rec.Code != tt.wantStatusCode {
+				t.Errorf("UpdateACL() status = %v, want %v", rec.Code, tt.wantStatusCode)
+				t.Logf("Response: %s", rec.Body.String())
+			}
+
+			if tt.wantError != "" && !bytes.Contains(rec.Body.Bytes(), []byte(tt.wantError)) {
+				t.Errorf("Expected error message containing '%s', got: %s", tt.wantError, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestBlockProvisionedACLRuleDelete(t *testing.T) {
+	handler := setupTestHandler(t)
+
+	// Create user and ACL rules
+	user, _ := handler.db.CreateMQTTUser("acl_del_test_user", "password123", "Test user", nil)
+	
+	// Create manual rule
+	manualRule, _ := handler.db.CreateACLRule(int(user.ID), "manual/delete/#", "pubsub")
+	
+	// Create provisioned rule
+	handler.db.CreateProvisionedACLRule(user.ID, "provisioned/delete/#", "pubsub")
+	provisionedRule, _ := handler.db.GetACLRulesByMQTTUserID(int(user.ID))
+	var provisionedRuleID int
+	for _, rule := range provisionedRule {
+		if rule.ProvisionedFromConfig {
+			provisionedRuleID = int(rule.ID)
+			break
+		}
+	}
+
+	tests := []struct {
+		name           string
+		ruleID         int
+		wantStatusCode int
+		wantError      string
+	}{
+		{
+			name:           "delete manual ACL rule succeeds",
+			ruleID:         int(manualRule.ID),
+			wantStatusCode: http.StatusOK,
+			wantError:      "",
+		},
+		{
+			name:           "delete provisioned ACL rule blocked",
+			ruleID:         provisionedRuleID,
+			wantStatusCode: http.StatusConflict,
+			wantError:      "Cannot delete provisioned ACL rule",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/acl/%d", tt.ruleID), nil)
+			req.SetPathValue("id", fmt.Sprintf("%d", tt.ruleID))
+			rec := httptest.NewRecorder()
+
+			handler.DeleteACL(rec, req)
+
+			if rec.Code != tt.wantStatusCode {
+				t.Errorf("DeleteACL() status = %v, want %v", rec.Code, tt.wantStatusCode)
+				t.Logf("Response: %s", rec.Body.String())
+			}
+
+			if tt.wantError != "" && !bytes.Contains(rec.Body.Bytes(), []byte(tt.wantError)) {
+				t.Errorf("Expected error message containing '%s', got: %s", tt.wantError, rec.Body.String())
+			}
+		})
+	}
+}

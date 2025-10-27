@@ -103,6 +103,18 @@ func (h *Handler) UpdateACL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if ACL rule is provisioned from config
+	existingRule, err := h.db.GetACLRule(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"ACL rule not found: %s"}`, err), http.StatusNotFound)
+		return
+	}
+
+	if existingRule.ProvisionedFromConfig {
+		http.Error(w, `{"error":"Cannot modify provisioned ACL rule. This rule is managed by the configuration file. Edit the config file and restart the server to make changes."}`, http.StatusConflict)
+		return
+	}
+
 	var req UpdateACLRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"invalid request: %s"}`, err), http.StatusBadRequest)
@@ -125,6 +137,18 @@ func (h *Handler) DeleteACL(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, `{"error":"invalid ACL rule ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Check if ACL rule is provisioned from config
+	existingRule, err := h.db.GetACLRule(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"ACL rule not found: %s"}`, err), http.StatusNotFound)
+		return
+	}
+
+	if existingRule.ProvisionedFromConfig {
+		http.Error(w, `{"error":"Cannot delete provisioned ACL rule. This rule is managed by the configuration file. Remove it from the config file and restart the server to delete."}`, http.StatusConflict)
 		return
 	}
 

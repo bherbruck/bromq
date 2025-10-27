@@ -56,6 +56,18 @@ func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if user is provisioned from config
+	user, err := h.db.GetMQTTUser(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"MQTT credentials not found: %s"}`, err), http.StatusNotFound)
+		return
+	}
+
+	if user.ProvisionedFromConfig {
+		http.Error(w, `{"error":"Cannot modify provisioned user. This user is managed by the configuration file. Edit the config file and restart the server to make changes."}`, http.StatusConflict)
+		return
+	}
+
 	var req UpdateMQTTUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"invalid request: %s"}`, err), http.StatusBadRequest)
@@ -67,7 +79,7 @@ func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.db.GetMQTTUser(id)
+	user, err = h.db.GetMQTTUser(id)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to get MQTT credentials: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -86,6 +98,18 @@ func (h *Handler) DeleteMQTTUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if user is provisioned from config
+	user, err := h.db.GetMQTTUser(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"MQTT credentials not found: %s"}`, err), http.StatusNotFound)
+		return
+	}
+
+	if user.ProvisionedFromConfig {
+		http.Error(w, `{"error":"Cannot delete provisioned user. This user is managed by the configuration file. Remove it from the config file and restart the server to delete."}`, http.StatusConflict)
+		return
+	}
+
 	if err := h.db.DeleteMQTTUser(id); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to delete MQTT credentials: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -101,6 +125,18 @@ func (h *Handler) UpdateMQTTUserPassword(w http.ResponseWriter, r *http.Request)
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, `{"error":"invalid credentials ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Check if user is provisioned from config
+	user, err := h.db.GetMQTTUser(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"MQTT credentials not found: %s"}`, err), http.StatusNotFound)
+		return
+	}
+
+	if user.ProvisionedFromConfig {
+		http.Error(w, `{"error":"Cannot modify provisioned user password. This user is managed by the configuration file. Edit the config file and restart the server to make changes."}`, http.StatusConflict)
 		return
 	}
 
