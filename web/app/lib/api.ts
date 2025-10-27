@@ -104,6 +104,26 @@ export interface ClientMetrics {
   packets_sent: number
 }
 
+export interface PaginationParams {
+  page?: number
+  pageSize?: number
+  search?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface PaginationMetadata {
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: PaginationMetadata
+}
+
 class APIClient {
   private getToken(): string | null {
     return localStorage.getItem('mqtt_token')
@@ -166,8 +186,25 @@ class APIClient {
   }
 
   // Dashboard Users (Users who log into the web interface)
-  async getDashboardUsers(): Promise<DashboardUser[]> {
-    return this.request<DashboardUser[]>('/dashboard/users')
+  async getDashboardUsers(params?: PaginationParams): Promise<PaginatedResponse<DashboardUser>> {
+    const queryString = this.buildQueryString(params)
+    return this.request<PaginatedResponse<DashboardUser>>(`/dashboard/users${queryString}`)
+  }
+
+  async getDashboardUser(id: number): Promise<DashboardUser> {
+    return this.request<DashboardUser>(`/dashboard/users/${id}`)
+  }
+
+  private buildQueryString(params?: PaginationParams): string {
+    if (!params) return ''
+    const query = new URLSearchParams()
+    if (params.page) query.append('page', params.page.toString())
+    if (params.pageSize) query.append('pageSize', params.pageSize.toString())
+    if (params.search) query.append('search', params.search)
+    if (params.sortBy) query.append('sortBy', params.sortBy)
+    if (params.sortOrder) query.append('sortOrder', params.sortOrder)
+    const str = query.toString()
+    return str ? `?${str}` : ''
   }
 
   async createDashboardUser(username: string, password: string, role: 'viewer' | 'admin'): Promise<DashboardUser> {
@@ -198,41 +235,49 @@ class APIClient {
   }
 
   // MQTT Users (Credentials for MQTT broker authentication)
-  async getMQTTUsers(): Promise<MQTTUser[]> {
-    return this.request<MQTTUser[]>('/mqtt/credentials')
+  async getMQTTUsers(params?: PaginationParams): Promise<PaginatedResponse<MQTTUser>> {
+    const queryString = this.buildQueryString(params)
+    return this.request<PaginatedResponse<MQTTUser>>(`/mqtt/users${queryString}`)
+  }
+
+  async getMQTTUser(id: number): Promise<MQTTUser> {
+    return this.request<MQTTUser>(`/mqtt/users/${id}`)
   }
 
   async createMQTTUser(username: string, password: string, description?: string, metadata?: Record<string, any>): Promise<MQTTUser> {
-    return this.request<MQTTUser>('/mqtt/credentials', {
+    return this.request<MQTTUser>('/mqtt/users', {
       method: 'POST',
       body: JSON.stringify({ username, password, description, metadata }),
     })
   }
 
   async updateMQTTUser(id: number, username: string, description?: string, metadata?: Record<string, any>): Promise<MQTTUser> {
-    return this.request<MQTTUser>(`/mqtt/credentials/${id}`, {
+    return this.request<MQTTUser>(`/mqtt/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ username, description, metadata }),
     })
   }
 
   async updateMQTTUserPassword(id: number, password: string): Promise<void> {
-    return this.request<void>(`/mqtt/credentials/${id}/password`, {
+    return this.request<void>(`/mqtt/users/${id}/password`, {
       method: 'PUT',
       body: JSON.stringify({ password }),
     })
   }
 
   async deleteMQTTUser(id: number): Promise<void> {
-    return this.request<void>(`/mqtt/credentials/${id}`, {
+    return this.request<void>(`/mqtt/users/${id}`, {
       method: 'DELETE',
     })
   }
 
   // MQTT Clients (Connected device tracking)
-  async getMQTTClients(activeOnly: boolean = false): Promise<MQTTClient[]> {
-    const query = activeOnly ? '?active=true' : ''
-    return this.request<MQTTClient[]>(`/mqtt/clients${query}`)
+  async getMQTTClients(params?: PaginationParams & { activeOnly?: boolean }): Promise<PaginatedResponse<MQTTClient>> {
+    const queryString = this.buildQueryString(params)
+    const activeParam = params?.activeOnly ? 'active=true' : ''
+    const separator = queryString && activeParam ? '&' : queryString ? '' : activeParam ? '?' : ''
+    const fullQuery = queryString + (activeParam ? separator + activeParam : '')
+    return this.request<PaginatedResponse<MQTTClient>>(`/mqtt/clients${fullQuery}`)
   }
 
   async getMQTTClientDetails(clientId: string): Promise<MQTTClient> {
@@ -253,8 +298,9 @@ class APIClient {
   }
 
   // ACL
-  async getACLRules(): Promise<ACLRule[]> {
-    return this.request<ACLRule[]>('/acl')
+  async getACLRules(params?: PaginationParams): Promise<PaginatedResponse<ACLRule>> {
+    const queryString = this.buildQueryString(params)
+    return this.request<PaginatedResponse<ACLRule>>(`/acl${queryString}`)
   }
 
   async createACLRule(

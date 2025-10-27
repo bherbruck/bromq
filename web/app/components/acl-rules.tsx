@@ -1,7 +1,10 @@
-import { HelpCircle, Pencil, Plus, Shield, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Pencil, Plus, Shield, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
+import type { ColumnDef } from '@tanstack/react-table'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '~/lib/auth-context'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '~/components/ui/hover-card'
+import { useDebounce } from '~/lib/use-debounce'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +17,6 @@ import {
 } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -26,73 +28,95 @@ import {
 import { Input } from '~/components/ui/input'
 import { Field, FieldLabel, FieldError } from '~/components/ui/field'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
+import { PageHeader } from '~/components/page-header'
+import { PageTitle } from '~/components/page-title'
 import { Spinner } from '~/components/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '~/components/ui/table'
+import { DataTable } from '~/components/data-table'
+import { DataTableColumnHeader } from '~/components/data-table-column-header'
 import { api, type ACLRule, type MQTTUser } from '~/lib/api'
 
 interface ACLRulesProps {
   mqttUserId?: number // Optional: filter rules by MQTT user ID
-  showHeader?: boolean // Show card header (default: true)
-  showHelp?: boolean // Show help card (default: true)
+  showHeader?: boolean // Show page header (default: true)
   showMQTTUserColumn?: boolean // Show MQTT user column in table (default: true)
 }
 
 export function ACLRules({
   mqttUserId,
   showHeader = true,
-  showHelp = true,
   showMQTTUserColumn = true,
 }: ACLRulesProps) {
   const { user: currentUser } = useAuth()
-  const [rules, setRules] = useState<ACLRule[]>([])
-  const [mqttUsers, setMqttUsers] = useState<MQTTUser[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
+
+  // Always call useSearchParams (Rules of Hooks), but only use it when not embedded
+  const [searchParams, setSearchParams] = useSearchParams()
+  const shouldUseUrlParams = !mqttUserId // Only use URL params in standalone mode
+
+  // Get pagination params from URL (or use defaults for embedded mode)
+  const page = shouldUseUrlParams ? parseInt(searchParams.get('page') || '1', 10) : 1
+  const pageSize = shouldUseUrlParams ? parseInt(searchParams.get('pageSize') || '25', 10) : 25
+  const searchQuery = shouldUseUrlParams ? searchParams.get('search') || '' : ''
+  const sortBy = shouldUseUrlParams ? searchParams.get('sortBy') || 'mqtt_user_id' : 'mqtt_user_id'
+  const sortOrder = shouldUseUrlParams ? (searchParams.get('sortOrder') || 'asc') as 'asc' | 'desc' : 'asc'
+
+  // Local search state for immediate UI updates
+  const [localSearch, setLocalSearch] = useState(searchQuery)
+  const debouncedSearch = useDebounce(localSearch, 300)
+
+  // Dialog and form state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingRule, setEditingRule] = useState<ACLRule | null>(null)
   const [deleteRule, setDeleteRule] = useState<ACLRule | null>(null)
-
-  // Form state
   const [selectedMqttUserId, setSelectedMqttUserId] = useState<number>(mqttUserId || 0)
   const [topicPattern, setTopicPattern] = useState('')
   const [permission, setPermission] = useState<'pub' | 'sub' | 'pubsub'>('pubsub')
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const fetchData = async () => {
-    try {
-      const [rulesData, usersData] = await Promise.all([api.getACLRules(), api.getMQTTUsers()])
-
-      // Filter rules by MQTT user if specified
-      const filteredRules = mqttUserId
-        ? rulesData.filter((rule) => rule.mqtt_user_id === mqttUserId)
-        : rulesData
-
-      setRules(filteredRules)
-      setMqttUsers(usersData)
-
-      // Set default selected user ID if not set
-      if (!mqttUserId && usersData.length > 0 && selectedMqttUserId === 0) {
-        setSelectedMqttUserId(usersData[0].id)
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
+  // Update URL when debounced search changes (only in non-embedded mode)
   useEffect(() => {
-    fetchData()
-  }, [mqttUserId])
+    if (shouldUseUrlParams && debouncedSearch !== searchQuery) {
+      updateSearchParams({ search: debouncedSearch, page: 1 })
+    }
+  }, [debouncedSearch, shouldUseUrlParams, searchQuery])
+
+  // Sync local search with URL on mount or navigation
+  useEffect(() => {
+    setLocalSearch(searchQuery)
+  }, [searchQuery])
+
+  // Fetch ACL rules with React Query
+  const { data: rulesData, isLoading: rulesLoading } = useQuery({
+    queryKey: ['acl-rules', { page, pageSize, search: searchQuery, sortBy, sortOrder, mqttUserId }],
+    queryFn: () => api.getACLRules({ page, pageSize, search: searchQuery, sortBy, sortOrder }),
+  })
+
+  // Fetch MQTT users for dropdown
+  const { data: usersData } = useQuery({
+    queryKey: ['mqtt-users-all'],
+    queryFn: () => api.getMQTTUsers({ pageSize: 1000 }),
+  })
+
+  const mqttUsers = usersData?.data || []
+
+  // Filter rules by MQTT user if embedded
+  const rules = mqttUserId && rulesData?.data
+    ? rulesData.data.filter((rule) => rule.mqtt_user_id === mqttUserId)
+    : rulesData?.data || []
+
+  const pageCount = rulesData?.pagination?.total_pages || 0
+  const isLoading = rulesLoading
+
+  // Set default selected user ID
+  useEffect(() => {
+    if (!mqttUserId && mqttUsers.length > 0 && selectedMqttUserId === 0) {
+      setSelectedMqttUserId(mqttUsers[0].id)
+    } else if (mqttUserId && selectedMqttUserId === 0) {
+      setSelectedMqttUserId(mqttUserId)
+    }
+  }, [mqttUsers, mqttUserId])
 
   // Update selectedMqttUserId when mqttUserId prop changes
   useEffect(() => {
@@ -100,6 +124,80 @@ export function ACLRules({
       setSelectedMqttUserId(mqttUserId)
     }
   }, [mqttUserId])
+
+  // URL params helper (only used in non-embedded mode)
+  const updateSearchParams = (updates: Record<string, string | number>) => {
+    if (!shouldUseUrlParams) return
+    const newParams = new URLSearchParams(searchParams)
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, String(value))
+      } else {
+        newParams.delete(key)
+      }
+    })
+    setSearchParams(newParams, { replace: true })
+  }
+
+  // Pagination handlers (only used in non-embedded mode)
+  const setPaginationState = (updater: (old: { pageIndex: number; pageSize: number }) => { pageIndex: number; pageSize: number }) => {
+    const current = { pageIndex: page - 1, pageSize }
+    const next = updater(current)
+    updateSearchParams({ page: next.pageIndex + 1, pageSize: next.pageSize })
+  }
+
+  const setSortingState = (updater: (old: Array<{ id: string; desc: boolean }>) => Array<{ id: string; desc: boolean }>) => {
+    const current = sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []
+    const next = updater(current)
+    if (next.length > 0) {
+      updateSearchParams({ sortBy: next[0].id, sortOrder: next[0].desc ? 'desc' : 'asc' })
+    }
+  }
+
+  const setGlobalFilter = (filter: string) => {
+    setLocalSearch(filter)
+  }
+
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: (data: { mqtt_user_id: number; topic_pattern: string; permission: 'pub' | 'sub' | 'pubsub' }) =>
+      api.createACLRule(data.mqtt_user_id, data.topic_pattern, data.permission),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['acl-rules'] })
+      setIsCreateDialogOpen(false)
+      resetForm()
+      if (shouldUseUrlParams) updateSearchParams({ page: 1 })
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to create ACL rule')
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: number; topic_pattern: string; permission: 'pub' | 'sub' | 'pubsub' }) =>
+      api.updateACLRule(data.id, data.topic_pattern, data.permission),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['acl-rules'] })
+      setIsEditDialogOpen(false)
+      setEditingRule(null)
+      resetForm()
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to update ACL rule')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.deleteACLRule(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['acl-rules'] })
+      setDeleteRule(null)
+    },
+    onError: (err) => {
+      console.error('Failed to delete ACL rule:', err)
+      setDeleteRule(null)
+    },
+  })
 
   const resetForm = () => {
     setTopicPattern('')
@@ -112,21 +210,10 @@ export function ACLRules({
     setError('')
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setIsSubmitting(true)
-
-    try {
-      await api.createACLRule(selectedMqttUserId, topicPattern, permission)
-      setIsCreateDialogOpen(false)
-      resetForm()
-      fetchData()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create ACL rule')
-    } finally {
-      setIsSubmitting(false)
-    }
+    createMutation.mutate({ mqtt_user_id: selectedMqttUserId, topic_pattern: topicPattern, permission })
   }
 
   const handleEditClick = (rule: ACLRule) => {
@@ -136,36 +223,16 @@ export function ACLRules({
     setIsEditDialogOpen(true)
   }
 
-  const handleUpdate = async (e: React.FormEvent) => {
+  const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingRule) return
-
     setError('')
-    setIsSubmitting(true)
-
-    try {
-      await api.updateACLRule(editingRule.id, topicPattern, permission)
-      setIsEditDialogOpen(false)
-      setEditingRule(null)
-      resetForm()
-      fetchData()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update ACL rule')
-    } finally {
-      setIsSubmitting(false)
-    }
+    updateMutation.mutate({ id: editingRule.id, topic_pattern: topicPattern, permission })
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteRule) return
-
-    try {
-      await api.deleteACLRule(deleteRule.id)
-      setDeleteRule(null)
-      fetchData()
-    } catch (error) {
-      console.error('Failed to delete ACL rule:', error)
-    }
+    deleteMutation.mutate(deleteRule.id)
   }
 
   const getMQTTUsernameById = (id: number) => {
@@ -181,6 +248,78 @@ export function ACLRules({
     return <Badge variant={variants[perm] || 'outline'}>{perm}</Badge>
   }
 
+  const canEdit = currentUser?.role === 'admin'
+
+  // Define columns for DataTable
+  const columns = useMemo<ColumnDef<ACLRule>[]>(
+    () => [
+      ...(showMQTTUserColumn
+        ? [
+            {
+              accessorKey: 'mqtt_user_id',
+              header: ({ column }) => <DataTableColumnHeader column={column} title="MQTT User" />,
+              cell: ({ row }) => <span className="font-medium">{getMQTTUsernameById(row.getValue('mqtt_user_id'))}</span>,
+            } as ColumnDef<ACLRule>,
+          ]
+        : []),
+      {
+        accessorKey: 'topic_pattern',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Topic Pattern" />,
+        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue('topic_pattern')}</span>,
+      },
+      {
+        accessorKey: 'permission',
+        header: 'Permission',
+        cell: ({ row }) => getPermissionBadge(row.getValue('permission')),
+      },
+      {
+        id: 'source',
+        header: 'Source',
+        cell: ({ row }) =>
+          row.original.provisioned_from_config ? (
+            <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+              Provisioned
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground text-sm">Manual</span>
+          ),
+      },
+      ...(canEdit
+        ? [
+            {
+              id: 'actions',
+              cell: ({ row }) => {
+                const rule = row.original
+                return (
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditClick(rule)}
+                      disabled={rule.provisioned_from_config}
+                      title={rule.provisioned_from_config ? 'Edit config file to modify' : 'Edit rule'}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteRule(rule)}
+                      disabled={rule.provisioned_from_config}
+                      title={rule.provisioned_from_config ? 'Remove from config file to delete' : 'Delete rule'}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )
+              },
+            } as ColumnDef<ACLRule>,
+          ]
+        : []),
+    ],
+    [canEdit, showMQTTUserColumn, mqttUsers],
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -190,162 +329,108 @@ export function ACLRules({
     )
   }
 
-  const canEdit = currentUser?.role === 'admin'
-
   return (
-    <div className="space-y-6">
-      {canEdit && (
-        <div className="flex items-center justify-end">
-          <Button onClick={() => setIsCreateDialogOpen(true)} disabled={mqttUsers.length === 0}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Rule
-          </Button>
-        </div>
+    <div>
+      {showHeader && (
+        <PageHeader
+          title={
+            <PageTitle
+              help={
+                <>
+                  <div>
+                    <p className="font-semibold mb-1">Wildcards:</p>
+                    <ul className="ml-4 space-y-1 list-disc">
+                      <li>
+                        <code className="bg-muted rounded px-1">+</code> - Single level wildcard (e.g.,{' '}
+                        <code className="bg-muted rounded px-1">sensor/+/temp</code>)
+                      </li>
+                      <li>
+                        <code className="bg-muted rounded px-1">#</code> - Multi-level wildcard (e.g.,{' '}
+                        <code className="bg-muted rounded px-1">device/#</code>)
+                      </li>
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold mb-1">Permissions:</p>
+                    <ul className="ml-4 space-y-1 list-disc">
+                      <li><strong>pub</strong> - Publish only</li>
+                      <li><strong>sub</strong> - Subscribe only</li>
+                      <li><strong>pubsub</strong> - Both publish and subscribe</li>
+                    </ul>
+                  </div>
+                </>
+              }
+            >
+              Access Control Rules
+            </PageTitle>
+          }
+          action={
+            canEdit && mqttUsers.length > 0 ? (
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Rule
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       {mqttUsers.length === 0 ? (
-        <Card>
-          <CardContent className="py-8">
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Shield />
-                </EmptyMedia>
-                <EmptyTitle>No MQTT users available</EmptyTitle>
-                <EmptyDescription>
-                  Create MQTT credentials first before adding ACL rules
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          {showHeader && (
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CardTitle>Access Control Rules</CardTitle>
-                  {showHelp && (
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <button className="text-muted-foreground hover:text-foreground">
-                          <HelpCircle className="h-4 w-4" />
-                        </button>
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-80">
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <p className="font-semibold mb-1">Wildcards:</p>
-                            <ul className="ml-4 space-y-1 list-disc">
-                              <li>
-                                <code className="bg-muted rounded px-1">+</code> - Single level wildcard (e.g.,{' '}
-                                <code className="bg-muted rounded px-1">sensor/+/temp</code>)
-                              </li>
-                              <li>
-                                <code className="bg-muted rounded px-1">#</code> - Multi-level wildcard (e.g.,{' '}
-                                <code className="bg-muted rounded px-1">device/#</code>)
-                              </li>
-                            </ul>
-                          </div>
-                          <div>
-                            <p className="font-semibold mb-1">Permissions:</p>
-                            <ul className="ml-4 space-y-1 list-disc">
-                              <li><strong>pub</strong> - Publish only</li>
-                              <li><strong>sub</strong> - Subscribe only</li>
-                              <li><strong>pubsub</strong> - Both publish and subscribe</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
-                  )}
-                </div>
-              </div>
-              <CardDescription>
-                {rules.length} rule{rules.length !== 1 ? 's' : ''} configured
-                {mqttUserId && ` for this user`}
-              </CardDescription>
-            </CardHeader>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Shield />
+            </EmptyMedia>
+            <EmptyTitle>No MQTT users available</EmptyTitle>
+            <EmptyDescription>
+              Create MQTT credentials first before adding ACL rules
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : rules.length === 0 && !localSearch && rulesData?.pagination?.total === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Shield />
+            </EmptyMedia>
+            <EmptyTitle>No ACL rules</EmptyTitle>
+            <EmptyDescription>
+              Add a rule to control topic access for MQTT users
+            </EmptyDescription>
+          </EmptyHeader>
+          {canEdit && (
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Rule
+            </Button>
           )}
-          <CardContent className={showHeader ? '' : 'pt-6'}>
-            {rules.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Shield />
-                  </EmptyMedia>
-                  <EmptyTitle>No ACL rules</EmptyTitle>
-                  <EmptyDescription>
-                    Add a rule to control topic access for MQTT users
-                  </EmptyDescription>
-                </EmptyHeader>
-                {canEdit && (
-                  <Button onClick={() => setIsCreateDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Rule
-                  </Button>
-                )}
-              </Empty>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {showMQTTUserColumn && <TableHead>MQTT User</TableHead>}
-                    <TableHead>Topic Pattern</TableHead>
-                    <TableHead>Permission</TableHead>
-                    <TableHead>Source</TableHead>
-                    {canEdit && <TableHead className="text-right">Actions</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rules.map((rule) => (
-                    <TableRow key={rule.id} className={rule.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}>
-                      {showMQTTUserColumn && (
-                        <TableCell className="font-medium">{getMQTTUsernameById(rule.mqtt_user_id)}</TableCell>
-                      )}
-                      <TableCell className="font-mono text-sm">{rule.topic_pattern}</TableCell>
-                      <TableCell>{getPermissionBadge(rule.permission)}</TableCell>
-                      <TableCell>
-                        {rule.provisioned_from_config ? (
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                            Provisioned
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Manual</span>
-                        )}
-                      </TableCell>
-                      {canEdit && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditClick(rule)}
-                              disabled={rule.provisioned_from_config}
-                              title={rule.provisioned_from_config ? "Edit config file to modify" : "Edit rule"}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setDeleteRule(rule)}
-                              disabled={rule.provisioned_from_config}
-                              title={rule.provisioned_from_config ? "Remove from config file to delete" : "Delete rule"}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        </Empty>
+      ) : mqttUserId ? (
+        // Embedded mode (filtered by user) - no pagination UI
+        <DataTable
+          columns={columns}
+          data={rules}
+          getRowClassName={(row) => row.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}
+        />
+      ) : (
+        // Standalone mode - with pagination
+        <DataTable
+          columns={columns}
+          data={rules}
+          searchColumn="topic_pattern"
+          searchPlaceholder="Search topic patterns..."
+          getRowClassName={(row) => row.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}
+          pageCount={pageCount}
+          pagination={{ pageIndex: page - 1, pageSize }}
+          sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
+          columnFilters={localSearch ? [{ id: 'topic_pattern', value: localSearch }] : []}
+          manualPagination
+          manualSorting
+          manualFiltering
+          onPaginationChange={setPaginationState}
+          onSortingChange={setSortingState}
+          onGlobalFilterChange={setGlobalFilter}
+        />
       )}
 
       {/* Create ACL Rule Dialog */}
@@ -416,9 +501,9 @@ export function ACLRules({
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Spinner className="mr-2" />}
-                {isSubmitting ? 'Creating...' : 'Create Rule'}
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending && <Spinner className="mr-2" />}
+                {createMutation.isPending ? 'Creating...' : 'Create Rule'}
               </Button>
             </DialogFooter>
           </form>
@@ -477,9 +562,9 @@ export function ACLRules({
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Spinner className="mr-2" />}
-                {isSubmitting ? 'Updating...' : 'Update Rule'}
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Spinner className="mr-2" />}
+                {updateMutation.isPending ? 'Updating...' : 'Update Rule'}
               </Button>
             </DialogFooter>
           </form>

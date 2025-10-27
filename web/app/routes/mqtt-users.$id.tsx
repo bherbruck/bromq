@@ -1,6 +1,7 @@
 import { ArrowLeft, Save, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Route } from './+types/mqtt-users.$id'
 import { useAuth } from '~/lib/auth-context'
 import { ACLRules } from '~/components/acl-rules'
@@ -21,7 +22,6 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Field, FieldLabel, FieldError } from '~/components/ui/field'
 import { Spinner } from '~/components/ui/spinner'
-import { Separator } from '~/components/ui/separator'
 import { Textarea } from '~/components/ui/textarea'
 import { api, type MQTTUser } from '~/lib/api'
 
@@ -33,8 +33,7 @@ export default function MQTTUserDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
-  const [mqttUser, setMqttUser] = useState<MQTTUser | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   // Form state
@@ -42,34 +41,24 @@ export default function MQTTUserDetailPage() {
   const [password, setPassword] = useState('')
   const [description, setDescription] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSaved, setIsSaved] = useState(true)
   const [error, setError] = useState('')
 
-  const fetchUser = async () => {
-    if (!id) return
-    try {
-      const users = await api.getMQTTUsers()
-      const user = users.find((u) => u.id === parseInt(id))
-      if (user) {
-        setMqttUser(user)
-        setUsername(user.username)
-        setDescription(user.description || '')
-        setIsSaved(true)
-      } else {
-        navigate('/mqtt-users')
-      }
-    } catch (error) {
-      console.error('Failed to fetch MQTT user:', error)
-      navigate('/mqtt-users')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Fetch user with React Query
+  const { data: mqttUser, isLoading } = useQuery({
+    queryKey: ['mqtt-user', id],
+    queryFn: () => api.getMQTTUser(parseInt(id!)),
+    enabled: !!id,
+  })
 
+  // Initialize form when user data loads
   useEffect(() => {
-    fetchUser()
-  }, [id])
+    if (mqttUser) {
+      setUsername(mqttUser.username)
+      setDescription(mqttUser.description || '')
+      setIsSaved(true)
+    }
+  }, [mqttUser])
 
   // Track if form is dirty
   useEffect(() => {
@@ -92,41 +81,53 @@ export default function MQTTUserDetailPage() {
     }
   }
 
-  const handleSave = async () => {
-    if (!mqttUser) return
-
-    setError('')
-    setIsSubmitting(true)
-
-    try {
-      // Update username and description
-      await api.updateMQTTUser(mqttUser.id, username, description)
-
-      // Update password if changed
-      if (isChangingPassword && password) {
-        await api.updateMQTTUserPassword(mqttUser.id, password)
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: async (data: { id: number; username: string; description: string; password?: string }) => {
+      await api.updateMQTTUser(data.id, data.username, data.description)
+      if (data.password) {
+        await api.updateMQTTUserPassword(data.id, data.password)
       }
-
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mqtt-user', id] })
+      queryClient.invalidateQueries({ queryKey: ['mqtt-users'] })
       setPassword('')
       setIsChangingPassword(false)
-      await fetchUser()
-    } catch (err) {
+      setIsSaved(true)
+    },
+    onError: (err) => {
       setError(err instanceof Error ? err.message : 'Failed to update MQTT user')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+    },
+  })
 
-  const handleDelete = async () => {
-    if (!mqttUser) return
-
-    try {
-      await api.deleteMQTTUser(mqttUser.id)
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.deleteMQTTUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mqtt-users'] })
       navigate('/mqtt-users')
-    } catch (err) {
+    },
+    onError: (err) => {
       setError(err instanceof Error ? err.message : 'Failed to delete MQTT user')
       setIsDeleteDialogOpen(false)
-    }
+    },
+  })
+
+  const handleSave = () => {
+    if (!mqttUser) return
+    setError('')
+    updateMutation.mutate({
+      id: mqttUser.id,
+      username,
+      description,
+      password: isChangingPassword ? password : undefined,
+    })
+  }
+
+  const handleDelete = () => {
+    if (!mqttUser) return
+    deleteMutation.mutate(mqttUser.id)
   }
 
   if (isLoading) {
@@ -166,14 +167,14 @@ export default function MQTTUserDetailPage() {
           <div className="flex gap-2">
             {!isSaved && !isProvisioned && (
               <>
-                <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+                <Button variant="outline" onClick={handleCancel} disabled={updateMutation.isPending}>
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={isSubmitting}>
-                  {isSubmitting && <Spinner className="mr-2" />}
-                  {!isSubmitting && <Save className="mr-2 h-4 w-4" />}
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                <Button onClick={handleSave} disabled={updateMutation.isPending}>
+                  {updateMutation.isPending && <Spinner className="mr-2" />}
+                  {!updateMutation.isPending && <Save className="mr-2 h-4 w-4" />}
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </>
             )}
@@ -244,8 +245,6 @@ export default function MQTTUserDetailPage() {
             />
           </Field>
 
-          <Separator />
-
           {/* Password Change Section */}
           {canEditProvisioned && (
             <div className="space-y-4">
@@ -279,8 +278,6 @@ export default function MQTTUserDetailPage() {
             </div>
           )}
 
-          <Separator />
-
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <Label className="text-muted-foreground">Created</Label>
@@ -300,7 +297,6 @@ export default function MQTTUserDetailPage() {
           mqttUserId={mqttUser.id}
           showMQTTUserColumn={false}
           showHeader={true}
-          showHelp={true}
         />
       </div>
 

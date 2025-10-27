@@ -14,8 +14,9 @@ import {
 } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
+import { PageHeader } from '~/components/page-header'
+import { PageTitle } from '~/components/page-title'
 import { Spinner } from '~/components/ui/spinner'
 import {
   Table,
@@ -105,88 +106,100 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Connections</CardTitle>
-          <CardDescription>
-            {clients.length} client{clients.length !== 1 ? 's' : ''} currently connected
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {clients.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Users />
-                </EmptyMedia>
-                <EmptyTitle>No connected clients</EmptyTitle>
-                <EmptyDescription>
-                  Clients will appear here when they connect to the MQTT broker
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client ID</TableHead>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Protocol</TableHead>
-                  <TableHead className="text-center">Subscriptions</TableHead>
-                  <TableHead className="text-center">In-Flight</TableHead>
-                  <TableHead>Connected</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+    <div>
+      <PageHeader
+        title={
+          <PageTitle
+            help={
+              <>
+                <p>
+                  Shows all MQTT clients currently connected to the broker in real-time.
+                </p>
+                <p>
+                  View connection details like protocol version, active subscriptions, and
+                  connection duration. You can forcefully disconnect clients if needed.
+                </p>
+              </>
+            }
+          >
+            Active Connections
+          </PageTitle>
+        }
+      />
+
+      {clients.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Users />
+            </EmptyMedia>
+            <EmptyTitle>No connected clients</EmptyTitle>
+            <EmptyDescription>
+              Clients will appear here when they connect to the MQTT broker
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Client ID</TableHead>
+                <TableHead>Username</TableHead>
+                <TableHead>Protocol</TableHead>
+                <TableHead className="text-center">Subscriptions</TableHead>
+                <TableHead className="text-center">In-Flight</TableHead>
+                <TableHead>Connected</TableHead>
+                <TableHead className="text-right" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clients.map((client) => (
+                <TableRow key={client.id}>
+                  <TableCell className="font-mono text-sm">{client.id}</TableCell>
+                  <TableCell>
+                    {client.username || <span className="text-muted-foreground">anonymous</span>}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{getProtocolVersion(client.protocol_version)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {client.subscriptions_count > 0 ? (
+                      <Badge>{client.subscriptions_count}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">0</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {client.inflight_count > 0 ? (
+                      <Badge variant="secondary">{client.inflight_count}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">0</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {formatConnectionDuration(client.connected_at)}
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/clients/${client.id}`}>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setSelectedClient(client)}
+                    >
+                      <UserX className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clients.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell className="font-mono text-sm">{client.id}</TableCell>
-                    <TableCell>
-                      {client.username || <span className="text-muted-foreground">anonymous</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getProtocolVersion(client.protocol_version)}</Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {client.subscriptions_count > 0 ? (
-                        <Badge>{client.subscriptions_count}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {client.inflight_count > 0 ? (
-                        <Badge variant="secondary">{client.inflight_count}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {formatConnectionDuration(client.connected_at)}
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link to={`/clients/${client.id}`}>
-                          <ArrowRight className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setSelectedClient(client)}
-                      >
-                        <UserX className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Disconnect Confirmation Dialog */}
       <AlertDialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>

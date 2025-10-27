@@ -4,5 +4,5 @@ import { ACLRules } from '~/components/acl-rules'
 export const meta: Route.MetaFunction = () => [{ title: 'ACL Rules - MQTT Server' }]
 
 export default function ACLPage() {
-  return <ACLRules showMQTTUserColumn={true} showHeader={true} showHelp={true} />
+  return <ACLRules showMQTTUserColumn={true} showHeader={true} />
 }

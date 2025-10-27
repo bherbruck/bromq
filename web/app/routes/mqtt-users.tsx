@@ -1,8 +1,11 @@
-import { ChevronRight, Pencil, Plus, Trash2, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import type { Route } from './+types/mqtt-users'
 import { useAuth } from '~/lib/auth-context'
+import { useDebounce } from '~/lib/use-debounce'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +18,6 @@ import {
 } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -26,16 +28,12 @@ import {
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
 import { Field, FieldLabel, FieldError } from '~/components/ui/field'
+import { DataTable } from '~/components/data-table'
+import { DataTableColumnHeader } from '~/components/data-table-column-header'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
+import { PageHeader } from '~/components/page-header'
+import { PageTitle } from '~/components/page-title'
 import { Spinner } from '~/components/ui/spinner'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '~/components/ui/table'
 import { Textarea } from '~/components/ui/textarea'
 import { api, type MQTTUser } from '~/lib/api'
 
@@ -43,8 +41,42 @@ export const meta: Route.MetaFunction = () => [{ title: 'MQTT Users - MQTT Serve
 
 export default function MQTTUsersPage() {
   const { user: currentUser } = useAuth()
-  const [users, setUsers] = useState<MQTTUser[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Get pagination params from URL
+  const page = parseInt(searchParams.get('page') || '1', 10)
+  const pageSize = parseInt(searchParams.get('pageSize') || '25', 10)
+  const searchQuery = searchParams.get('search') || ''
+  const sortBy = searchParams.get('sortBy') || 'created_at'
+  const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
+
+  // Local search state for immediate UI updates
+  const [localSearch, setLocalSearch] = useState(searchQuery)
+  const debouncedSearch = useDebounce(localSearch, 300)
+
+  // Update URL when debounced search changes
+  useEffect(() => {
+    if (debouncedSearch !== searchQuery) {
+      updateSearchParams({ search: debouncedSearch, page: 1 })
+    }
+  }, [debouncedSearch])
+
+  // Sync local search with URL on mount or navigation
+  useEffect(() => {
+    setLocalSearch(searchQuery)
+  }, [searchQuery])
+
+  // Fetch data with React Query
+  const { data, isLoading } = useQuery({
+    queryKey: ['mqtt-users', { page, pageSize, search: searchQuery, sortBy, sortOrder }],
+    queryFn: () => api.getMQTTUsers({ page, pageSize, search: searchQuery, sortBy, sortOrder }),
+  })
+
+  const users = data?.data || []
+  const pageCount = data?.pagination.total_pages || 0
+
+  // Dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deleteUser, setDeleteUser] = useState<MQTTUser | null>(null)
@@ -55,23 +87,89 @@ export default function MQTTUsersPage() {
   const [password, setPassword] = useState('')
   const [description, setDescription] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const fetchUsers = async () => {
-    try {
-      const data = await api.getMQTTUsers()
-      setUsers(data)
-    } catch (error) {
-      console.error('Failed to fetch MQTT users:', error)
-    } finally {
-      setIsLoading(false)
+  // Update URL params
+  const updateSearchParams = (updates: Record<string, string | number>) => {
+    const newParams = new URLSearchParams(searchParams)
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, String(value))
+      } else {
+        newParams.delete(key)
+      }
+    })
+    setSearchParams(newParams, { replace: true })
+  }
+
+  // Pagination handlers
+  const setPaginationState = (updater: (old: PaginationState) => PaginationState) => {
+    const current = { pageIndex: page - 1, pageSize }
+    const next = updater(current)
+    updateSearchParams({ page: next.pageIndex + 1, pageSize: next.pageSize })
+  }
+
+  const setSortingState = (updater: (old: SortingState) => SortingState) => {
+    const current: SortingState = sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []
+    const next = updater(current)
+    if (next.length > 0) {
+      updateSearchParams({ sortBy: next[0].id, sortOrder: next[0].desc ? 'desc' : 'asc' })
     }
   }
 
-  useEffect(() => {
-    fetchUsers()
-  }, [])
+  const setGlobalFilter = (filter: string) => {
+    setLocalSearch(filter) // Update local state immediately for UI responsiveness
+  }
+
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: (data: { username: string; password: string; description?: string }) =>
+      api.createMQTTUser(data.username, data.password, data.description),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mqtt-users'] })
+      setIsCreateDialogOpen(false)
+      resetForm()
+      updateSearchParams({ page: 1 })
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to create MQTT user')
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: {
+      id: number
+      username: string
+      description?: string
+      password?: string
+    }) => {
+      await api.updateMQTTUser(data.id, data.username, data.description)
+      if (data.password) {
+        await api.updateMQTTUserPassword(data.id, data.password)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mqtt-users'] })
+      setIsEditDialogOpen(false)
+      setEditingUser(null)
+      resetForm()
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to update MQTT user')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.deleteMQTTUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mqtt-users'] })
+      setDeleteUser(null)
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to delete MQTT user')
+      setDeleteUser(null)
+    },
+  })
 
   const resetForm = () => {
     setUsername('')
@@ -81,61 +179,27 @@ export default function MQTTUsersPage() {
     setError('')
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setIsSubmitting(true)
-
-    try {
-      await api.createMQTTUser(username, password, description)
-      setIsCreateDialogOpen(false)
-      resetForm()
-      fetchUsers()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create MQTT user')
-    } finally {
-      setIsSubmitting(false)
-    }
+    createMutation.mutate({ username, password, description })
   }
 
-  const handleUpdate = async (e: React.FormEvent) => {
+  const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingUser) return
-
     setError('')
-    setIsSubmitting(true)
-
-    try {
-      // Update username and description
-      await api.updateMQTTUser(editingUser.id, username, description)
-
-      // Update password if changed
-      if (isChangingPassword && password) {
-        await api.updateMQTTUserPassword(editingUser.id, password)
-      }
-
-      setIsEditDialogOpen(false)
-      setEditingUser(null)
-      resetForm()
-      fetchUsers()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update MQTT user')
-    } finally {
-      setIsSubmitting(false)
-    }
+    updateMutation.mutate({
+      id: editingUser.id,
+      username,
+      description,
+      password: isChangingPassword ? password : undefined,
+    })
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteUser) return
-
-    try {
-      await api.deleteMQTTUser(deleteUser.id)
-      setDeleteUser(null)
-      fetchUsers()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete MQTT user')
-      setDeleteUser(null)
-    }
+    deleteMutation.mutate(deleteUser.id)
   }
 
   const openEditDialog = (user: MQTTUser) => {
@@ -147,136 +211,177 @@ export default function MQTTUsersPage() {
     setIsEditDialogOpen(true)
   }
 
+  const canEdit = currentUser?.role === 'admin'
+
+  const columns = useMemo<ColumnDef<MQTTUser>[]>(
+    () => [
+      {
+        accessorKey: 'username',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
+        cell: ({ row }) => (
+          <Link
+            to={`/mqtt-users/${row.original.id}`}
+            className="hover:text-primary font-medium hover:underline"
+          >
+            {row.getValue('username')}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: 'description',
+        header: 'Description',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {row.getValue('description') || <span className="italic">No description</span>}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'provisioned_from_config',
+        header: 'Source',
+        cell: ({ row }) =>
+          row.getValue('provisioned_from_config') ? (
+            <Badge
+              variant="secondary"
+              className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+            >
+              Provisioned
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground text-sm">Manual</span>
+          ),
+      },
+      {
+        accessorKey: 'created_at',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Created" />,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {new Date(row.getValue('created_at')).toLocaleDateString()}
+          </span>
+        ),
+      },
+      ...(canEdit
+        ? [
+            {
+              id: 'actions',
+              cell: ({ row }: { row: any }) => {
+                const user = row.original as MQTTUser
+                return (
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditDialog(user)}
+                      disabled={user.provisioned_from_config}
+                      title={
+                        user.provisioned_from_config ? 'Edit config file to modify' : 'Edit user'
+                      }
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteUser(user)}
+                      disabled={user.provisioned_from_config}
+                      title={
+                        user.provisioned_from_config
+                          ? 'Remove from config file to delete'
+                          : 'Delete user'
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )
+              },
+            } as ColumnDef<MQTTUser>,
+          ]
+        : []),
+    ],
+    [canEdit],
+  )
+
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2">
         <Spinner />
         Loading MQTT users...
       </div>
     )
   }
 
-  const canEdit = currentUser?.role === 'admin'
-
   return (
-    <div className="space-y-6">
-      {canEdit && (
-        <div className="flex items-center justify-end">
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add MQTT User
-          </Button>
-        </div>
-      )}
+    <div>
+      <PageHeader
+        title={
+          <PageTitle
+            help={
+              <>
+                <p>
+                  MQTT users are credentials that devices use to authenticate when connecting to the
+                  MQTT broker.
+                </p>
+                <p>
+                  Each MQTT user can have multiple devices connecting with the same credentials, and
+                  you can control their topic access with ACL rules.
+                </p>
+              </>
+            }
+          >
+            MQTT Users
+          </PageTitle>
+        }
+        action={
+          canEdit ? (
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add MQTT User
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>MQTT Users</CardTitle>
-          <CardDescription>
-            {users.length} MQTT user{users.length !== 1 ? 's' : ''} configured - these are used
-            to authenticate devices connecting to the MQTT broker
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {users.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Users />
-                </EmptyMedia>
-                <EmptyTitle>No MQTT users</EmptyTitle>
-                <EmptyDescription>
-                  Add an MQTT user to allow devices to connect to the broker.
-                </EmptyDescription>
-              </EmptyHeader>
-              {canEdit && (
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add MQTT User
-                </Button>
-              )}
-            </Empty>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Created</TableHead>
-                  {canEdit && <TableHead className="text-right">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id} className={user.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {user.username}
-                        {user.provisioned_from_config && (
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                            Provisioned
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {user.description || <span className="italic">No description</span>}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </TableCell>
-                    {canEdit && (
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(user)}
-                            disabled={user.provisioned_from_config}
-                            title={user.provisioned_from_config ? "Edit config file to modify" : "Edit user"}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setDeleteUser(user)}
-                            disabled={user.provisioned_from_config}
-                            title={user.provisioned_from_config ? "Remove from config file to delete" : "Delete user"}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link to={`/mqtt-users/${user.id}`}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      {users.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Users />
+            </EmptyMedia>
+            <EmptyTitle>No MQTT users</EmptyTitle>
+            <EmptyDescription>
+              Add an MQTT user to allow devices to connect to the broker.
+            </EmptyDescription>
+          </EmptyHeader>
+          {canEdit && (
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add MQTT User
+            </Button>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Help Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>About MQTT Users</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm space-y-2">
-          <p>
-            MQTT users are username/password combinations that devices use to authenticate
-            when connecting to the MQTT broker.
-          </p>
-          <p>
-            Click the arrow next to each user to view details and manage ACL rules.
-          </p>
-        </CardContent>
-      </Card>
+        </Empty>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={users}
+          searchColumn="username"
+          searchPlaceholder="Search users..."
+          getRowClassName={(user) =>
+            user.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+          }
+          // Server-side pagination - pass controlled state
+          pageCount={pageCount}
+          pagination={{ pageIndex: page - 1, pageSize }}
+          sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
+          columnFilters={localSearch ? [{ id: 'username', value: localSearch }] : []}
+          manualPagination
+          manualSorting
+          manualFiltering
+          onPaginationChange={setPaginationState}
+          onSortingChange={setSortingState}
+          onGlobalFilterChange={setGlobalFilter}
+        />
+      )}
 
       {/* Create Dialog */}
       <Dialog
@@ -331,9 +436,9 @@ export default function MQTTUsersPage() {
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Spinner className="mr-2" />}
-                {isSubmitting ? 'Creating...' : 'Create MQTT User'}
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending && <Spinner className="mr-2" />}
+                {createMutation.isPending ? 'Creating...' : 'Create MQTT User'}
               </Button>
             </DialogFooter>
           </form>
@@ -379,7 +484,7 @@ export default function MQTTUsersPage() {
               </Field>
 
               {/* Password Change Section */}
-              <div className="border-t pt-4 space-y-3">
+              <div className="space-y-3 border-t pt-4">
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -416,9 +521,9 @@ export default function MQTTUsersPage() {
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Spinner className="mr-2" />}
-                {isSubmitting ? 'Updating...' : 'Save Changes'}
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Spinner className="mr-2" />}
+                {updateMutation.isPending ? 'Updating...' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>
@@ -433,8 +538,8 @@ export default function MQTTUsersPage() {
             <AlertDialogDescription>
               Are you sure you want to delete MQTT user{' '}
               <strong className="font-mono">{deleteUser?.username}</strong>? This will prevent any
-              devices using this account from connecting to the MQTT broker. All associated
-              ACL rules will also be deleted.
+              devices using this account from connecting to the MQTT broker. All associated ACL
+              rules will also be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

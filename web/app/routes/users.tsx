@@ -1,7 +1,11 @@
-import { Pencil, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Plus, Trash2, Users as UsersIcon } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import type { Route } from './+types/users'
 import { useAuth } from '~/lib/auth-context'
+import { useDebounce } from '~/lib/use-debounce'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +18,6 @@ import {
 } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -25,24 +28,55 @@ import {
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
 import { Field, FieldLabel, FieldError } from '~/components/ui/field'
+import { DataTable } from '~/components/data-table'
+import { DataTableColumnHeader } from '~/components/data-table-column-header'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
+import { PageHeader } from '~/components/page-header'
+import { PageTitle } from '~/components/page-title'
 import { Spinner } from '~/components/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '~/components/ui/table'
 import { api, type DashboardUser } from '~/lib/api'
 
 export const meta: Route.MetaFunction = () => [{ title: 'Dashboard Users - MQTT Server' }]
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
-  const [users, setUsers] = useState<DashboardUser[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Get pagination params from URL
+  const page = parseInt(searchParams.get('page') || '1', 10)
+  const pageSize = parseInt(searchParams.get('pageSize') || '25', 10)
+  const searchQuery = searchParams.get('search') || ''
+  const sortBy = searchParams.get('sortBy') || 'created_at'
+  const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
+
+  // Local search state for immediate UI updates
+  const [localSearch, setLocalSearch] = useState(searchQuery)
+  const debouncedSearch = useDebounce(localSearch, 300)
+
+  // Update URL when debounced search changes
+  useEffect(() => {
+    if (debouncedSearch !== searchQuery) {
+      updateSearchParams({ search: debouncedSearch, page: 1 })
+    }
+  }, [debouncedSearch])
+
+  // Sync local search with URL on mount or navigation
+  useEffect(() => {
+    setLocalSearch(searchQuery)
+  }, [searchQuery])
+
+  // Fetch data with React Query
+  const { data, isLoading } = useQuery({
+    queryKey: ['dashboard-users', { page, pageSize, search: searchQuery, sortBy, sortOrder }],
+    queryFn: () => api.getDashboardUsers({ page, pageSize, search: searchQuery, sortBy, sortOrder }),
+  })
+
+  const users = data?.data || []
+  const pageCount = data?.pagination.total_pages || 0
+
+  // Dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deleteUser, setDeleteUser] = useState<DashboardUser | null>(null)
@@ -53,23 +87,89 @@ export default function UsersPage() {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<'viewer' | 'admin'>('viewer')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const fetchUsers = async () => {
-    try {
-      const data = await api.getDashboardUsers()
-      setUsers(data)
-    } catch (error) {
-      console.error('Failed to fetch users:', error)
-    } finally {
-      setIsLoading(false)
+  // Update URL params
+  const updateSearchParams = (updates: Record<string, string | number>) => {
+    const newParams = new URLSearchParams(searchParams)
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, String(value))
+      } else {
+        newParams.delete(key)
+      }
+    })
+    setSearchParams(newParams, { replace: true })
+  }
+
+  // Pagination handlers
+  const setPaginationState = (updater: (old: PaginationState) => PaginationState) => {
+    const current = { pageIndex: page - 1, pageSize }
+    const next = updater(current)
+    updateSearchParams({ page: next.pageIndex + 1, pageSize: next.pageSize })
+  }
+
+  const setSortingState = (updater: (old: SortingState) => SortingState) => {
+    const current: SortingState = sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []
+    const next = updater(current)
+    if (next.length > 0) {
+      updateSearchParams({ sortBy: next[0].id, sortOrder: next[0].desc ? 'desc' : 'asc' })
     }
   }
 
-  useEffect(() => {
-    fetchUsers()
-  }, [])
+  const setGlobalFilter = (filter: string) => {
+    setLocalSearch(filter) // Update local state immediately for UI responsiveness
+  }
+
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: (data: { username: string; password: string; role: 'viewer' | 'admin' }) =>
+      api.createDashboardUser(data.username, data.password, data.role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-users'] })
+      setIsCreateDialogOpen(false)
+      resetForm()
+      updateSearchParams({ page: 1 })
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to create user')
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: {
+      id: number
+      username: string
+      role: 'viewer' | 'admin'
+      password?: string
+    }) => {
+      await api.updateDashboardUser(data.id, data.username, data.role)
+      if (data.password) {
+        await api.updateDashboardUserPassword(data.id, data.password)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-users'] })
+      setIsEditDialogOpen(false)
+      setEditingUser(null)
+      resetForm()
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : 'Failed to update user')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.deleteDashboardUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-users'] })
+      setDeleteUser(null)
+    },
+    onError: (err) => {
+      console.error('Failed to delete user:', err)
+      setDeleteUser(null)
+    },
+  })
 
   const resetForm = () => {
     setUsername('')
@@ -79,60 +179,27 @@ export default function UsersPage() {
     setError('')
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setIsSubmitting(true)
-
-    try {
-      await api.createDashboardUser(username, password, role)
-      setIsCreateDialogOpen(false)
-      resetForm()
-      fetchUsers()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create user')
-    } finally {
-      setIsSubmitting(false)
-    }
+    createMutation.mutate({ username, password, role })
   }
 
-  const handleUpdate = async (e: React.FormEvent) => {
+  const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingUser) return
-
     setError('')
-    setIsSubmitting(true)
-
-    try {
-      // Update username and role
-      await api.updateDashboardUser(editingUser.id, username, role)
-
-      // Update password if changed
-      if (isChangingPassword && password) {
-        await api.updateDashboardUserPassword(editingUser.id, password)
-      }
-
-      setIsEditDialogOpen(false)
-      setEditingUser(null)
-      resetForm()
-      fetchUsers()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update user')
-    } finally {
-      setIsSubmitting(false)
-    }
+    updateMutation.mutate({
+      id: editingUser.id,
+      username,
+      role,
+      password: isChangingPassword ? password : undefined,
+    })
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteUser) return
-
-    try {
-      await api.deleteDashboardUser(deleteUser.id)
-      setDeleteUser(null)
-      fetchUsers()
-    } catch (error) {
-      console.error('Failed to delete user:', error)
-    }
+    deleteMutation.mutate(deleteUser.id)
   }
 
   const openEditDialog = (user: DashboardUser) => {
@@ -144,6 +211,57 @@ export default function UsersPage() {
     setIsEditDialogOpen(true)
   }
 
+  const isAdmin = currentUser?.role === 'admin'
+
+  const columns = useMemo<ColumnDef<DashboardUser>[]>(
+    () => [
+      {
+        accessorKey: 'username',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
+        cell: ({ row }) => <span className="font-medium">{row.getValue('username')}</span>,
+      },
+      {
+        accessorKey: 'role',
+        header: 'Role',
+        cell: ({ row }) => (
+          <Badge variant={row.getValue('role') === 'admin' ? 'default' : 'secondary'}>
+            {row.getValue('role')}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: 'created_at',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Created" />,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {new Date(row.getValue('created_at')).toLocaleDateString()}
+          </span>
+        ),
+      },
+      ...(isAdmin
+        ? [
+            {
+              id: 'actions',
+              cell: ({ row }: { row: any }) => {
+                const user = row.original as DashboardUser
+                return (
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => setDeleteUser(user)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )
+              },
+            } as ColumnDef<DashboardUser>,
+          ]
+        : []),
+    ],
+    [isAdmin],
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -153,64 +271,74 @@ export default function UsersPage() {
     )
   }
 
-  const isAdmin = currentUser?.role === 'admin'
-
   return (
-    <div className="space-y-6">
-      {isAdmin && (
-        <div className="flex items-center justify-end">
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
-        </div>
-      )}
+    <div>
+      <PageHeader
+        title={
+          <PageTitle
+            help={
+              <>
+                <p>
+                  Dashboard users are accounts that can log in to this web interface to
+                  manage the MQTT server.
+                </p>
+                <p>
+                  <strong>Admin</strong> users have full access to manage all settings, while{' '}
+                  <strong>Viewer</strong> users can only view data without making changes.
+                </p>
+              </>
+            }
+          >
+            Dashboard Users
+          </PageTitle>
+        }
+        action={
+          isAdmin ? (
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Dashboard Users</CardTitle>
-          <CardDescription>{users.length} dashboard user{users.length !== 1 ? 's' : ''} - these accounts can log in to this web interface</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Username</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Created</TableHead>
-                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.username}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </TableCell>
-                  {isAdmin && (
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => setDeleteUser(user)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {users.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <UsersIcon />
+            </EmptyMedia>
+            <EmptyTitle>No dashboard users</EmptyTitle>
+            <EmptyDescription>
+              Add a user to allow them to log in to the dashboard.
+            </EmptyDescription>
+          </EmptyHeader>
+          {isAdmin && (
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+          )}
+        </Empty>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={users}
+          searchColumn="username"
+          searchPlaceholder="Search users..."
+          // Server-side pagination - pass controlled state
+          pageCount={pageCount}
+          pagination={{ pageIndex: page - 1, pageSize }}
+          sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
+          columnFilters={localSearch ? [{ id: 'username', value: localSearch }] : []}
+          manualPagination
+          manualSorting
+          manualFiltering
+          onPaginationChange={setPaginationState}
+          onSortingChange={setSortingState}
+          onGlobalFilterChange={setGlobalFilter}
+        />
+      )}
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
@@ -261,9 +389,9 @@ export default function UsersPage() {
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Spinner className="mr-2" />}
-                {isSubmitting ? 'Creating...' : 'Create User'}
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending && <Spinner className="mr-2" />}
+                {createMutation.isPending ? 'Creating...' : 'Create User'}
               </Button>
             </DialogFooter>
           </form>
@@ -345,9 +473,9 @@ export default function UsersPage() {
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Spinner className="mr-2" />}
-                {isSubmitting ? 'Updating...' : 'Save Changes'}
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Spinner className="mr-2" />}
+                {updateMutation.isPending ? 'Updating...' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>
