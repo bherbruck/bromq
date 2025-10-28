@@ -44,3 +44,33 @@ acl_rules:
   - mqtt_username: tenant_c_devices
     topic_pattern: "tenants/tenant-c/${clientid}/#"
     permission: pubsub
+
+# Optional: Bridge tenant data to central cloud platform
+# bridges:
+#   # Forward Tenant A data to their dedicated cloud instance
+#   - name: tenant-a-cloud
+#     remote_host: ${TENANT_A_CLOUD_HOST}
+#     remote_port: 1883
+#     remote_username: ${TENANT_A_CLOUD_USER}
+#     remote_password: ${TENANT_A_CLOUD_PASSWORD}
+#     metadata:
+#       tenant_id: "tenant-a"
+#     topics:
+#       - local_pattern: "tenants/tenant-a/#"
+#         remote_pattern: "cloud/customer-a/#"
+#         direction: out
+#         qos: 1
+#
+#   # Forward Tenant B data to shared cloud
+#   - name: tenant-b-cloud
+#     remote_host: shared-cloud.example.com
+#     remote_port: 1883
+#     remote_username: shared_bridge
+#     remote_password: ${SHARED_CLOUD_PASSWORD}
+#     metadata:
+#       tenant_id: "tenant-b"
+#     topics:
+#       - local_pattern: "tenants/tenant-b/#"
+#         remote_pattern: "shared/tenant-b/#"
+#         direction: out
+#         qos: 0

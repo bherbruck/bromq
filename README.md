@@ -9,9 +9,11 @@ A high-performance, single-node MQTT broker with embedded web UI built on mochi-
 - **Three-table architecture** - Separate dashboard users, MQTT credentials, and client tracking
 - **Database-backed authentication** with bcrypt password hashing
 - **Granular ACL permissions** with MQTT wildcard support (`+`, `#`)
-- **REST API** for comprehensive management (users, credentials, clients, ACL)
+- **MQTT Bridging** - Connect to remote brokers with bidirectional topic routing
+- **REST API** for comprehensive management (users, credentials, clients, ACL, bridges)
 - **Modern Web Dashboard** - React Router v7 + shadcn/ui
 - **Client connection tracking** - Monitor individual devices with metadata
+- **Configuration provisioning** - YAML-based configuration with auto-sync
 - **Single binary deployment** (~19MB) with embedded frontend
 - **Docker support** with multi-stage builds and hot reload dev mode
 - **Prometheus metrics** endpoint for monitoring
@@ -55,7 +57,7 @@ curl -X POST http://localhost:8080/api/auth/login \
 ### Create MQTT Credentials
 
 ```bash
-curl -X POST http://localhost:8080/api/mqtt/credentials \
+curl -X POST http://localhost:8080/api/mqtt/users \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"username":"sensor_user","password":"sensor123","description":"IoT sensors"}'

@@ -564,6 +564,13 @@ Protected (admin only - all routes below):
 - `PUT /api/acl/{id}` - Update ACL rule
 - `DELETE /api/acl/{id}` - Delete ACL rule
 
+*Bridge Management:*
+- `GET /api/bridges` - List all bridges (with pagination)
+- `GET /api/bridges/{id}` - Get specific bridge
+- `POST /api/bridges` - Create bridge
+- `PUT /api/bridges/{id}` - Update bridge
+- `DELETE /api/bridges/{id}` - Delete bridge
+
 *Legacy Endpoints (for backward compatibility):*
 - `GET /api/clients` - List connected MQTT clients
 - `GET /api/clients/{id}` - Get client details
@@ -836,6 +843,68 @@ curl -X POST http://localhost:8080/api/acl \
 # List ACL rules
 curl -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/api/acl
+
+# === Bridge Management ===
+# List all bridges
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/bridges
+
+# Get specific bridge
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/bridges/1
+
+# Create bridge
+curl -X POST http://localhost:8080/api/bridges \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "cloud-bridge",
+    "remote_host": "mqtt.example.com",
+    "remote_port": 1883,
+    "remote_username": "bridge_user",
+    "remote_password": "bridge_pass",
+    "client_id": "my-bridge-client",
+    "clean_session": true,
+    "keep_alive": 60,
+    "connection_timeout": 30,
+    "metadata": {"location": "datacenter-1"},
+    "topics": [
+      {
+        "local_pattern": "sensors/#",
+        "remote_pattern": "edge/site-a/sensors/#",
+        "direction": "out",
+        "qos": 1
+      },
+      {
+        "local_pattern": "commands/#",
+        "remote_pattern": "cloud/commands/#",
+        "direction": "in",
+        "qos": 1
+      }
+    ]
+  }'
+
+# Update bridge
+curl -X PUT http://localhost:8080/api/bridges/1 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "cloud-bridge-updated",
+    "remote_host": "mqtt-new.example.com",
+    "remote_port": 1883,
+    "client_id": "my-bridge-client",
+    "clean_session": true,
+    "keep_alive": 90,
+    "connection_timeout": 45,
+    "topics": [...]
+  }'
+
+# Delete bridge
+curl -X DELETE http://localhost:8080/api/bridges/1 \
+  -H "Authorization: Bearer $TOKEN"
+
+# Note: Bridges provisioned from config file cannot be modified or deleted via API
+# They will return 409 Conflict with an error message
 
 # === Password Management ===
 # Change your own password

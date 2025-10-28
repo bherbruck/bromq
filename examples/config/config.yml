@@ -111,3 +111,75 @@ acl_rules:
   - mqtt_username: admin_device
     topic_pattern: "#"
     permission: pubsub
+
+# MQTT Bridges (connect to remote MQTT brokers)
+# Bridges forward messages between this broker and remote brokers
+bridges:
+  # Example: Forward sensor data to cloud broker
+  - name: cloud-bridge
+    remote_host: ${CLOUD_MQTT_HOST}
+    remote_port: 1883
+    remote_username: ${CLOUD_MQTT_USER}
+    remote_password: ${CLOUD_MQTT_PASSWORD}
+    client_id: edge-broker-001
+    clean_session: true
+    keep_alive: 60
+    connection_timeout: 30
+    metadata:
+      description: "Bridge to cloud MQTT broker"
+      location: "edge-to-cloud"
+    topics:
+      # Forward all sensor data to cloud with prefix
+      - local_pattern: "sensors/#"
+        remote_pattern: "edge/site-a/sensors/#"
+        direction: out
+        qos: 1
+
+      # Receive commands from cloud
+      - local_pattern: "commands/#"
+        remote_pattern: "cloud/commands/site-a/#"
+        direction: in
+        qos: 1
+
+  # Example: Connect to partner/customer broker
+  - name: partner-bridge
+    remote_host: mqtt.partner-company.com
+    remote_port: 8883
+    remote_username: integration_user
+    remote_password: ${PARTNER_MQTT_PASSWORD}
+    client_id: integration-bridge
+    clean_session: false
+    keep_alive: 120
+    metadata:
+      description: "Integration with partner systems"
+    topics:
+      # Share specific data both ways
+      - local_pattern: "shared/data/#"
+        remote_pattern: "shared/data/#"
+        direction: both
+        qos: 2
+
+      # Receive alerts from partner
+      - local_pattern: "partner/alerts/#"
+        remote_pattern: "alerts/#"
+        direction: in
+        qos: 1
+
+  # Example: Backup/archive broker
+  - name: archive-bridge
+    remote_host: ${ARCHIVE_MQTT_HOST}
+    remote_port: 1883
+    remote_username: archive_writer
+    remote_password: ${ARCHIVE_MQTT_PASSWORD}
+    topics:
+      # Archive all telemetry data (one-way)
+      - local_pattern: "telemetry/#"
+        remote_pattern: "archive/telemetry/#"
+        direction: out
+        qos: 0
+
+      # Archive video metadata
+      - local_pattern: "video/+/metadata"
+        remote_pattern: "archive/video/+/metadata"
+        direction: out
+        qos: 0
