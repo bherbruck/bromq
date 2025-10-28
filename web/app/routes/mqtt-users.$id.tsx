@@ -83,7 +83,12 @@ export default function MQTTUserDetailPage() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: number; username: string; description: string; password?: string }) => {
+    mutationFn: async (data: {
+      id: number
+      username: string
+      description: string
+      password?: string
+    }) => {
       await api.updateMQTTUser(data.id, data.username, data.description)
       if (data.password) {
         await api.updateMQTTUserPassword(data.id, data.password)
@@ -132,7 +137,7 @@ export default function MQTTUserDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2">
         <Spinner />
         Loading MQTT user...
       </div>
@@ -140,11 +145,7 @@ export default function MQTTUserDetailPage() {
   }
 
   if (!mqttUser) {
-    return (
-      <div className="flex items-center gap-2 text-muted-foreground">
-        MQTT user not found
-      </div>
-    )
+    return <div className="text-muted-foreground flex items-center gap-2">MQTT user not found</div>
   }
 
   const canEdit = currentUser?.role === 'admin'
@@ -167,7 +168,11 @@ export default function MQTTUserDetailPage() {
           <div className="flex gap-2">
             {!isSaved && !isProvisioned && (
               <>
-                <Button variant="outline" onClick={handleCancel} disabled={updateMutation.isPending}>
+                <Button
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={updateMutation.isPending}
+                >
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
@@ -182,7 +187,7 @@ export default function MQTTUserDetailPage() {
               variant="destructive"
               onClick={() => setIsDeleteDialogOpen(true)}
               disabled={isProvisioned}
-              title={isProvisioned ? "Remove from config file to delete" : "Delete user"}
+              title={isProvisioned ? 'Remove from config file to delete' : 'Delete user'}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete User
@@ -192,23 +197,7 @@ export default function MQTTUserDetailPage() {
       </div>
 
       {/* User Details Card */}
-      <Card className={isProvisioned ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl">MQTT User Details</CardTitle>
-              <CardDescription>User #{mqttUser.id}</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              {isProvisioned && (
-                <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                  Provisioned
-                </Badge>
-              )}
-              <Badge variant="outline">MQTT Credentials</Badge>
-            </div>
-          </div>
-        </CardHeader>
+      <Card>
         <CardContent className="space-y-6">
           {isProvisioned && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
@@ -281,11 +270,15 @@ export default function MQTTUserDetailPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <Label className="text-muted-foreground">Created</Label>
-              <p className="text-foreground mt-1">{new Date(mqttUser.created_at).toLocaleString()}</p>
+              <p className="text-foreground mt-1">
+                {new Date(mqttUser.created_at).toLocaleString()}
+              </p>
             </div>
             <div>
               <Label className="text-muted-foreground">Last Updated</Label>
-              <p className="text-foreground mt-1">{new Date(mqttUser.updated_at).toLocaleString()}</p>
+              <p className="text-foreground mt-1">
+                {new Date(mqttUser.updated_at).toLocaleString()}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -293,11 +286,7 @@ export default function MQTTUserDetailPage() {
 
       {/* ACL Rules Section */}
       <div>
-        <ACLRules
-          mqttUserId={mqttUser.id}
-          showMQTTUserColumn={false}
-          showHeader={true}
-        />
+        <ACLRules mqttUserId={mqttUser.id} showMQTTUserColumn={false} showHeader={true} />
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -308,8 +297,8 @@ export default function MQTTUserDetailPage() {
             <AlertDialogDescription>
               Are you sure you want to delete MQTT user{' '}
               <strong className="font-mono">{mqttUser.username}</strong>? This will prevent any
-              devices using this account from connecting to the MQTT broker. All associated
-              ACL rules will also be deleted.
+              devices using this account from connecting to the MQTT broker. All associated ACL
+              rules will also be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
