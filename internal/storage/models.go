@@ -114,3 +114,43 @@ func (c *MQTTClient) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// Bridge represents an MQTT bridge connection to a remote broker
+type Bridge struct {
+	ID                    uint           `gorm:"primaryKey" json:"id"`
+	Name                  string         `gorm:"uniqueIndex;not null" json:"name"`
+	RemoteHost            string         `gorm:"not null" json:"remote_host"`
+	RemotePort            int            `gorm:"not null;default:1883" json:"remote_port"`
+	RemoteUsername        string         `gorm:"default:''" json:"remote_username"`
+	RemotePassword        string         `gorm:"default:''" json:"-"` // Plain text, needed for outbound connections
+	ClientID              string         `gorm:"default:''" json:"client_id"`
+	CleanSession          bool           `gorm:"default:true" json:"clean_session"`
+	KeepAlive             int            `gorm:"default:60" json:"keep_alive"`       // seconds
+	ConnectionTimeout     int            `gorm:"default:30" json:"connection_timeout"` // seconds
+	ProvisionedFromConfig bool           `gorm:"default:false" json:"provisioned_from_config"`
+	Metadata              datatypes.JSON `gorm:"type:jsonb" json:"metadata,omitempty"`
+	CreatedAt             time.Time      `json:"created_at"`
+	UpdatedAt             time.Time      `json:"updated_at"`
+	Topics                []BridgeTopic  `gorm:"foreignKey:BridgeID;constraint:OnDelete:CASCADE" json:"topics,omitempty"`
+}
+
+// TableName specifies the table name for Bridge model
+func (Bridge) TableName() string {
+	return "bridges"
+}
+
+// BridgeTopic represents a topic mapping for an MQTT bridge
+type BridgeTopic struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	BridgeID      uint      `gorm:"not null;index" json:"bridge_id"`
+	LocalPattern  string    `gorm:"not null" json:"local_pattern"`
+	RemotePattern string    `gorm:"not null" json:"remote_pattern"`
+	Direction     string    `gorm:"not null;default:'out';check:direction IN ('in', 'out', 'both')" json:"direction"`
+	QoS           byte      `gorm:"column:qos;not null;default:0" json:"qos"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// TableName specifies the table name for BridgeTopic model
+func (BridgeTopic) TableName() string {
+	return "bridge_topics"
+}

@@ -94,6 +94,8 @@ func (db *DB) autoMigrate() error {
 		&MQTTClient{},
 		&ACLRule{},
 		&RetainedMessage{},
+		&Bridge{},
+		&BridgeTopic{},
 	)
 }
 

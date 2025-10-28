@@ -87,6 +87,46 @@ type UpdateACLRequest struct {
 	Permission   string `json:"permission"`
 }
 
+// === Bridge Requests ===
+
+// BridgeTopicRequest represents a topic mapping for a bridge
+type BridgeTopicRequest struct {
+	LocalPattern  string `json:"local_pattern"`
+	RemotePattern string `json:"remote_pattern"`
+	Direction     string `json:"direction"` // "in", "out", or "both"
+	QoS           byte   `json:"qos"`
+}
+
+// CreateBridgeRequest represents a request to create a bridge
+type CreateBridgeRequest struct {
+	Name              string                 `json:"name"`
+	RemoteHost        string                 `json:"remote_host"`
+	RemotePort        int                    `json:"remote_port"`
+	RemoteUsername    string                 `json:"remote_username,omitempty"`
+	RemotePassword    string                 `json:"remote_password,omitempty"`
+	ClientID          string                 `json:"client_id,omitempty"`
+	CleanSession      bool                   `json:"clean_session"`
+	KeepAlive         int                    `json:"keep_alive"`
+	ConnectionTimeout int                    `json:"connection_timeout"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	Topics            []BridgeTopicRequest   `json:"topics"`
+}
+
+// UpdateBridgeRequest represents a request to update a bridge
+type UpdateBridgeRequest struct {
+	Name              string                 `json:"name"`
+	RemoteHost        string                 `json:"remote_host"`
+	RemotePort        int                    `json:"remote_port"`
+	RemoteUsername    string                 `json:"remote_username,omitempty"`
+	RemotePassword    string                 `json:"remote_password,omitempty"`
+	ClientID          string                 `json:"client_id,omitempty"`
+	CleanSession      bool                   `json:"clean_session"`
+	KeepAlive         int                    `json:"keep_alive"`
+	ConnectionTimeout int                    `json:"connection_timeout"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	Topics            []BridgeTopicRequest   `json:"topics"`
+}
+
 // PaginationQuery represents pagination query parameters
 type PaginationQuery struct {
 	Page     int    `json:"page"`

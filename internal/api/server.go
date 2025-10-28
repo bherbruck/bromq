@@ -72,6 +72,16 @@ func (s *Server) Start() error {
 	apiMux.Handle("PUT /acl/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateACL))))
 	apiMux.Handle("DELETE /acl/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteACL))))
 
+	// === Bridge Management ===
+	// View bridges - any authenticated user can view
+	apiMux.Handle("GET /bridges", AuthMiddleware(http.HandlerFunc(s.handler.ListBridges)))
+	apiMux.Handle("GET /bridges/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetBridge)))
+
+	// Manage bridges - admin only
+	apiMux.Handle("POST /bridges", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateBridge))))
+	apiMux.Handle("PUT /bridges/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateBridge))))
+	apiMux.Handle("DELETE /bridges/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteBridge))))
+
 	// Legacy/deprecated clients endpoint (for backward compatibility)
 	apiMux.Handle("GET /clients", AuthMiddleware(http.HandlerFunc(s.handler.ListClients)))
 	apiMux.Handle("GET /clients/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetClientDetails)))

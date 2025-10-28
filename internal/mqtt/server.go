@@ -22,6 +22,7 @@ func New(cfg *Config) *Server {
 
 	opts := &mqtt.Options{
 		Capabilities: mqtt.NewDefaultServerCapabilities(),
+		InlineClient: true, // Enable inline client for bridge inbound messages
 	}
 
 	if !cfg.RetainAvailable {

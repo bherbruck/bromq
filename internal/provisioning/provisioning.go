@@ -12,7 +12,10 @@ import (
 // Provision syncs the configuration file to the database
 // This function is idempotent and can be run on every startup
 func Provision(db *storage.DB, cfg *config.Config) error {
-	slog.Info("Starting configuration provisioning", "users", len(cfg.Users), "acl_rules", len(cfg.ACLRules))
+	slog.Info("Starting configuration provisioning",
+		"users", len(cfg.Users),
+		"acl_rules", len(cfg.ACLRules),
+		"bridges", len(cfg.Bridges))
 
 	// Step 1: Provision MQTT users
 	userIDMap := make(map[string]uint) // username -> database ID
@@ -30,9 +33,25 @@ func Provision(db *storage.DB, cfg *config.Config) error {
 		return fmt.Errorf("failed to sync ACL rules: %w", err)
 	}
 
+	// Step 3: Provision bridges
+	bridgeIDMap := make(map[string]uint) // bridge name -> database ID
+	for _, bridgeCfg := range cfg.Bridges {
+		bridgeID, err := provisionBridge(db, bridgeCfg)
+		if err != nil {
+			return fmt.Errorf("failed to provision bridge '%s': %w", bridgeCfg.Name, err)
+		}
+		bridgeIDMap[bridgeCfg.Name] = bridgeID
+		slog.Debug("Provisioned bridge", "name", bridgeCfg.Name, "id", bridgeID)
+	}
+
 	// Clean up users that were provisioned but are no longer in config
 	if err := cleanupOrphanedUsers(db, userIDMap); err != nil {
 		slog.Warn("Failed to cleanup orphaned users", "error", err)
+	}
+
+	// Clean up bridges that were provisioned but are no longer in config
+	if err := cleanupOrphanedBridges(db, bridgeIDMap); err != nil {
+		slog.Warn("Failed to cleanup orphaned bridges", "error", err)
 	}
 
 	slog.Info("Configuration provisioning completed successfully")
@@ -187,6 +206,126 @@ func cleanupOrphanedUsers(db *storage.DB, currentUserMap map[string]uint) error 
 			slog.Info("Removing orphaned provisioned user", "username", user.Username, "id", user.ID)
 			if err := db.DeleteMQTTUser(int(user.ID)); err != nil {
 				slog.Warn("Failed to delete orphaned user", "username", user.Username, "error", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// provisionBridge creates or updates a bridge with its topics
+func provisionBridge(db *storage.DB, bridgeCfg config.BridgeConfig) (uint, error) {
+	// Set defaults
+	if bridgeCfg.RemotePort == 0 {
+		bridgeCfg.RemotePort = 1883
+	}
+	if bridgeCfg.KeepAlive == 0 {
+		bridgeCfg.KeepAlive = 60
+	}
+	if bridgeCfg.ConnectionTimeout == 0 {
+		bridgeCfg.ConnectionTimeout = 30
+	}
+
+	// Convert metadata map to JSON
+	var metadataJSON []byte
+	var err error
+	if bridgeCfg.Metadata != nil {
+		metadataJSON, err = json.Marshal(bridgeCfg.Metadata)
+		if err != nil {
+			return 0, fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+	}
+
+	// Convert config topics to storage topics
+	topics := make([]storage.BridgeTopic, len(bridgeCfg.Topics))
+	for i, topicCfg := range bridgeCfg.Topics {
+		topics[i] = storage.BridgeTopic{
+			LocalPattern:  topicCfg.LocalPattern,
+			RemotePattern: topicCfg.RemotePattern,
+			Direction:     topicCfg.Direction,
+			QoS:           byte(topicCfg.QoS),
+		}
+	}
+
+	// Check if bridge already exists
+	existingBridge, err := db.GetBridgeByName(bridgeCfg.Name)
+	if err == nil {
+		// Bridge exists - update it directly (bypass API protection since this is provisioning)
+		// Update bridge configuration
+		updates := map[string]interface{}{
+			"name":                    bridgeCfg.Name,
+			"remote_host":             bridgeCfg.RemoteHost,
+			"remote_port":             bridgeCfg.RemotePort,
+			"remote_username":         bridgeCfg.RemoteUsername,
+			"remote_password":         bridgeCfg.RemotePassword,
+			"client_id":               bridgeCfg.ClientID,
+			"clean_session":           bridgeCfg.CleanSession,
+			"keep_alive":              bridgeCfg.KeepAlive,
+			"connection_timeout":      bridgeCfg.ConnectionTimeout,
+			"metadata":                metadataJSON,
+			"provisioned_from_config": true,
+		}
+		if err := db.Model(&storage.Bridge{}).Where("id = ?", existingBridge.ID).Updates(updates).Error; err != nil {
+			return 0, fmt.Errorf("failed to update bridge: %w", err)
+		}
+
+		// Update topics (delete old, create new)
+		if err := db.Where("bridge_id = ?", existingBridge.ID).Delete(&storage.BridgeTopic{}).Error; err != nil {
+			return 0, fmt.Errorf("failed to delete old topics: %w", err)
+		}
+		for i := range topics {
+			topics[i].BridgeID = existingBridge.ID
+		}
+		if len(topics) > 0 {
+			if err := db.Create(&topics).Error; err != nil {
+				return 0, fmt.Errorf("failed to create new topics: %w", err)
+			}
+		}
+
+		return existingBridge.ID, nil
+	}
+
+	// Bridge doesn't exist - create new
+	bridge, err := db.CreateBridge(
+		bridgeCfg.Name,
+		bridgeCfg.RemoteHost,
+		bridgeCfg.RemotePort,
+		bridgeCfg.RemoteUsername,
+		bridgeCfg.RemotePassword,
+		bridgeCfg.ClientID,
+		bridgeCfg.CleanSession,
+		bridgeCfg.KeepAlive,
+		bridgeCfg.ConnectionTimeout,
+		metadataJSON,
+		topics,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create bridge: %w", err)
+	}
+
+	// Mark as provisioned
+	if err := db.MarkBridgeAsProvisioned(bridge.ID, true); err != nil {
+		return 0, fmt.Errorf("failed to mark new bridge as provisioned: %w", err)
+	}
+
+	return bridge.ID, nil
+}
+
+// cleanupOrphanedBridges removes bridges that were provisioned but are no longer in config
+func cleanupOrphanedBridges(db *storage.DB, currentBridgeMap map[string]uint) error {
+	// Get all provisioned bridges from database
+	provisionedBridges, err := db.ListProvisionedBridges()
+	if err != nil {
+		return fmt.Errorf("failed to list provisioned bridges: %w", err)
+	}
+
+	// Check which ones are no longer in config
+	for _, bridge := range provisionedBridges {
+		if _, exists := currentBridgeMap[bridge.Name]; !exists {
+			// Bridge was provisioned but is no longer in config - remove it
+			slog.Info("Removing orphaned provisioned bridge", "name", bridge.Name, "id", bridge.ID)
+			if err := db.DeleteBridge(bridge.ID); err != nil {
+				slog.Warn("Failed to delete orphaned bridge", "name", bridge.Name, "error", err)
 			}
 		}
 	}

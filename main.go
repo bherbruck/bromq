@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github/bherbruck/mqtt-server/hooks/auth"
+	"github/bherbruck/mqtt-server/hooks/bridge"
 	"github/bherbruck/mqtt-server/hooks/metrics"
 	"github/bherbruck/mqtt-server/hooks/retained"
 	"github/bherbruck/mqtt-server/hooks/tracking"
@@ -150,6 +151,15 @@ func main() {
 	}
 	slog.Info("Client tracking hook registered")
 
+	// Initialize bridge manager and hook
+	bridgeManager := bridge.NewManager(db, mqttServer.Server)
+	bridgeHook := bridge.NewBridgeHook(bridgeManager)
+	if err := mqttServer.AddHook(bridgeHook, nil); err != nil {
+		slog.Error("Failed to add bridge hook", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Bridge hook registered")
+
 	// Start MQTT server in a goroutine
 	go func() {
 		if err := mqttServer.Start(); err != nil {
@@ -157,6 +167,12 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	// Start bridge connections after server is running
+	if err := bridgeManager.Start(); err != nil {
+		slog.Error("Failed to start bridge connections", "error", err)
+		// Don't exit - bridges are optional, continue without them
+	}
 
 	// Start HTTP API server in a goroutine
 	apiServer := api.NewServer(*httpAddr, db, mqttServer, web.FS)
@@ -187,6 +203,7 @@ func main() {
 	<-sigChan
 
 	slog.Info("Shutting down")
+	bridgeManager.Stop()
 	mqttServer.Close()
 	slog.Info("Server stopped")
 }
