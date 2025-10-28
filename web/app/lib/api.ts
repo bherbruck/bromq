@@ -43,6 +43,73 @@ export interface ACLRule {
   provisioned_from_config: boolean
 }
 
+// BridgeTopic - Topic mapping for MQTT bridge
+export interface BridgeTopic {
+  id: number
+  bridge_id: number
+  local_pattern: string
+  remote_pattern: string
+  direction: 'in' | 'out' | 'both'
+  qos: number
+  created_at: string
+}
+
+// BridgeTopicRequest - Topic mapping for create/update requests
+export interface BridgeTopicRequest {
+  local_pattern: string
+  remote_pattern: string
+  direction: 'in' | 'out' | 'both'
+  qos: number
+}
+
+// Bridge - MQTT bridge configuration
+export interface Bridge {
+  id: number
+  name: string
+  remote_host: string
+  remote_port: number
+  remote_username?: string
+  client_id: string
+  clean_session: boolean
+  keep_alive: number
+  connection_timeout: number
+  provisioned_from_config: boolean
+  metadata?: Record<string, any>
+  created_at: string
+  updated_at: string
+  topics: BridgeTopic[]
+}
+
+// CreateBridgeRequest - Request to create a bridge
+export interface CreateBridgeRequest {
+  name: string
+  remote_host: string
+  remote_port: number
+  remote_username?: string
+  remote_password?: string
+  client_id?: string
+  clean_session: boolean
+  keep_alive: number
+  connection_timeout: number
+  metadata?: Record<string, any>
+  topics: BridgeTopicRequest[]
+}
+
+// UpdateBridgeRequest - Request to update a bridge
+export interface UpdateBridgeRequest {
+  name: string
+  remote_host: string
+  remote_port: number
+  remote_username?: string
+  remote_password?: string
+  client_id?: string
+  clean_session: boolean
+  keep_alive: number
+  connection_timeout: number
+  metadata?: Record<string, any>
+  topics: BridgeTopicRequest[]
+}
+
 export interface Client {
   id: string
   username: string
@@ -327,6 +394,36 @@ class APIClient {
 
   async deleteACLRule(id: number): Promise<void> {
     return this.request<void>(`/acl/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Bridges
+  async getBridges(params?: PaginationParams): Promise<PaginatedResponse<Bridge>> {
+    const queryString = this.buildQueryString(params)
+    return this.request<PaginatedResponse<Bridge>>(`/bridges${queryString}`)
+  }
+
+  async getBridge(id: number): Promise<Bridge> {
+    return this.request<Bridge>(`/bridges/${id}`)
+  }
+
+  async createBridge(data: CreateBridgeRequest): Promise<Bridge> {
+    return this.request<Bridge>('/bridges', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateBridge(id: number, data: UpdateBridgeRequest): Promise<Bridge> {
+    return this.request<Bridge>(`/bridges/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteBridge(id: number): Promise<void> {
+    return this.request<void>(`/bridges/${id}`, {
       method: 'DELETE',
     })
   }

@@ -11,5 +11,7 @@ export default [
     route('mqtt-users/:id', 'routes/mqtt-users.$id.tsx'),
     route('users', 'routes/users.tsx'),
     route('acl', 'routes/acl.tsx'),
+    route('bridges', 'routes/bridges.tsx'),
+    route('bridges/:id', 'routes/bridges.$id.tsx'),
   ]),
 ] satisfies RouteConfig
