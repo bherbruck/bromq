@@ -2,6 +2,54 @@
 
 A high-performance, single-node MQTT broker with embedded web UI built on mochi-mqtt/server.
 
+## Why BroMQ?
+
+**Truly open source.** Every feature unlocked, no enterprise tiers, no connection limits. Apache 2.0 licensed, use it however you want.
+
+**Batteries-included, single binary.** Web dashboard, REST API, user management, ACL system, client tracking, MQTT bridging, and Prometheus metrics in one small binary. No plugins required.
+
+**Production-ready for:**
+
+- Self-hosted IoT infrastructure
+- Edge-to-cloud architectures via MQTT bridging
+- Multi-tenant SaaS with per-user topic isolation
+- Kubernetes/Docker deployments
+- Development and testing environments
+
+## Comparisons
+
+**vs. Open-core brokers:** No feature paywalls, license pop-ups, or artificial connection limits  
+**vs. Mosquitto:** Includes web UI, REST API, and database-backed authentication  
+**vs. Cloud platforms:** Self-hosted control, no per-connection pricing  
+**vs. Enterprise solutions:** Simpler deployment, no support contracts required
+
+## Feature Comparison
+
+| Feature          | BroMQ                    | EMQX 5.9+     | VerneMQ           | Mosquitto     | HiveMQ        |
+| ---------------- | ------------------------ | ------------- | ----------------- | ------------- | ------------- |
+| License          | Apache 2.0               | BSL 1.1\*     | Apache 2.0\*\*    | EPL 2.0/EDL   | Commercial    |
+| Clustering       | ✅ Bridging              | 💰 Licensed   | ✅ Masterless     | ✅ Bridging   | ⚠️ Enterprise |
+| Web Dashboard    | ✅ Built-in              | ✅ Built-in   | ❌ Community only | ❌            | ⚠️ Enterprise |
+| REST API         | ✅ Full CRUD             | ✅ Full       | ✅ CLI wrapper    | ❌            | ⚠️ Enterprise |
+| Database Auth    | ✅ SQLite/Postgres/MySQL | ✅ Built-in   | ✅ Plugins        | ❌ File-based | ⚠️ Enterprise |
+| Connection Limit | ∞ Unlimited              | ∞ Single-node | ∞ Unlimited       | ∞ Unlimited   | 💰 Licensed   |
+
+\*BSL 1.1: Single-node free, clustering requires license, converts to Apache 2.0 after 4 years
+\*\*Source code Apache 2.0, official packages/Docker images under EULA
+
+**When BroMQ is the right choice:**
+
+- You want batteries-included (web UI, REST API, auth, ACL) without enterprise licensing
+- You want GitOps-friendly declarative YAML config for bridges, users, ACL, and more
+- You're deploying to VPS/cloud/edge with bridging support (works as edge OR cloud broker)
+- You're deploying to Kubernetes/Docker
+
+**When to consider alternatives:**
+
+- **Massive scale** (>100K connections): EMQX, VerneMQ
+- **Ultra-lightweight** (<5MB): Mosquitto
+- **Enterprise support contracts**: HiveMQ, EMQX Enterprise
+
 ## Features
 
 - **Full MQTT v3/v5 support** via mochi-mqtt
@@ -41,45 +89,76 @@ After starting:
 
 - **MQTT TCP:** `localhost:1883`
 - **MQTT WebSocket:** `localhost:8883`
-- **Web Dashboard:** `http://localhost:8080` (or `:5173` in dev)
+- **Web Dashboard:** `http://localhost:8080`
 - **Default Login:** `admin` / `admin` ⚠️ Change immediately!
 
-## API Usage
+## Configuration Example
 
-### Login (Dashboard User)
+BroMQ supports declarative YAML configuration for GitOps workflows:
 
-```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}'
+```yaml
+# config.yml - Auto-syncs to database on startup
+users:
+  - username: sensors
+    password: ${MQTT_SENSOR_PASSWORD} # Env var interpolation
+    description: "IoT sensor fleet"
+
+  - username: cameras
+    password: ${MQTT_CAMERA_PASSWORD}
+    description: "Camera devices"
+
+  - username: admin
+    password: admin
+
+acl_rules:
+  # Multi-tenant isolation with reserved dynamic placeholders
+  - mqtt_username: sensors
+    topic_pattern: "devices/${username}/#" # Each user isolated
+    permission: pubsub
+
+  - mqtt_username: cameras
+    topic_pattern: "video/${clientid}/stream" # Per-device topics
+    permission: pub
+
+  - mqtt_username: admin
+    topic_pattern: "#" # Full access
+    permission: pubsub
+
+bridges:
+  - name: cloud-bridge
+    remote_host: mqtt.example.com
+    remote_port: 8883
+    topics:
+      - local_pattern: "data/#"
+        remote_pattern: "edge/site-1/data/#"
+        direction: out
+
+      - local_pattern: "commands/#"
+        remote_pattern: "edge/site-1/commands/#"
+        direction: in
 ```
 
-### Create MQTT Credentials
-
 ```bash
-curl -X POST http://localhost:8080/api/mqtt/users \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"sensor_user","password":"sensor123","description":"IoT sensors"}'
+# Run with config
+export MQTT_SENSOR_PASSWORD="secret123"
+export MQTT_CAMERA_PASSWORD="camera456"
+
+# Set custom admin credentials (only used on first run)
+export ADMIN_USERNAME="myadmin"
+export ADMIN_PASSWORD="securepassword"
+
+docker run \
+  -e MQTT_SENSOR_PASSWORD \
+  -e MQTT_CAMERA_PASSWORD \
+  -e ADMIN_USERNAME \
+  -e ADMIN_PASSWORD \
+  -v ./config.yml:/app/config.yml \
+  bromq -config /app/config.yml
 ```
 
-### Create ACL Rule
+**Note:** `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables only work on first startup. To change the admin password later, use the web UI or API.
 
-```bash
-curl -X POST http://localhost:8080/api/acl \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"mqtt_user_id":1,"topic_pattern":"sensor/+/temp","permission":"pubsub"}'
-```
-
-### List Connected Clients
-
-```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  http://localhost:8080/api/mqtt/clients
-```
-
-See [CLAUDE.md](CLAUDE.md) for comprehensive API documentation.
+See [examples/config/](examples/config/) for more examples.
 
 ## Architecture
 
