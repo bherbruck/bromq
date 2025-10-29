@@ -8,7 +8,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	mqttServer "github.com/mochi-mqtt/server/v2"
-	"github/bherbruck/mqtt-server/internal/storage"
+	"github/bherbruck/bromq/internal/storage"
 )
 
 // Manager handles MQTT bridge connections to remote brokers

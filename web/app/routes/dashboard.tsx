@@ -4,7 +4,7 @@ import type { Route } from './+types/dashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { api, type Metrics } from '~/lib/api'
 
-export const meta: Route.MetaFunction = () => [{ title: 'Dashboard - MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'Dashboard - BroMQ' }]
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'

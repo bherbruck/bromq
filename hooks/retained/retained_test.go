@@ -7,7 +7,7 @@ import (
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
 
-	dbstorage "github/bherbruck/mqtt-server/internal/storage"
+	dbstorage "github/bherbruck/bromq/internal/storage"
 )
 
 // MockRetainedStore implements the RetainedStore interface for testing

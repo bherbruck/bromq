@@ -28,7 +28,7 @@ import {
 } from '~/components/ui/table'
 import { api, type Client } from '~/lib/api'
 
-export const meta: Route.MetaFunction = () => [{ title: 'Connected Clients - MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'Connected Clients - BroMQ' }]
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])

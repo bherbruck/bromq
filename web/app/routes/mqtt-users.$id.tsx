@@ -26,7 +26,7 @@ import { Textarea } from '~/components/ui/textarea'
 import { api, type MQTTUser } from '~/lib/api'
 
 export const meta: Route.MetaFunction = ({ params }) => [
-  { title: `MQTT User #${params.id} - MQTT Server` },
+  { title: `MQTT User #${params.id} - BroMQ` },
 ]
 
 export default function MQTTUserDetailPage() {

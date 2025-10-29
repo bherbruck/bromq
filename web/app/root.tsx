@@ -19,7 +19,7 @@ export const links: Route.LinksFunction = () => [
 ]
 
 export const meta: Route.MetaFunction = () => [
-  { title: 'MQTT Server' },
+  { title: 'BroMQ' },
   { name: 'description', content: 'MQTT broker management interface' },
 ]
 

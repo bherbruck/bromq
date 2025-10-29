@@ -1,4 +1,4 @@
-# Multi-stage build for MQTT Server with embedded frontend
+# Multi-stage build for BroMQ with embedded frontend
 
 # Stage 1: Build frontend
 FROM node:22-alpine AS frontend
@@ -38,7 +38,7 @@ COPY --from=frontend /app/web/dist/client ./web/dist/client
 # Build the application with optimizations (pure Go, no CGO!)
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
-    -o mqtt-server .
+    -o bromq .
 
 # Stage 3: Runtime image
 FROM alpine:latest
@@ -48,14 +48,14 @@ WORKDIR /app
 RUN apk --no-cache add ca-certificates tzdata curl
 
 # Copy binary from builder
-COPY --from=backend /app/mqtt-server .
+COPY --from=backend /app/bromq .
 
 # Create data directory
 RUN mkdir -p /app/data
 
 # Default database configuration (SQLite in mounted volume)
 ENV DB_TYPE=sqlite \
-    DB_PATH=/app/data/mqtt-server.db
+    DB_PATH=/app/data/bromq.db
 
 # Expose ports
 # 1883: MQTT TCP
@@ -76,4 +76,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Start server
 # Database configured via environment variables (see compose.yml)
-CMD ["/app/mqtt-server"]
+CMD ["/app/bromq"]

@@ -9,7 +9,7 @@ import (
 	"github.com/mochi-mqtt/server/v2/hooks/storage"
 	"github.com/mochi-mqtt/server/v2/packets"
 
-	dbstorage "github/bherbruck/mqtt-server/internal/storage"
+	dbstorage "github/bherbruck/bromq/internal/storage"
 )
 
 // RetainedStore interface for storing retained messages

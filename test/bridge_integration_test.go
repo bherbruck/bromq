@@ -14,8 +14,8 @@ import (
 	mqttServer "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/mochi-mqtt/server/v2/packets"
-	"github/bherbruck/mqtt-server/hooks/bridge"
-	"github/bherbruck/mqtt-server/internal/storage"
+	"github/bherbruck/bromq/hooks/bridge"
+	"github/bherbruck/bromq/internal/storage"
 )
 
 // TestBridgeIntegration tests end-to-end bridge functionality

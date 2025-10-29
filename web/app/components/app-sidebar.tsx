@@ -45,7 +45,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="flex h-14 flex-row items-center gap-2 border-b px-6">
         <Server className="h-5 w-5" />
-        <h2 className="text-base font-semibold">MQTT Server</h2>
+        <h2 className="text-base font-semibold">BroMQ</h2>
       </SidebarHeader>
 
       <SidebarContent>

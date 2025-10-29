@@ -37,7 +37,7 @@ import { Spinner } from '~/components/ui/spinner'
 import { Textarea } from '~/components/ui/textarea'
 import { api, type MQTTUser } from '~/lib/api'
 
-export const meta: Route.MetaFunction = () => [{ title: 'MQTT Users - MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'MQTT Users - BroMQ' }]
 
 export default function MQTTUsersPage() {
   const { user: currentUser } = useAuth()

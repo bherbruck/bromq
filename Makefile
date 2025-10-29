@@ -8,14 +8,14 @@ help: ## Show this help message
 
 build: ## Build the Go binary locally
 	cd web && npm run build
-	go build -o bin/mqtt-server .
+	go build -o bin/bromq .
 
 run: build stop ## Run the server locally
-	./bin/mqtt-server
+	./bin/bromq
 
-stop: ## Stop any running mqtt-server processes
-	@echo "Stopping mqtt-server processes..."
-	@-killall mqtt-server 2>/dev/null || echo "No mqtt-server processes found"
+stop: ## Stop any running bromq processes
+	@echo "Stopping bromq processes..."
+	@-killall bromq 2>/dev/null || echo "No bromq processes found"
 
 dev-up: ## Start development environment (hot reload)
 	docker compose -f compose.dev.yml up -d
@@ -62,4 +62,4 @@ frontend: ## Build frontend only
 	cd web && npm run build
 
 backend: ## Build backend only
-	go build -o bin/mqtt-server .
+	go build -o bin/bromq .

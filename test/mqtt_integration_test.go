@@ -7,9 +7,9 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
-	mqttserver "github/bherbruck/mqtt-server/internal/mqtt"
-	"github/bherbruck/mqtt-server/internal/storage"
-	"github/bherbruck/mqtt-server/hooks/auth"
+	mqttserver "github/bherbruck/bromq/internal/mqtt"
+	"github/bherbruck/bromq/internal/storage"
+	"github/bherbruck/bromq/hooks/auth"
 )
 
 // setupMQTTTestServer creates an MQTT server with authentication and ACL for testing

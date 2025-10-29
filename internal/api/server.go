@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github/bherbruck/mqtt-server/internal/mqtt"
-	"github/bherbruck/mqtt-server/internal/storage"
+	"github/bherbruck/bromq/internal/mqtt"
+	"github/bherbruck/bromq/internal/storage"
 )
 
 // Server represents the HTTP API server

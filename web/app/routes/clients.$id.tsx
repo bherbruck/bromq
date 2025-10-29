@@ -25,7 +25,7 @@ import {
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { api, type ClientDetails, type ClientMetrics } from '~/lib/api'
 
-export const meta: Route.MetaFunction = () => [{ title: 'Client Details - MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'Client Details - BroMQ' }]
 
 type MetricsHistoryPoint = ClientMetrics & { timestamp: number }
 

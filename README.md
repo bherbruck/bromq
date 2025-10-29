@@ -1,4 +1,4 @@
-# MQTT Server
+# BroMQ
 
 A high-performance, single-node MQTT broker with embedded web UI built on mochi-mqtt/server.
 

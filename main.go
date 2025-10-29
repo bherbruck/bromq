@@ -8,17 +8,17 @@ import (
 	"strings"
 	"syscall"
 
-	"github/bherbruck/mqtt-server/hooks/auth"
-	"github/bherbruck/mqtt-server/hooks/bridge"
-	"github/bherbruck/mqtt-server/hooks/metrics"
-	"github/bherbruck/mqtt-server/hooks/retained"
-	"github/bherbruck/mqtt-server/hooks/tracking"
-	"github/bherbruck/mqtt-server/internal/api"
-	"github/bherbruck/mqtt-server/internal/config"
-	"github/bherbruck/mqtt-server/internal/mqtt"
-	"github/bherbruck/mqtt-server/internal/provisioning"
-	"github/bherbruck/mqtt-server/internal/storage"
-	"github/bherbruck/mqtt-server/web"
+	"github/bherbruck/bromq/hooks/auth"
+	"github/bherbruck/bromq/hooks/bridge"
+	"github/bherbruck/bromq/hooks/metrics"
+	"github/bherbruck/bromq/hooks/retained"
+	"github/bherbruck/bromq/hooks/tracking"
+	"github/bherbruck/bromq/internal/api"
+	"github/bherbruck/bromq/internal/config"
+	"github/bherbruck/bromq/internal/mqtt"
+	"github/bherbruck/bromq/internal/provisioning"
+	"github/bherbruck/bromq/internal/storage"
+	"github/bherbruck/bromq/web"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 
 	// Parse command line flags
 	dbType := flag.String("db-type", "", "Database type (sqlite, postgres, mysql). Defaults to DB_TYPE env var or 'sqlite'")
-	dbPath := flag.String("db-path", "", "SQLite database file path. Defaults to DB_PATH env var or 'mqtt-server.db'")
+	dbPath := flag.String("db-path", "", "SQLite database file path. Defaults to DB_PATH env var or 'bromq.db'")
 	dbHost := flag.String("db-host", "", "Database host (postgres/mysql). Defaults to DB_HOST env var or 'localhost'")
 	dbPort := flag.Int("db-port", 0, "Database port (postgres/mysql). Defaults to DB_PORT env var or default port")
 	dbUser := flag.String("db-user", "", "Database user (postgres/mysql). Defaults to DB_USER env var or 'mqtt'")
@@ -40,7 +40,7 @@ func main() {
 	httpAddr := flag.String("http", ":8080", "HTTP API server address")
 	flag.Parse()
 
-	slog.Info("Starting MQTT Server")
+	slog.Info("Starting BroMQ")
 
 	// Load database configuration from environment variables first
 	dbConfig := storage.LoadConfigFromEnv()
@@ -184,7 +184,7 @@ func main() {
 	}()
 
 	slog.Info("===========================================")
-	slog.Info("MQTT Server is running")
+	slog.Info("BroMQ is running")
 	slog.Info("  MQTT TCP", "address", *mqttTCP)
 	slog.Info("  MQTT WebSocket", "address", *mqttWS)
 	slog.Info("  HTTP API", "address", *httpAddr)

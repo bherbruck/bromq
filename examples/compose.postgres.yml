@@ -1,4 +1,4 @@
-# Docker Compose configuration for MQTT Server with PostgreSQL
+# Docker Compose configuration for BroMQ with PostgreSQL
 # Usage: docker compose -f compose.postgres.yml up -d
 
 services:
@@ -19,11 +19,11 @@ services:
       timeout: 5s
       retries: 5
 
-  mqtt-server:
+  bromq:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mqtt-server-postgres
+    container_name: bromq-postgres
     depends_on:
       postgres:
         condition: service_healthy

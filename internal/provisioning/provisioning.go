@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github/bherbruck/mqtt-server/internal/config"
-	"github/bherbruck/mqtt-server/internal/storage"
+	"github/bherbruck/bromq/internal/config"
+	"github/bherbruck/bromq/internal/storage"
 )
 
 // Provision syncs the configuration file to the database

@@ -57,7 +57,7 @@ go test -tags=integration -v ./test/
 
 Tested with public MQTT broker to verify:
 - ✅ Connection to external broker
-- ✅ Topic transformation (e.g., `test/local/#` → `mqtt-server-bridge-test/from-local/#`)
+- ✅ Topic transformation (e.g., `test/local/#` → `bromq-bridge-test/from-local/#`)
 - ✅ Outbound message delivery
 - ✅ Inbound message reception
 - ✅ Inline client integration
@@ -70,11 +70,11 @@ bridges:
     remote_port: 1883
     topics:
       - local_pattern: "test/local/#"
-        remote_pattern: "mqtt-server-bridge-test/from-local/#"
+        remote_pattern: "bromq-bridge-test/from-local/#"
         direction: out
         qos: 0
       - local_pattern: "test/remote/#"
-        remote_pattern: "mqtt-server-bridge-test/to-local/#"
+        remote_pattern: "bromq-bridge-test/to-local/#"
         direction: in
         qos: 0
 ```

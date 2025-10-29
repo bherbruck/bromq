@@ -32,7 +32,7 @@ func LoadConfigFromEnv() *DatabaseConfig {
 
 	config := &DatabaseConfig{
 		Type:     dbType,
-		FilePath: getEnv("DB_PATH", "mqtt-server.db"),
+		FilePath: getEnv("DB_PATH", "bromq.db"),
 		Host:     getEnv("DB_HOST", "localhost"),
 		Port:     getEnvInt("DB_PORT", getDefaultPort(dbType)),
 		User:     getEnv("DB_USER", "mqtt"),

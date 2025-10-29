@@ -1,4 +1,4 @@
-# MQTT Server Configuration File
+# BroMQ Configuration File
 #
 # This file is used to provision MQTT users and ACL rules.
 # The configuration is synced to the database on every startup.
@@ -10,9 +10,9 @@
 #   - ${clientid} is replaced at runtime with the MQTT client ID
 #
 # Usage:
-#   ./mqtt-server -config config.yml
+#   ./bromq -config config.yml
 #   Or set CONFIG_FILE environment variable:
-#   CONFIG_FILE=/etc/mqtt-server/config.yml ./mqtt-server
+#   CONFIG_FILE=/etc/bromq/config.yml ./bromq
 
 # MQTT Users (device credentials for MQTT connections)
 # These are NOT dashboard admin users - they are for MQTT client authentication

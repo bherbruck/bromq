@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router'
 import type { Route } from './+types/home'
 
-export const meta: Route.MetaFunction = () => [{ title: 'MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'BroMQ' }]
 
 export default function Home() {
   // Check if user is authenticated

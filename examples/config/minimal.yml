@@ -1,4 +1,4 @@
-# Minimal MQTT Server Configuration Example
+# Minimal BroMQ Configuration Example
 # For testing and simple deployments
 
 users:

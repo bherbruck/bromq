@@ -22,7 +22,7 @@ type DB struct {
 func Open(config *DatabaseConfig) (*DB, error) {
 	if config == nil {
 		// Default to SQLite for backward compatibility
-		config = DefaultSQLiteConfig("mqtt-server.db")
+		config = DefaultSQLiteConfig("bromq.db")
 	}
 
 	// Get connection string

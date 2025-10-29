@@ -37,7 +37,7 @@ import { Spinner } from '~/components/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { api, type DashboardUser } from '~/lib/api'
 
-export const meta: Route.MetaFunction = () => [{ title: 'Dashboard Users - MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'Dashboard Users - BroMQ' }]
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth()

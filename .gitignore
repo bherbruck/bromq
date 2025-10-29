@@ -2,7 +2,7 @@
 bin/
 
 # Binaries
-mqtt-server
+bromq
 *.exe
 *.exe~
 *.dll

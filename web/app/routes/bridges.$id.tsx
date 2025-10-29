@@ -1,7 +1,7 @@
 import type { Route } from './+types/bridges.$id'
 import { BridgeDetail } from '~/components/bridge-detail'
 
-export const meta: Route.MetaFunction = () => [{ title: 'Bridge Details - MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'Bridge Details - BroMQ' }]
 
 export default function BridgeDetailPage({ params }: Route.ComponentProps) {
   const bridgeId = parseInt(params.id, 10)

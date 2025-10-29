@@ -3,8 +3,8 @@ package provisioning
 import (
 	"testing"
 
-	"github/bherbruck/mqtt-server/internal/config"
-	"github/bherbruck/mqtt-server/internal/storage"
+	"github/bherbruck/bromq/internal/config"
+	"github/bherbruck/bromq/internal/storage"
 )
 
 // setupTestDB creates an in-memory SQLite database for testing

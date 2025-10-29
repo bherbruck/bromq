@@ -25,7 +25,7 @@ A single-node MQTT broker with embedded web UI built on mochi-mqtt/server. Featu
 ## Project Structure
 
 ```
-mqtt-server/
+bromq/
 ├── main.go                      # Entry point, wires everything together
 ├── internal/
 │   ├── storage/                    # Database layer (SQLite/PostgreSQL/MySQL)
@@ -130,13 +130,13 @@ docker compose -f compose.dev.yml down
 
 ```bash
 # Build (without frontend)
-go build -o bin/mqtt-server .
+go build -o bin/bromq .
 
 # Run server (defaults to SQLite)
-./bin/mqtt-server
+./bin/bromq
 
 # Run with custom database configuration
-./bin/mqtt-server \
+./bin/bromq \
   -db-type postgres \
   -db-host localhost \
   -db-port 5432 \
@@ -151,7 +151,7 @@ go run .
 
 # Build with embedded frontend
 cd web && npm run build && cd ..
-go build -o bin/mqtt-server .
+go build -o bin/bromq .
 
 # Run all tests
 go test ./...
@@ -174,12 +174,12 @@ go test -count=1 ./...
 go mod tidy
 
 # Run with configuration file
-./bin/mqtt-server -config config.yml
+./bin/bromq -config config.yml
 
 # Set environment variables for config passwords
 export SENSOR_PASSWORD="secret123"
 export ADMIN_DEVICE_PASSWORD="admin456"
-./bin/mqtt-server -config config.yml
+./bin/bromq -config config.yml
 ```
 
 ## Configuration File (Provisioning)
@@ -195,10 +195,10 @@ The server supports YAML configuration files for provisioning MQTT users and ACL
 **Configuration:**
 ```bash
 # Via command-line flag
-./mqtt-server -config config.yml
+./bromq -config config.yml
 
 # Via environment variable
-CONFIG_FILE=/etc/mqtt-server/config.yml ./mqtt-server
+CONFIG_FILE=/etc/bromq/config.yml ./bromq
 ```
 
 **Config file structure:**
@@ -241,12 +241,12 @@ export SENSOR_PASSWORD="super_secret_123"
 export CAMERA_PASSWORD="camera_pass_456"
 
 # Run with config
-./mqtt-server -config config.yml
+./bromq -config config.yml
 
 # Docker Compose
 services:
-  mqtt-server:
-    image: mqtt-server
+  bromq:
+    image: bromq
     environment:
       - SENSOR_PASSWORD=super_secret_123
       - CAMERA_PASSWORD=camera_pass_456
@@ -321,7 +321,7 @@ The server supports three database backends (SQLite, PostgreSQL, MySQL) configur
 ```bash
 # Database Configuration
 DB_TYPE=postgres          # Database type: sqlite (default), postgres, mysql
-DB_PATH=mqtt.db          # SQLite: file path (default: mqtt-server.db)
+DB_PATH=mqtt.db          # SQLite: file path (default: bromq.db)
 DB_HOST=localhost        # Postgres/MySQL: host (default: localhost)
 DB_PORT=5432            # Postgres/MySQL: port (default: 5432 for postgres, 3306 for mysql)
 DB_USER=mqtt            # Postgres/MySQL: username (default: mqtt)
@@ -334,7 +334,7 @@ ADMIN_USERNAME=admin     # Default admin username (default: admin)
 ADMIN_PASSWORD=admin     # Default admin password (default: admin)
 
 # Command-line flags (override environment variables for database config)
-./mqtt-server \
+./bromq \
   -db-type postgres \
   -db-host localhost \
   -db-port 5432 \
@@ -359,10 +359,10 @@ LOG_FORMAT=text         # Output format: text, json (default: text)
 
 # Examples:
 # Development with debug logging
-LOG_LEVEL=debug LOG_FORMAT=text ./mqtt-server
+LOG_LEVEL=debug LOG_FORMAT=text ./bromq
 
 # Production with JSON logging for aggregation tools
-LOG_LEVEL=info LOG_FORMAT=json ./mqtt-server
+LOG_LEVEL=info LOG_FORMAT=json ./bromq
 ```
 
 Log levels:
@@ -374,11 +374,11 @@ Log levels:
 Output format examples:
 ```
 # Text format (human-readable, for development)
-time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Starting MQTT Server"
+time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Starting BroMQ"
 time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Connecting to database" type=sqlite
 
 # JSON format (machine-readable, for production log aggregation)
-{"time":"2025-10-23T08:02:38.347-04:00","level":"INFO","msg":"Starting MQTT Server"}
+{"time":"2025-10-23T08:02:38.347-04:00","level":"INFO","msg":"Starting BroMQ"}
 {"time":"2025-10-23T08:02:38.347-04:00","level":"INFO","msg":"Connecting to database","type":"sqlite"}
 ```
 
@@ -504,7 +504,7 @@ Hooks implement the mochi-mqtt hook interface to intercept MQTT lifecycle events
 - Automatically loads retained messages on startup
 - Implements `StoredRetainedMessages()` and `OnRetainMessage()`
 
-### 3. MQTT Server (`internal/mqtt`)
+### 3. BroMQ (`internal/mqtt`)
 
 **Config options:**
 - TCPAddr: MQTT TCP listener (default `:1883`)
@@ -700,23 +700,23 @@ make prod-up
 ```bash
 # Build
 cd web && npm run build && cd ..
-go build -o bin/mqtt-server .
+go build -o bin/bromq .
 
 # Deploy single binary (19MB stripped, includes all 3 database drivers)
-scp bin/mqtt-server user@server:/opt/mqtt-server/
-ssh user@server "/opt/mqtt-server/mqtt-server"
+scp bin/bromq user@server:/opt/bromq/
+ssh user@server "/opt/bromq/bromq"
 ```
 
 **Option 3: Docker Only**
 ```bash
-docker build -t mqtt-server .
+docker build -t bromq .
 docker run -d \
   -p 1883:1883 \
   -p 8883:8883 \
   -p 8080:8080 \
   -v mqtt-data:/app/data \
-  --name mqtt-server \
-  mqtt-server
+  --name bromq \
+  bromq
 ```
 
 ## Important Implementation Details

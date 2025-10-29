@@ -12,7 +12,7 @@ const pageTitles: Record<string, string> = {
 
 export default function AppLayout() {
   const location = useLocation()
-  const pageTitle = pageTitles[location.pathname] || 'MQTT Server'
+  const pageTitle = pageTitles[location.pathname] || 'BroMQ'
 
   // Check authentication
   const token = localStorage.getItem('mqtt_token')

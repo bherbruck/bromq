@@ -1,9 +1,9 @@
 services:
-  mqtt-server:
+  bromq:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mqtt-server
+    container_name: bromq
     restart: unless-stopped
     ports:
       - "1883:1883" # MQTT TCP
@@ -19,7 +19,7 @@ services:
 
       # Database configuration (SQLite by default)
       DB_TYPE: sqlite
-      DB_PATH: /app/data/mqtt-server.db
+      DB_PATH: /app/data/bromq.db
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

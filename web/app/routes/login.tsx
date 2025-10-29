@@ -8,7 +8,7 @@ import { Field, FieldLabel, FieldError } from '~/components/ui/field'
 import { Spinner } from '~/components/ui/spinner'
 import { useAuth } from '~/lib/auth-context'
 
-export const meta: Route.MetaFunction = () => [{ title: 'Login - MQTT Server' }]
+export const meta: Route.MetaFunction = () => [{ title: 'Login - BroMQ' }]
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth()
@@ -40,7 +40,7 @@ export default function LoginPage() {
     <div className="bg-muted/30 flex min-h-screen items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">MQTT Server</CardTitle>
+          <CardTitle className="text-2xl font-bold">BroMQ</CardTitle>
           <CardDescription>Enter your credentials to access the dashboard</CardDescription>
         </CardHeader>
         <CardContent>
