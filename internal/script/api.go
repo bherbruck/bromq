@@ -1,0 +1,307 @@
+package script
+
+import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+
+	"github.com/dop251/goja"
+	mqtt "github.com/mochi-mqtt/server/v2"
+	"gorm.io/datatypes"
+)
+
+// ScriptAPI provides JavaScript APIs for scripts
+type ScriptAPI struct {
+	vm          *goja.Runtime
+	scriptID    uint
+	scriptName  string
+	triggerType string
+	state       *StateManager
+	mqttServer  *mqtt.Server
+	logs        []ScriptLogEntry
+}
+
+// ScriptLogEntry represents a log entry from a script
+type ScriptLogEntry struct {
+	Level   string
+	Message string
+}
+
+// NewScriptAPI creates a new script API instance
+func NewScriptAPI(vm *goja.Runtime, scriptID uint, scriptName, triggerType string, state *StateManager, mqttServer *mqtt.Server) *ScriptAPI {
+	api := &ScriptAPI{
+		vm:          vm,
+		scriptID:    scriptID,
+		scriptName:  scriptName,
+		triggerType: triggerType,
+		state:       state,
+		mqttServer:  mqttServer,
+		logs:        make([]ScriptLogEntry, 0),
+	}
+
+	api.setupAPIs()
+	return api
+}
+
+// setupAPIs registers all JavaScript APIs
+func (api *ScriptAPI) setupAPIs() {
+	// Create log object
+	logObj := api.vm.NewObject()
+	logObj.Set("debug", api.logDebug)
+	logObj.Set("info", api.logInfo)
+	logObj.Set("warn", api.logWarn)
+	logObj.Set("error", api.logError)
+	api.vm.Set("log", logObj)
+
+	// Create mqtt object
+	mqttObj := api.vm.NewObject()
+	mqttObj.Set("publish", api.mqttPublish)
+	api.vm.Set("mqtt", mqttObj)
+
+	// Create state object (script-scoped)
+	stateObj := api.vm.NewObject()
+	stateObj.Set("set", api.stateSet)
+	stateObj.Set("get", api.stateGet)
+	stateObj.Set("delete", api.stateDelete)
+	stateObj.Set("keys", api.stateKeys)
+	api.vm.Set("state", stateObj)
+
+	// Create global object (shared across all scripts)
+	globalObj := api.vm.NewObject()
+	globalObj.Set("set", api.globalSet)
+	globalObj.Set("get", api.globalGet)
+	globalObj.Set("delete", api.globalDelete)
+	globalObj.Set("keys", api.globalKeys)
+	api.vm.Set("global", globalObj)
+}
+
+// GetLogs returns all collected logs
+func (api *ScriptAPI) GetLogs() []ScriptLogEntry {
+	return api.logs
+}
+
+// Log functions
+
+func (api *ScriptAPI) logDebug(call goja.FunctionCall) goja.Value {
+	msg := api.formatLogMessage(call.Arguments)
+	api.logs = append(api.logs, ScriptLogEntry{Level: "debug", Message: msg})
+	slog.Debug(msg, "script", api.scriptName, "trigger", api.triggerType)
+	return goja.Undefined()
+}
+
+func (api *ScriptAPI) logInfo(call goja.FunctionCall) goja.Value {
+	msg := api.formatLogMessage(call.Arguments)
+	api.logs = append(api.logs, ScriptLogEntry{Level: "info", Message: msg})
+	slog.Info(msg, "script", api.scriptName, "trigger", api.triggerType)
+	return goja.Undefined()
+}
+
+func (api *ScriptAPI) logWarn(call goja.FunctionCall) goja.Value {
+	msg := api.formatLogMessage(call.Arguments)
+	api.logs = append(api.logs, ScriptLogEntry{Level: "warn", Message: msg})
+	slog.Warn(msg, "script", api.scriptName, "trigger", api.triggerType)
+	return goja.Undefined()
+}
+
+func (api *ScriptAPI) logError(call goja.FunctionCall) goja.Value {
+	msg := api.formatLogMessage(call.Arguments)
+	api.logs = append(api.logs, ScriptLogEntry{Level: "error", Message: msg})
+	slog.Error(msg, "script", api.scriptName, "trigger", api.triggerType)
+	return goja.Undefined()
+}
+
+func (api *ScriptAPI) formatLogMessage(args []goja.Value) string {
+	if len(args) == 0 {
+		return ""
+	}
+
+	parts := make([]string, len(args))
+	for i, arg := range args {
+		parts[i] = fmt.Sprint(arg.Export())
+	}
+
+	// Join with spaces like console.log
+	msg := ""
+	for i, part := range parts {
+		if i > 0 {
+			msg += " "
+		}
+		msg += part
+	}
+
+	return msg
+}
+
+// MQTT functions
+
+func (api *ScriptAPI) mqttPublish(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 2 {
+		panic(api.vm.NewTypeError("mqtt.publish requires at least 2 arguments (topic, payload)"))
+	}
+
+	topic := call.Argument(0).String()
+	payload := call.Argument(1).String()
+	qos := byte(0)
+	retain := false
+
+	if len(call.Arguments) >= 3 {
+		qos = byte(call.Argument(2).ToInteger())
+	}
+	if len(call.Arguments) >= 4 {
+		retain = call.Argument(3).ToBoolean()
+	}
+
+	// Validate QoS
+	if qos > 2 {
+		panic(api.vm.NewTypeError("QoS must be 0, 1, or 2"))
+	}
+
+	// Publish to MQTT server
+	if err := api.mqttServer.Publish(topic, []byte(payload), retain, qos); err != nil {
+		slog.Error("Failed to publish from script", "script", api.scriptName, "topic", topic, "error", err)
+		panic(api.vm.NewGoError(fmt.Errorf("failed to publish: %w", err)))
+	}
+
+	return goja.Undefined()
+}
+
+// State functions (script-scoped)
+
+func (api *ScriptAPI) stateSet(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 2 {
+		panic(api.vm.NewTypeError("state.set requires at least 2 arguments (key, value)"))
+	}
+
+	key := call.Argument(0).String()
+	value := call.Argument(1).Export()
+
+	var ttl *int
+	if len(call.Arguments) >= 3 {
+		opts := call.Argument(2).ToObject(api.vm)
+		if opts != nil {
+			if ttlVal := opts.Get("ttl"); ttlVal != nil && ttlVal != goja.Undefined() {
+				ttlInt := int(ttlVal.ToInteger())
+				ttl = &ttlInt
+			}
+		}
+	}
+
+	if err := api.state.Set(&api.scriptID, key, value, ttl); err != nil {
+		panic(api.vm.NewGoError(err))
+	}
+
+	return goja.Undefined()
+}
+
+func (api *ScriptAPI) stateGet(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 {
+		panic(api.vm.NewTypeError("state.get requires 1 argument (key)"))
+	}
+
+	key := call.Argument(0).String()
+	value, ok := api.state.Get(&api.scriptID, key)
+
+	if !ok {
+		return goja.Undefined()
+	}
+
+	return api.vm.ToValue(value)
+}
+
+func (api *ScriptAPI) stateDelete(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 {
+		panic(api.vm.NewTypeError("state.delete requires 1 argument (key)"))
+	}
+
+	key := call.Argument(0).String()
+	if err := api.state.Delete(&api.scriptID, key); err != nil {
+		panic(api.vm.NewGoError(err))
+	}
+
+	return goja.Undefined()
+}
+
+func (api *ScriptAPI) stateKeys(call goja.FunctionCall) goja.Value {
+	keys := api.state.Keys(&api.scriptID)
+	return api.vm.ToValue(keys)
+}
+
+// Global state functions (shared across all scripts)
+
+func (api *ScriptAPI) globalSet(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 2 {
+		panic(api.vm.NewTypeError("global.set requires at least 2 arguments (key, value)"))
+	}
+
+	key := call.Argument(0).String()
+	value := call.Argument(1).Export()
+
+	var ttl *int
+	if len(call.Arguments) >= 3 {
+		opts := call.Argument(2).ToObject(api.vm)
+		if opts != nil {
+			if ttlVal := opts.Get("ttl"); ttlVal != nil && ttlVal != goja.Undefined() {
+				ttlInt := int(ttlVal.ToInteger())
+				ttl = &ttlInt
+			}
+		}
+	}
+
+	if err := api.state.Set(nil, key, value, ttl); err != nil {
+		panic(api.vm.NewGoError(err))
+	}
+
+	return goja.Undefined()
+}
+
+func (api *ScriptAPI) globalGet(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 {
+		panic(api.vm.NewTypeError("global.get requires 1 argument (key)"))
+	}
+
+	key := call.Argument(0).String()
+	value, ok := api.state.Get(nil, key)
+
+	if !ok {
+		return goja.Undefined()
+	}
+
+	return api.vm.ToValue(value)
+}
+
+func (api *ScriptAPI) globalDelete(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 {
+		panic(api.vm.NewTypeError("global.delete requires 1 argument (key)"))
+	}
+
+	key := call.Argument(0).String()
+	if err := api.state.Delete(nil, key); err != nil {
+		panic(api.vm.NewGoError(err))
+	}
+
+	return goja.Undefined()
+}
+
+func (api *ScriptAPI) globalKeys(call goja.FunctionCall) goja.Value {
+	keys := api.state.Keys(nil)
+	return api.vm.ToValue(keys)
+}
+
+// Event represents the context passed to scripts
+type Event struct {
+	Type         string `json:"type"`
+	Topic        string `json:"topic,omitempty"`
+	Payload      string `json:"payload,omitempty"`
+	ClientID     string `json:"clientId"`
+	Username     string `json:"username"`
+	QoS          byte   `json:"qos,omitempty"`
+	Retain       bool   `json:"retain,omitempty"`
+	CleanSession bool   `json:"cleanSession,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
+
+// ToJSON converts event to JSON for logging
+func (e *Event) ToJSON() datatypes.JSON {
+	data, _ := json.Marshal(e)
+	return datatypes.JSON(data)
+}

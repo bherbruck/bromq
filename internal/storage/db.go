@@ -96,6 +96,10 @@ func (db *DB) autoMigrate() error {
 		&RetainedMessage{},
 		&Bridge{},
 		&BridgeTopic{},
+		&Script{},
+		&ScriptTrigger{},
+		&ScriptLog{},
+		&ScriptState{},
 	)
 }
 

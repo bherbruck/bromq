@@ -183,3 +183,99 @@ bridges:
         remote_pattern: "archive/video/+/metadata"
         direction: out
         qos: 0
+
+# Scripts (JavaScript automation and processing)
+# Scripts execute automatically in response to MQTT events
+scripts:
+  # Example 1: Load script from file
+  - name: message-logger
+    description: "Log all published messages with metadata"
+    enabled: true
+    script_file: ./examples/scripts/message-logger.js
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "#"
+        priority: 100
+        enabled: true
+
+  # Example 2: Temperature monitoring with alerts
+  - name: temperature-alert
+    description: "Monitor temperature readings and send alerts"
+    enabled: true
+    script_file: ./examples/scripts/temperature-alert.js
+    metadata:
+      threshold: 30
+      alert_interval: 300
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "sensors/+/temperature"
+        priority: 50
+        enabled: true
+
+  # Example 3: Connection tracking
+  - name: connection-tracker
+    description: "Track client connection durations"
+    enabled: true
+    script_file: ./examples/scripts/connection-tracker.js
+    triggers:
+      - trigger_type: on_connect
+        priority: 10
+        enabled: true
+      - trigger_type: on_disconnect
+        priority: 10
+        enabled: true
+
+  # Example 4: Rate limiting
+  - name: rate-limiter
+    description: "Prevent message flooding"
+    enabled: true
+    script_file: ./examples/scripts/rate-limiter.js
+    metadata:
+      max_per_minute: 100
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "#"
+        priority: 5
+        enabled: true
+
+  # Example 5: Message routing and transformation
+  - name: message-router
+    description: "Transform and republish messages"
+    enabled: true
+    script_file: ./examples/scripts/message-router.js
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "#"
+        priority: 75
+        enabled: true
+
+  # Example 6: Statistics aggregation
+  - name: stats-aggregator
+    description: "Aggregate message statistics"
+    enabled: true
+    script_file: .//examples/scripts/stats-aggregator.js
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "#"
+        priority: 90
+        enabled: true
+
+  # Example 7: Inline script (script_content instead of script_file)
+  - name: simple-alert
+    description: "Simple inline script example"
+    enabled: false
+    script_content: |
+      // Simple inline script
+      if (event.payload === 'ALERT') {
+        log.warn('Alert received from', event.clientId, 'on topic', event.topic);
+        mqtt.publish('alerts/generic', JSON.stringify({
+          source: event.topic,
+          client: event.clientId,
+          timestamp: Date.now()
+        }), 1, false);
+      }
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "system/#"
+        priority: 50
+        enabled: true

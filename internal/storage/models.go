@@ -154,3 +154,71 @@ type BridgeTopic struct {
 func (BridgeTopic) TableName() string {
 	return "bridge_topics"
 }
+
+// Script represents a JavaScript script that executes on MQTT events
+type Script struct {
+	ID                    uint            `gorm:"primaryKey" json:"id"`
+	Name                  string          `gorm:"uniqueIndex;not null" json:"name"`
+	Description           string          `gorm:"type:text" json:"description"`
+	ScriptContent         string          `gorm:"type:text;not null" json:"script_content"`
+	Enabled               bool            `gorm:"default:true" json:"enabled"`
+	ProvisionedFromConfig bool            `gorm:"default:false" json:"provisioned_from_config"`
+	Metadata              datatypes.JSON  `gorm:"type:jsonb" json:"metadata,omitempty"`
+	CreatedAt             time.Time       `json:"created_at"`
+	UpdatedAt             time.Time       `json:"updated_at"`
+	Triggers              []ScriptTrigger `gorm:"foreignKey:ScriptID;constraint:OnDelete:CASCADE" json:"triggers,omitempty"`
+}
+
+// TableName specifies the table name for Script model
+func (Script) TableName() string {
+	return "scripts"
+}
+
+// ScriptTrigger defines when a script should execute
+type ScriptTrigger struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	ScriptID    uint      `gorm:"not null;index:idx_script_trigger" json:"script_id"`
+	TriggerType string    `gorm:"not null;index:idx_script_trigger;check:trigger_type IN ('on_publish', 'on_connect', 'on_disconnect', 'on_subscribe')" json:"trigger_type"`
+	TopicFilter string    `gorm:"default:''" json:"topic_filter"` // MQTT topic pattern (empty for non-topic events)
+	Priority    int       `gorm:"default:100" json:"priority"`    // Execution order (lower = earlier)
+	Enabled     bool      `gorm:"default:true" json:"enabled"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// TableName specifies the table name for ScriptTrigger model
+func (ScriptTrigger) TableName() string {
+	return "script_triggers"
+}
+
+// ScriptLog stores script execution logs
+type ScriptLog struct {
+	ID              uint           `gorm:"primaryKey" json:"id"`
+	ScriptID        uint           `gorm:"not null;index:idx_script_log_timestamp" json:"script_id"`
+	TriggerType     string         `gorm:"not null" json:"trigger_type"`
+	Level           string         `gorm:"not null;check:level IN ('debug', 'info', 'warn', 'error')" json:"level"`
+	Message         string         `gorm:"type:text" json:"message"`
+	Context         datatypes.JSON `gorm:"type:jsonb" json:"context,omitempty"` // Client ID, topic, etc.
+	ExecutionTimeMs int            `json:"execution_time_ms"`
+	CreatedAt       time.Time      `gorm:"index:idx_script_log_timestamp" json:"created_at"`
+	Script          Script         `gorm:"foreignKey:ScriptID;constraint:OnDelete:CASCADE" json:"-"`
+}
+
+// TableName specifies the table name for ScriptLog model
+func (ScriptLog) TableName() string {
+	return "script_logs"
+}
+
+// ScriptState stores persistent state for scripts (key-value store)
+type ScriptState struct {
+	Key       string     `gorm:"primaryKey;size:255" json:"key"` // Format: "script:{id}:{userkey}" or "global:{userkey}"
+	ScriptID  *uint      `gorm:"index" json:"script_id"`         // NULL for global state
+	Value     []byte     `gorm:"type:bytea" json:"value"`        // JSON-encoded value
+	ExpiresAt *time.Time `gorm:"index" json:"expires_at"`        // NULL = no expiration
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// TableName specifies the table name for ScriptState model
+func (ScriptState) TableName() string {
+	return "script_state"
+}

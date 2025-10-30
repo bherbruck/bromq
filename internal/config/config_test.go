@@ -254,6 +254,228 @@ acl_rules: []
 				}
 			},
 		},
+		{
+			name: "valid script with script_file",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: test-script
+    description: "Test script"
+    enabled: true
+    script_file: /path/to/script.js
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "test/#"
+        priority: 100
+        enabled: true
+`,
+			wantErr: false,
+			validate: func(t *testing.T, cfg *Config) {
+				if len(cfg.Scripts) != 1 {
+					t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
+				}
+				if cfg.Scripts[0].Name != "test-script" {
+					t.Errorf("expected name 'test-script', got '%s'", cfg.Scripts[0].Name)
+				}
+				if cfg.Scripts[0].ScriptFile != "/path/to/script.js" {
+					t.Errorf("expected script_file '/path/to/script.js', got '%s'", cfg.Scripts[0].ScriptFile)
+				}
+				if len(cfg.Scripts[0].Triggers) != 1 {
+					t.Errorf("expected 1 trigger, got %d", len(cfg.Scripts[0].Triggers))
+				}
+			},
+		},
+		{
+			name: "valid script with script_content",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: inline-script
+    description: "Inline script"
+    enabled: true
+    script_content: |
+      log.info("Hello from inline script");
+      mqtt.publish("output/topic", "hello", 1, false);
+    triggers:
+      - trigger_type: on_connect
+        priority: 50
+        enabled: true
+`,
+			wantErr: false,
+			validate: func(t *testing.T, cfg *Config) {
+				if len(cfg.Scripts) != 1 {
+					t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
+				}
+				if cfg.Scripts[0].ScriptContent == "" {
+					t.Error("expected script_content to be set")
+				}
+				if cfg.Scripts[0].ScriptFile != "" {
+					t.Error("expected script_file to be empty")
+				}
+			},
+		},
+		{
+			name: "script with both script_file and script_content (invalid)",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: invalid-script
+    enabled: true
+    script_file: /path/to/script.js
+    script_content: "log.info('test');"
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "#"
+        priority: 100
+        enabled: true
+`,
+			wantErr:     true,
+			errContains: "cannot have both script_file and script_content",
+		},
+		{
+			name: "script with neither script_file nor script_content (invalid)",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: invalid-script
+    enabled: true
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "#"
+        priority: 100
+        enabled: true
+`,
+			wantErr:     true,
+			errContains: "must have either script_file or script_content",
+		},
+		{
+			name: "script with invalid trigger type",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: test-script
+    enabled: true
+    script_content: "log.info('test');"
+    triggers:
+      - trigger_type: invalid_trigger
+        topic_filter: "#"
+        priority: 100
+        enabled: true
+`,
+			wantErr:     true,
+			errContains: "invalid trigger_type",
+		},
+		{
+			name: "script with missing trigger type",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: test-script
+    enabled: true
+    script_content: "log.info('test');"
+    triggers:
+      - topic_filter: "#"
+        priority: 100
+        enabled: true
+`,
+			wantErr:     true,
+			errContains: "missing trigger_type",
+		},
+		{
+			name: "script with duplicate names",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: same-name
+    enabled: true
+    script_content: "log.info('1');"
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "#"
+        priority: 100
+        enabled: true
+  - name: same-name
+    enabled: true
+    script_content: "log.info('2');"
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "#"
+        priority: 100
+        enabled: true
+`,
+			wantErr:     true,
+			errContains: "duplicate script name",
+		},
+		{
+			name: "script with metadata",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: metadata-script
+    description: "Script with metadata"
+    enabled: true
+    script_content: "log.info('test');"
+    metadata:
+      environment: "production"
+      max_retries: 3
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "sensors/#"
+        priority: 75
+        enabled: true
+`,
+			wantErr: false,
+			validate: func(t *testing.T, cfg *Config) {
+				if len(cfg.Scripts) != 1 {
+					t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
+				}
+				if cfg.Scripts[0].Metadata["environment"] != "production" {
+					t.Errorf("expected environment 'production', got '%v'", cfg.Scripts[0].Metadata["environment"])
+				}
+				if cfg.Scripts[0].Metadata["max_retries"] != 3 {
+					t.Errorf("expected max_retries 3, got '%v'", cfg.Scripts[0].Metadata["max_retries"])
+				}
+			},
+		},
+		{
+			name: "script with multiple triggers",
+			configYAML: `
+users: []
+acl_rules: []
+scripts:
+  - name: multi-trigger
+    enabled: true
+    script_content: "log.info('test');"
+    triggers:
+      - trigger_type: on_connect
+        priority: 10
+        enabled: true
+      - trigger_type: on_disconnect
+        priority: 10
+        enabled: true
+      - trigger_type: on_publish
+        topic_filter: "status/#"
+        priority: 50
+        enabled: true
+`,
+			wantErr: false,
+			validate: func(t *testing.T, cfg *Config) {
+				if len(cfg.Scripts) != 1 {
+					t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
+				}
+				if len(cfg.Scripts[0].Triggers) != 3 {
+					t.Errorf("expected 3 triggers, got %d", len(cfg.Scripts[0].Triggers))
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

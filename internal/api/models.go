@@ -160,3 +160,40 @@ type SuccessResponse struct {
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
+
+// === Script Requests ===
+
+// ScriptTriggerRequest represents a trigger for a script
+type ScriptTriggerRequest struct {
+	TriggerType string `json:"trigger_type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
+	TopicFilter string `json:"topic_filter"` // MQTT topic pattern (empty for non-topic events)
+	Priority    int    `json:"priority"`     // Execution order (lower = earlier)
+	Enabled     bool   `json:"enabled"`
+}
+
+// CreateScriptRequest represents a request to create a script
+type CreateScriptRequest struct {
+	Name          string                 `json:"name"`
+	Description   string                 `json:"description"`
+	ScriptContent string                 `json:"script_content"`
+	Enabled       bool                   `json:"enabled"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	Triggers      []ScriptTriggerRequest `json:"triggers"`
+}
+
+// UpdateScriptRequest represents a request to update a script
+type UpdateScriptRequest struct {
+	Name          string                 `json:"name"`
+	Description   string                 `json:"description"`
+	ScriptContent string                 `json:"script_content"`
+	Enabled       bool                   `json:"enabled"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	Triggers      []ScriptTriggerRequest `json:"triggers"`
+}
+
+// TestScriptRequest represents a request to test a script
+type TestScriptRequest struct {
+	ScriptContent string                 `json:"script_content"`
+	TriggerType   string                 `json:"trigger_type"`
+	EventData     map[string]interface{} `json:"event_data"` // Mock event data
+}

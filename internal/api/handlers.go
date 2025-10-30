@@ -7,20 +7,23 @@ import (
 	"strconv"
 
 	"github/bherbruck/bromq/internal/mqtt"
+	"github/bherbruck/bromq/internal/script"
 	"github/bherbruck/bromq/internal/storage"
 )
 
 // Handler holds dependencies for API handlers
 type Handler struct {
-	db   *storage.DB
-	mqtt *mqtt.Server
+	db     *storage.DB
+	mqtt   *mqtt.Server
+	engine *script.Engine
 }
 
 // NewHandler creates a new API handler
-func NewHandler(db *storage.DB, mqttServer *mqtt.Server) *Handler {
+func NewHandler(db *storage.DB, mqttServer *mqtt.Server, scriptEngine *script.Engine) *Handler {
 	return &Handler{
-		db:   db,
-		mqtt: mqttServer,
+		db:     db,
+		mqtt:   mqttServer,
+		engine: scriptEngine,
 	}
 }
 

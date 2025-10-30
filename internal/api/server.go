@@ -7,6 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github/bherbruck/bromq/internal/mqtt"
+	"github/bherbruck/bromq/internal/script"
 	"github/bherbruck/bromq/internal/storage"
 )
 
@@ -18,9 +19,9 @@ type Server struct {
 }
 
 // NewServer creates a new API server
-func NewServer(addr string, db *storage.DB, mqttServer *mqtt.Server, webFS fs.FS) *Server {
+func NewServer(addr string, db *storage.DB, mqttServer *mqtt.Server, webFS fs.FS, scriptEngine *script.Engine) *Server {
 	return &Server{
-		handler: NewHandler(db, mqttServer),
+		handler: NewHandler(db, mqttServer, scriptEngine),
 		addr:    addr,
 		webFS:   webFS,
 	}
@@ -81,6 +82,22 @@ func (s *Server) Start() error {
 	apiMux.Handle("POST /bridges", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateBridge))))
 	apiMux.Handle("PUT /bridges/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateBridge))))
 	apiMux.Handle("DELETE /bridges/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteBridge))))
+
+	// === Script Management ===
+	// View scripts and logs - any authenticated user can view
+	apiMux.Handle("GET /scripts", AuthMiddleware(http.HandlerFunc(s.handler.ListScripts)))
+	apiMux.Handle("GET /scripts/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetScript)))
+	apiMux.Handle("GET /scripts/{id}/logs", AuthMiddleware(http.HandlerFunc(s.handler.GetScriptLogs)))
+	apiMux.Handle("GET /scripts/{id}/state", AuthMiddleware(http.HandlerFunc(s.handler.GetScriptState)))
+
+	// Manage scripts - admin only
+	apiMux.Handle("POST /scripts", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateScript))))
+	apiMux.Handle("PUT /scripts/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateScript))))
+	apiMux.Handle("DELETE /scripts/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteScript))))
+	apiMux.Handle("POST /scripts/{id}/enable", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.EnableScript))))
+	apiMux.Handle("POST /scripts/test", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.TestScript))))
+	apiMux.Handle("DELETE /scripts/{id}/logs", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.ClearScriptLogs))))
+	apiMux.Handle("DELETE /scripts/{id}/state/{key}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteScriptStateKey))))
 
 	// Legacy/deprecated clients endpoint (for backward compatibility)
 	apiMux.Handle("GET /clients", AuthMiddleware(http.HandlerFunc(s.handler.ListClients)))

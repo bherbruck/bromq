@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github/bherbruck/bromq/internal/config"
 	"github/bherbruck/bromq/internal/storage"
@@ -15,7 +16,8 @@ func Provision(db *storage.DB, cfg *config.Config) error {
 	slog.Info("Starting configuration provisioning",
 		"users", len(cfg.Users),
 		"acl_rules", len(cfg.ACLRules),
-		"bridges", len(cfg.Bridges))
+		"bridges", len(cfg.Bridges),
+		"scripts", len(cfg.Scripts))
 
 	// Step 1: Provision MQTT users
 	userIDMap := make(map[string]uint) // username -> database ID
@@ -44,6 +46,17 @@ func Provision(db *storage.DB, cfg *config.Config) error {
 		slog.Debug("Provisioned bridge", "name", bridgeCfg.Name, "id", bridgeID)
 	}
 
+	// Step 4: Provision scripts
+	scriptIDMap := make(map[string]uint) // script name -> database ID
+	for _, scriptCfg := range cfg.Scripts {
+		scriptID, err := provisionScript(db, scriptCfg)
+		if err != nil {
+			return fmt.Errorf("failed to provision script '%s': %w", scriptCfg.Name, err)
+		}
+		scriptIDMap[scriptCfg.Name] = scriptID
+		slog.Debug("Provisioned script", "name", scriptCfg.Name, "id", scriptID)
+	}
+
 	// Clean up users that were provisioned but are no longer in config
 	if err := cleanupOrphanedUsers(db, userIDMap); err != nil {
 		slog.Warn("Failed to cleanup orphaned users", "error", err)
@@ -52,6 +65,11 @@ func Provision(db *storage.DB, cfg *config.Config) error {
 	// Clean up bridges that were provisioned but are no longer in config
 	if err := cleanupOrphanedBridges(db, bridgeIDMap); err != nil {
 		slog.Warn("Failed to cleanup orphaned bridges", "error", err)
+	}
+
+	// Clean up scripts that were provisioned but are no longer in config
+	if err := cleanupOrphanedScripts(db, scriptIDMap); err != nil {
+		slog.Warn("Failed to cleanup orphaned scripts", "error", err)
 	}
 
 	slog.Info("Configuration provisioning completed successfully")
@@ -326,6 +344,95 @@ func cleanupOrphanedBridges(db *storage.DB, currentBridgeMap map[string]uint) er
 			slog.Info("Removing orphaned provisioned bridge", "name", bridge.Name, "id", bridge.ID)
 			if err := db.DeleteBridge(bridge.ID); err != nil {
 				slog.Warn("Failed to delete orphaned bridge", "name", bridge.Name, "error", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// provisionScript creates or updates a script
+func provisionScript(db *storage.DB, scriptCfg config.ScriptConfig) (uint, error) {
+	// Load script content from file if specified
+	scriptContent := scriptCfg.ScriptContent
+	if scriptCfg.ScriptFile != "" {
+		content, err := os.ReadFile(scriptCfg.ScriptFile)
+		if err != nil {
+			return 0, fmt.Errorf("failed to read script file '%s': %w", scriptCfg.ScriptFile, err)
+		}
+		scriptContent = string(content)
+	}
+
+	// Convert metadata to JSON
+	var metadataJSON []byte
+	var err error
+	if scriptCfg.Metadata != nil {
+		metadataJSON, err = json.Marshal(scriptCfg.Metadata)
+		if err != nil {
+			return 0, fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+	}
+
+	// Convert triggers
+	triggers := make([]storage.ScriptTrigger, len(scriptCfg.Triggers))
+	for i, t := range scriptCfg.Triggers {
+		triggers[i] = storage.ScriptTrigger{
+			TriggerType: t.TriggerType,
+			TopicFilter: t.TopicFilter,
+			Priority:    t.Priority,
+			Enabled:     t.Enabled,
+		}
+	}
+
+	// Check if script already exists
+	existingScript, err := db.GetScriptByName(scriptCfg.Name)
+	if err == nil {
+		// Script exists - update it
+		if err := db.UpdateProvisionedScript(
+			existingScript.ID,
+			scriptCfg.Name,
+			scriptCfg.Description,
+			scriptContent,
+			scriptCfg.Enabled,
+			metadataJSON,
+			triggers,
+		); err != nil {
+			return 0, fmt.Errorf("failed to update script: %w", err)
+		}
+		return existingScript.ID, nil
+	}
+
+	// Script doesn't exist - create it
+	script, err := db.CreateProvisionedScript(
+		scriptCfg.Name,
+		scriptCfg.Description,
+		scriptContent,
+		scriptCfg.Enabled,
+		metadataJSON,
+		triggers,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create script: %w", err)
+	}
+
+	return script.ID, nil
+}
+
+// cleanupOrphanedScripts removes scripts that were provisioned but are no longer in config
+func cleanupOrphanedScripts(db *storage.DB, currentScriptMap map[string]uint) error {
+	// Get all provisioned scripts
+	provisionedScripts, err := db.ListProvisionedScripts()
+	if err != nil {
+		return fmt.Errorf("failed to list provisioned scripts: %w", err)
+	}
+
+	// Check each provisioned script
+	for _, script := range provisionedScripts {
+		if _, exists := currentScriptMap[script.Name]; !exists {
+			// Script was provisioned but is no longer in config - remove it
+			slog.Info("Removing orphaned provisioned script", "name", script.Name, "id", script.ID)
+			if err := db.DeleteScript(script.ID); err != nil {
+				slog.Warn("Failed to delete orphaned script", "name", script.Name, "error", err)
 			}
 		}
 	}

@@ -1,22 +1,26 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github/bherbruck/bromq/hooks/auth"
 	"github/bherbruck/bromq/hooks/bridge"
 	"github/bherbruck/bromq/hooks/metrics"
 	"github/bherbruck/bromq/hooks/retained"
+	scripthook "github/bherbruck/bromq/hooks/script"
 	"github/bherbruck/bromq/hooks/tracking"
 	"github/bherbruck/bromq/internal/api"
 	"github/bherbruck/bromq/internal/config"
 	"github/bherbruck/bromq/internal/mqtt"
 	"github/bherbruck/bromq/internal/provisioning"
+	"github/bherbruck/bromq/internal/script"
 	"github/bherbruck/bromq/internal/storage"
 	"github/bherbruck/bromq/web"
 )
@@ -160,6 +164,16 @@ func main() {
 	}
 	slog.Info("Bridge hook registered")
 
+	// Initialize script engine and hook
+	scriptEngine := script.NewEngine(db, mqttServer.Server)
+	scriptEngine.Start()
+	scriptHookInstance := scripthook.NewScriptHook(scriptEngine)
+	if err := mqttServer.AddHook(scriptHookInstance, nil); err != nil {
+		slog.Error("Failed to add script hook", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Script hook registered")
+
 	// Start MQTT server in a goroutine
 	go func() {
 		if err := mqttServer.Start(); err != nil {
@@ -175,7 +189,7 @@ func main() {
 	}
 
 	// Start HTTP API server in a goroutine
-	apiServer := api.NewServer(*httpAddr, db, mqttServer, web.FS)
+	apiServer := api.NewServer(*httpAddr, db, mqttServer, web.FS, scriptEngine)
 	go func() {
 		if err := apiServer.Start(); err != nil {
 			slog.Error("Failed to start HTTP server", "error", err)
@@ -202,10 +216,35 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 
-	slog.Info("Shutting down")
+	slog.Info("Shutting down gracefully...")
+
+	// Create shutdown context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// 1. Stop MQTT server (no new connections)
+	slog.Info("Stopping MQTT server...")
+	if err := mqttServer.Close(); err != nil {
+		slog.Error("Error closing MQTT server", "error", err)
+	}
+
+	// 2. Stop bridge connections
+	slog.Info("Stopping bridges...")
 	bridgeManager.Stop()
-	mqttServer.Close()
-	slog.Info("Server stopped")
+
+	// 3. Shutdown script engine (CRITICAL: final state flush)
+	slog.Info("Shutting down script engine...")
+	if err := scriptEngine.Shutdown(ctx); err != nil {
+		slog.Error("Error shutting down script engine", "error", err)
+	}
+
+	// 4. Close database
+	slog.Info("Closing database...")
+	if err := db.Close(); err != nil {
+		slog.Error("Error closing database", "error", err)
+	}
+
+	slog.Info("Shutdown complete")
 }
 
 // setupLogging configures slog based on environment variables

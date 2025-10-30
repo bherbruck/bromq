@@ -13,6 +13,7 @@ type Config struct {
 	Users    []MQTTUserConfig `yaml:"users"`
 	ACLRules []ACLRuleConfig  `yaml:"acl_rules"`
 	Bridges  []BridgeConfig   `yaml:"bridges"`
+	Scripts  []ScriptConfig   `yaml:"scripts"`
 }
 
 // MQTTUserConfig represents an MQTT user in the config file
@@ -51,6 +52,26 @@ type BridgeTopicConfig struct {
 	RemotePattern string `yaml:"remote_pattern"`
 	Direction     string `yaml:"direction"`
 	QoS           int    `yaml:"qos,omitempty"`
+}
+
+// ScriptConfig represents a script in the config file
+type ScriptConfig struct {
+	Name           string                 `yaml:"name"`
+	Description    string                 `yaml:"description,omitempty"`
+	Enabled        bool                   `yaml:"enabled"`
+	ScriptFile     string                 `yaml:"script_file,omitempty"`     // Path to script file
+	ScriptContent  string                 `yaml:"script_content,omitempty"`  // Inline script
+	ScriptLanguage string                 `yaml:"script_language,omitempty"` // Currently only 'javascript' supported
+	Metadata       map[string]interface{} `yaml:"metadata,omitempty"`
+	Triggers       []ScriptTriggerConfig  `yaml:"triggers"`
+}
+
+// ScriptTriggerConfig represents a trigger for a script
+type ScriptTriggerConfig struct {
+	TriggerType string `yaml:"trigger_type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
+	TopicFilter string `yaml:"topic_filter,omitempty"`
+	Priority    int    `yaml:"priority,omitempty"` // Default: 100
+	Enabled     bool   `yaml:"enabled"`
 }
 
 // Load reads and parses a YAML config file with environment variable interpolation
@@ -171,6 +192,55 @@ func (c *Config) Validate() error {
 			}
 			if topic.QoS < 0 || topic.QoS > 2 {
 				return fmt.Errorf("bridge '%s' has invalid QoS %d (must be 0, 1, or 2)", bridge.Name, topic.QoS)
+			}
+		}
+	}
+
+	// Validate scripts
+	scriptNames := make(map[string]bool)
+	for _, script := range c.Scripts {
+		if script.Name == "" {
+			return fmt.Errorf("script missing name")
+		}
+		if scriptNames[script.Name] {
+			return fmt.Errorf("duplicate script name: %s", script.Name)
+		}
+		scriptNames[script.Name] = true
+
+		// Must have either script_file or script_content, but not both
+		hasFile := script.ScriptFile != ""
+		hasContent := script.ScriptContent != ""
+		if !hasFile && !hasContent {
+			return fmt.Errorf("script '%s' must have either script_file or script_content", script.Name)
+		}
+		if hasFile && hasContent {
+			return fmt.Errorf("script '%s' cannot have both script_file and script_content", script.Name)
+		}
+
+		// Validate triggers
+		if len(script.Triggers) == 0 {
+			return fmt.Errorf("script '%s' has no triggers configured", script.Name)
+		}
+		for i, trigger := range script.Triggers {
+			if trigger.TriggerType == "" {
+				return fmt.Errorf("script '%s' trigger %d missing trigger_type", script.Name, i+1)
+			}
+			// Validate trigger type
+			validTriggers := []string{"on_publish", "on_connect", "on_disconnect", "on_subscribe"}
+			valid := false
+			for _, vt := range validTriggers {
+				if trigger.TriggerType == vt {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return fmt.Errorf("script '%s' has invalid trigger_type '%s' (must be one of: on_publish, on_connect, on_disconnect, on_subscribe)", script.Name, trigger.TriggerType)
+			}
+
+			// Set default priority
+			if trigger.Priority == 0 {
+				script.Triggers[i].Priority = 100
 			}
 		}
 	}
