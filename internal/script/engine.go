@@ -164,6 +164,15 @@ func (e *Engine) ExecuteForTrigger(triggerType, topic string, event *Event) {
 
 // executeScript executes a single script
 func (e *Engine) executeScript(script *storage.Script, event *Event) {
+	// Prevent self-triggering: if this script published the message, skip execution
+	if event.PublishedByScriptID != nil && *event.PublishedByScriptID == script.ID {
+		slog.Debug("Skipping self-triggered script",
+			"script", script.Name,
+			"trigger", event.Type,
+			"topic", event.Topic)
+		return
+	}
+
 	ctx := context.Background()
 
 	slog.Debug("Executing script",

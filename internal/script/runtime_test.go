@@ -95,14 +95,15 @@ func TestRuntimeExecuteSuccess(t *testing.T) {
 		t.Error("Expected non-negative execution time")
 	}
 
-	// Check that log was created in database
+	// Check that user log was created in database
+	// Note: Success executions no longer auto-log, only user log.* calls are saved
 	_, total, err := db.ListScriptLogs(script.ID, 1, 10, "")
 	if err != nil {
 		t.Fatalf("Failed to get logs: %v", err)
 	}
 
-	if total != 2 { // 1 user log + 1 execution log
-		t.Errorf("Expected 2 logs, got %d", total)
+	if total != 1 { // Only user log (no automatic success log)
+		t.Errorf("Expected 1 user log, got %d", total)
 	}
 }
 

@@ -79,12 +79,16 @@ func (s *StateManager) flushWorker() {
 	}
 }
 
-// expirationWorker periodically removes expired state entries
+// expirationWorker periodically removes expired state entries and publish tracking
 func (s *StateManager) expirationWorker() {
 	defer s.wg.Done()
 
 	s.expireTicker = time.NewTicker(5 * time.Minute)
 	defer s.expireTicker.Stop()
+
+	// Also cleanup publish tracker more frequently (every 10 seconds)
+	publishCleanupTicker := time.NewTicker(10 * time.Second)
+	defer publishCleanupTicker.Stop()
 
 	for {
 		select {
@@ -94,6 +98,9 @@ func (s *StateManager) expirationWorker() {
 			if err := s.db.ExpireScriptStates(); err != nil {
 				slog.Error("Failed to expire states in database", "error", err)
 			}
+		case <-publishCleanupTicker.C:
+			// Cleanup expired publish tracking entries
+			scriptPublishTracker.cleanup()
 		case <-s.stopChan:
 			slog.Debug("Expiration worker stopping")
 			return

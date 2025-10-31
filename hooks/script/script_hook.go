@@ -50,6 +50,13 @@ func (h *ScriptHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pack
 		Retain:   pk.FixedHeader.Retain,
 	}
 
+	// Check if this message was published by a script (to prevent self-triggering)
+	// Scripts use the inline client (ID: "inline")
+	if cl.ID == "inline" {
+		// Look up which script published this message
+		event.PublishedByScriptID = internalscript.LookupScriptPublish(pk.TopicName, string(pk.Payload))
+	}
+
 	// Execute matching scripts asynchronously (don't block message flow)
 	go h.engine.ExecuteForTrigger("on_publish", pk.TopicName, event)
 

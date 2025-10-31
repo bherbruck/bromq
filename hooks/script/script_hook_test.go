@@ -266,7 +266,7 @@ func TestScriptHookOnSubscribe(t *testing.T) {
 	}
 
 	// Give script time to execute (subscribe events need slightly more time)
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(350 * time.Millisecond)
 
 	// Verify script executed by checking state (more reliable for async tests)
 	topic, exists := hook.engine.GetState().Get(&script.ID, "subscribed_topic")

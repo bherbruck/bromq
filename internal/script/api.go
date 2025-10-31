@@ -1,14 +1,95 @@
 package script
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
+	"time"
 
 	"github.com/dop251/goja"
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"gorm.io/datatypes"
 )
+
+// Global tracking of script-published messages to prevent self-triggering
+var (
+	scriptPublishTracker = &publishTracker{
+		publishes: make(map[string]*publishRecord),
+	}
+)
+
+type publishRecord struct {
+	scriptID  uint
+	expiresAt time.Time
+}
+
+type publishTracker struct {
+	mu        sync.RWMutex
+	publishes map[string]*publishRecord // key: hash of topic+payload
+}
+
+func (pt *publishTracker) track(topic, payload string, scriptID uint) {
+	key := pt.makeKey(topic, payload)
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	pt.publishes[key] = &publishRecord{
+		scriptID:  scriptID,
+		expiresAt: time.Now().Add(100 * time.Millisecond), // Very short TTL
+	}
+}
+
+func (pt *publishTracker) lookup(topic, payload string) *uint {
+	key := pt.makeKey(topic, payload)
+	pt.mu.RLock()
+	defer pt.mu.RUnlock()
+
+	record, exists := pt.publishes[key]
+	if !exists {
+		return nil
+	}
+
+	// Check if expired
+	if time.Now().After(record.expiresAt) {
+		return nil
+	}
+
+	return &record.scriptID
+}
+
+func (pt *publishTracker) cleanup() {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	now := time.Now()
+	for key, record := range pt.publishes {
+		if now.After(record.expiresAt) {
+			delete(pt.publishes, key)
+		}
+	}
+}
+
+func (pt *publishTracker) makeKey(topic, payload string) string {
+	// Hash topic+payload to create a unique key
+	h := sha256.New()
+	h.Write([]byte(topic))
+	h.Write([]byte("|"))
+	h.Write([]byte(payload))
+	return string(h.Sum(nil))
+}
+
+// LookupScriptPublish checks if a message was recently published by a script
+// Returns the script ID if found, nil otherwise
+func LookupScriptPublish(topic, payload string) *uint {
+	return scriptPublishTracker.lookup(topic, payload)
+}
+
+// CleanupScriptPublishTracker removes expired tracking entries
+func CleanupScriptPublishTracker() {
+	scriptPublishTracker.cleanup()
+}
 
 // ScriptAPI provides JavaScript APIs for scripts
 type ScriptAPI struct {
@@ -156,6 +237,9 @@ func (api *ScriptAPI) mqttPublish(call goja.FunctionCall) goja.Value {
 		panic(api.vm.NewTypeError("QoS must be 0, 1, or 2"))
 	}
 
+	// Track this publish to prevent self-triggering (expires in 100ms)
+	scriptPublishTracker.track(topic, payload, api.scriptID)
+
 	// Publish to MQTT server
 	if err := api.mqttServer.Publish(topic, []byte(payload), retain, qos); err != nil {
 		slog.Error("Failed to publish from script", "script", api.scriptName, "topic", topic, "error", err)
@@ -289,15 +373,16 @@ func (api *ScriptAPI) globalKeys(call goja.FunctionCall) goja.Value {
 
 // Event represents the context passed to scripts
 type Event struct {
-	Type         string `json:"type"`
-	Topic        string `json:"topic,omitempty"`
-	Payload      string `json:"payload,omitempty"`
-	ClientID     string `json:"clientId"`
-	Username     string `json:"username"`
-	QoS          byte   `json:"qos,omitempty"`
-	Retain       bool   `json:"retain,omitempty"`
-	CleanSession bool   `json:"cleanSession,omitempty"`
-	Error        string `json:"error,omitempty"`
+	Type                string `json:"type"`
+	Topic               string `json:"topic,omitempty"`
+	Payload             string `json:"payload,omitempty"`
+	ClientID            string `json:"clientId"`
+	Username            string `json:"username"`
+	QoS                 byte   `json:"qos,omitempty"`
+	Retain              bool   `json:"retain,omitempty"`
+	CleanSession        bool   `json:"cleanSession,omitempty"`
+	Error               string `json:"error,omitempty"`
+	PublishedByScriptID *uint  `json:"-"` // Internal: tracks which script published this message (prevents self-triggering)
 }
 
 // ToJSON converts event to JSON for logging

@@ -144,35 +144,30 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, event *Ev
 
 // logExecution logs the script execution to the database
 func (r *Runtime) logExecution(scriptID uint, event *Event, result *ExecutionResult) {
-	// Determine log level
-	level := "info"
-	message := "Script executed successfully"
-
-	if !result.Success {
-		level = "error"
-		if result.Error != nil {
-			message = result.Error.Error()
-		} else {
-			message = "Script execution failed"
-		}
-	}
-
 	// Create context with event details
 	context := event.ToJSON()
 
-	// Log to database
-	if err := r.db.CreateScriptLog(
-		scriptID,
-		event.Type,
-		level,
-		message,
-		context,
-		result.ExecutionTimeMs,
-	); err != nil {
-		slog.Error("Failed to create script log", "error", err)
+	// Only auto-log errors/failures (reduces noise for high-frequency scripts)
+	if !result.Success {
+		level := "error"
+		message := "Script execution failed"
+		if result.Error != nil {
+			message = result.Error.Error()
+		}
+
+		if err := r.db.CreateScriptLog(
+			scriptID,
+			event.Type,
+			level,
+			message,
+			context,
+			result.ExecutionTimeMs,
+		); err != nil {
+			slog.Error("Failed to create script log", "error", err)
+		}
 	}
 
-	// Also log user messages from the script
+	// Always log user messages from the script (log.info, log.warn, etc.)
 	for _, logEntry := range result.Logs {
 		if err := r.db.CreateScriptLog(
 			scriptID,
