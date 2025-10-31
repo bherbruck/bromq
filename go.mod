@@ -3,6 +3,7 @@ module github/bherbruck/bromq
 go 1.25.3
 
 require (
+	github.com/dop251/goja v0.0.0-20251008123653-cf18d89f3cf6
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/glebarez/sqlite v1.11.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -21,7 +22,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect
-	github.com/dop251/goja v0.0.0-20251008123653-cf18d89f3cf6 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
