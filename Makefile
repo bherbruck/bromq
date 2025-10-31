@@ -1,4 +1,4 @@
-.PHONY: help build run stop dev-up dev-down prod-up prod-down logs clean test
+.PHONY: help build run stop dev-up dev-down prod-up prod-down logs clean test test-web test-all
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -57,6 +57,16 @@ clean: ## Clean build artifacts and volumes
 
 test: ## Run Go tests
 	go test -v ./...
+
+test-web: ## Run frontend tests
+	cd web && npm test
+
+test-all: ## Run all tests (Go + frontend)
+	@echo "Running Go tests..."
+	go test -v ./...
+	@echo ""
+	@echo "Running frontend tests..."
+	cd web && npm test
 
 frontend: ## Build frontend only
 	cd web && npm run build
