@@ -110,6 +110,82 @@ export interface UpdateBridgeRequest {
   topics: BridgeTopicRequest[]
 }
 
+// Script - JavaScript automation script
+export interface ScriptTrigger {
+  id: number
+  script_id: number
+  trigger_type: 'on_publish' | 'on_connect' | 'on_disconnect' | 'on_subscribe'
+  topic_filter?: string
+  priority: number
+  enabled: boolean
+  created_at: string
+}
+
+export interface Script {
+  id: number
+  name: string
+  description?: string
+  script_content: string
+  enabled: boolean
+  provisioned_from_config: boolean
+  metadata?: Record<string, any>
+  created_at: string
+  updated_at: string
+  triggers: ScriptTrigger[]
+}
+
+export interface CreateScriptRequest {
+  name: string
+  description?: string
+  script_content: string
+  enabled: boolean
+  metadata?: Record<string, any>
+  triggers: CreateScriptTriggerRequest[]
+}
+
+export interface CreateScriptTriggerRequest {
+  trigger_type: 'on_publish' | 'on_connect' | 'on_disconnect' | 'on_subscribe'
+  topic_filter?: string
+  priority: number
+  enabled: boolean
+}
+
+export interface UpdateScriptRequest {
+  name: string
+  description?: string
+  script_content: string
+  enabled: boolean
+  metadata?: Record<string, any>
+  triggers: CreateScriptTriggerRequest[]
+}
+
+export interface ScriptLog {
+  id: number
+  script_id: number
+  trigger_type: string
+  level: 'debug' | 'info' | 'warn' | 'error'
+  message: string
+  context?: Record<string, any>
+  execution_time_ms: number
+  created_at: string
+}
+
+export interface TestScriptRequest {
+  script_content: string
+  trigger_type: string
+  event_data: Record<string, any>
+}
+
+export interface TestScriptResponse {
+  success: boolean
+  error?: string
+  logs: Array<{
+    level: string
+    message: string
+  }>
+  execution_time_ms: number
+}
+
 export interface Client {
   id: string
   username: string
@@ -425,6 +501,69 @@ class APIClient {
   async deleteBridge(id: number): Promise<void> {
     return this.request<void>(`/bridges/${id}`, {
       method: 'DELETE',
+    })
+  }
+
+  // Scripts
+  async getScripts(params?: PaginationParams): Promise<PaginatedResponse<Script>> {
+    const queryString = this.buildQueryString(params)
+    return this.request<PaginatedResponse<Script>>(`/scripts${queryString}`)
+  }
+
+  async getScript(id: number): Promise<Script> {
+    return this.request<Script>(`/scripts/${id}`)
+  }
+
+  async createScript(data: CreateScriptRequest): Promise<Script> {
+    return this.request<Script>('/scripts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateScript(id: number, data: UpdateScriptRequest): Promise<Script> {
+    return this.request<Script>(`/scripts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteScript(id: number): Promise<void> {
+    return this.request<void>(`/scripts/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async updateScriptEnabled(id: number, enabled: boolean): Promise<void> {
+    return this.request<void>(`/scripts/${id}/enabled`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    })
+  }
+
+  async getScriptLogs(
+    id: number,
+    params?: { page?: number; page_size?: number; level?: string }
+  ): Promise<PaginatedResponse<ScriptLog>> {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString())
+    if (params?.level) queryParams.append('level', params.level)
+
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : ''
+    return this.request<PaginatedResponse<ScriptLog>>(`/scripts/${id}/logs${queryString}`)
+  }
+
+  async clearScriptLogs(id: number): Promise<void> {
+    return this.request<void>(`/scripts/${id}/logs`, {
+      method: 'DELETE',
+    })
+  }
+
+  async testScript(data: TestScriptRequest): Promise<TestScriptResponse> {
+    return this.request<TestScriptResponse>('/scripts/test', {
+      method: 'POST',
+      body: JSON.stringify(data),
     })
   }
 

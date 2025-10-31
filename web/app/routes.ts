@@ -13,5 +13,7 @@ export default [
     route('acl', 'routes/acl.tsx'),
     route('bridges', 'routes/bridges.tsx'),
     route('bridges/:id', 'routes/bridges.$id.tsx'),
+    route('scripts', 'routes/scripts.tsx'),
+    route('scripts/:id', 'routes/scripts.$id.tsx'),
   ]),
 ] satisfies RouteConfig

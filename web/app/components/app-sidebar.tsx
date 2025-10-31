@@ -1,4 +1,4 @@
-import { Activity, Home, Key, Lock, LogOut, Network, Server, Users } from 'lucide-react'
+import { Activity, Code, Home, Key, Lock, LogOut, Network, Server, Users } from 'lucide-react'
 import { NavLink } from 'react-router'
 import {
   Sidebar,
@@ -28,6 +28,7 @@ const navigation = [
       { title: 'MQTT Users', icon: Key, url: '/mqtt-users' },
       { title: 'ACL Rules', icon: Lock, url: '/acl' },
       { title: 'Bridges', icon: Network, url: '/bridges' },
+      { title: 'Scripts', icon: Code, url: '/scripts' },
     ],
   },
   {
