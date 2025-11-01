@@ -14,14 +14,16 @@ import (
 // Server represents the HTTP API server
 type Server struct {
 	handler *Handler
+	config  *Config
 	addr    string
 	webFS   fs.FS
 }
 
 // NewServer creates a new API server
-func NewServer(addr string, db *storage.DB, mqttServer *mqtt.Server, webFS fs.FS, scriptEngine *script.Engine) *Server {
+func NewServer(addr string, db *storage.DB, mqttServer *mqtt.Server, webFS fs.FS, scriptEngine *script.Engine, config *Config) *Server {
 	return &Server{
-		handler: NewHandler(db, mqttServer, scriptEngine),
+		handler: NewHandler(db, mqttServer, scriptEngine, config),
+		config:  config,
 		addr:    addr,
 		webFS:   webFS,
 	}
@@ -31,6 +33,9 @@ func NewServer(addr string, db *storage.DB, mqttServer *mqtt.Server, webFS fs.FS
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
+	// Create authentication middleware with config
+	authMiddleware := NewAuthMiddleware(s.config)
+
 	// API routes
 	apiMux := http.NewServeMux()
 
@@ -38,74 +43,74 @@ func (s *Server) Start() error {
 	apiMux.HandleFunc("POST /auth/login", s.handler.Login)
 
 	// Password change endpoint (any authenticated user can change their own password)
-	apiMux.Handle("PUT /auth/change-password", AuthMiddleware(http.HandlerFunc(s.handler.ChangePassword)))
+	apiMux.Handle("PUT /auth/change-password", authMiddleware(http.HandlerFunc(s.handler.ChangePassword)))
 
 	// === Dashboard User Management ===
 	// List dashboard users - any authenticated user can view
-	apiMux.Handle("GET /dashboard/users", AuthMiddleware(http.HandlerFunc(s.handler.ListDashboardUsers)))
-	apiMux.Handle("GET /dashboard/users/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetDashboardUser)))
+	apiMux.Handle("GET /dashboard/users", authMiddleware(http.HandlerFunc(s.handler.ListDashboardUsers)))
+	apiMux.Handle("GET /dashboard/users/{id}", authMiddleware(http.HandlerFunc(s.handler.GetDashboardUser)))
 	// Manage dashboard users - admin only
-	apiMux.Handle("POST /dashboard/users", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateDashboardUser))))
-	apiMux.Handle("PUT /dashboard/users/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateDashboardUser))))
-	apiMux.Handle("PUT /dashboard/users/{id}/password", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateDashboardUserPassword))))
-	apiMux.Handle("DELETE /dashboard/users/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteDashboardUser))))
+	apiMux.Handle("POST /dashboard/users", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateDashboardUser))))
+	apiMux.Handle("PUT /dashboard/users/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateDashboardUser))))
+	apiMux.Handle("PUT /dashboard/users/{id}/password", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateDashboardUserPassword))))
+	apiMux.Handle("DELETE /dashboard/users/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteDashboardUser))))
 
 	// === MQTT Management ===
 	// View MQTT resources - any authenticated user can view
-	apiMux.Handle("GET /mqtt/users", AuthMiddleware(http.HandlerFunc(s.handler.ListMQTTUsers)))
-	apiMux.Handle("GET /mqtt/users/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetMQTTUser)))
-	apiMux.Handle("GET /mqtt/clients", AuthMiddleware(http.HandlerFunc(s.handler.ListMQTTClients)))
-	apiMux.Handle("GET /mqtt/clients/{client_id}", AuthMiddleware(http.HandlerFunc(s.handler.GetMQTTClientDetails)))
-	apiMux.Handle("GET /acl", AuthMiddleware(http.HandlerFunc(s.handler.ListACL)))
+	apiMux.Handle("GET /mqtt/users", authMiddleware(http.HandlerFunc(s.handler.ListMQTTUsers)))
+	apiMux.Handle("GET /mqtt/users/{id}", authMiddleware(http.HandlerFunc(s.handler.GetMQTTUser)))
+	apiMux.Handle("GET /mqtt/clients", authMiddleware(http.HandlerFunc(s.handler.ListMQTTClients)))
+	apiMux.Handle("GET /mqtt/clients/{client_id}", authMiddleware(http.HandlerFunc(s.handler.GetMQTTClientDetails)))
+	apiMux.Handle("GET /acl", authMiddleware(http.HandlerFunc(s.handler.ListACL)))
 
 	// Manage MQTT users - admin only
-	apiMux.Handle("POST /mqtt/users", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateMQTTUser))))
-	apiMux.Handle("PUT /mqtt/users/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTUser))))
-	apiMux.Handle("PUT /mqtt/users/{id}/password", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTUserPassword))))
-	apiMux.Handle("DELETE /mqtt/users/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteMQTTUser))))
+	apiMux.Handle("POST /mqtt/users", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateMQTTUser))))
+	apiMux.Handle("PUT /mqtt/users/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTUser))))
+	apiMux.Handle("PUT /mqtt/users/{id}/password", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTUserPassword))))
+	apiMux.Handle("DELETE /mqtt/users/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteMQTTUser))))
 
 	// Manage MQTT clients - admin only
-	apiMux.Handle("PUT /mqtt/clients/{client_id}/metadata", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTClientMetadata))))
-	apiMux.Handle("DELETE /mqtt/clients/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteMQTTClient))))
+	apiMux.Handle("PUT /mqtt/clients/{client_id}/metadata", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateMQTTClientMetadata))))
+	apiMux.Handle("DELETE /mqtt/clients/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteMQTTClient))))
 
 	// Manage ACL rules - admin only
-	apiMux.Handle("POST /acl", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateACL))))
-	apiMux.Handle("PUT /acl/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateACL))))
-	apiMux.Handle("DELETE /acl/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteACL))))
+	apiMux.Handle("POST /acl", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateACL))))
+	apiMux.Handle("PUT /acl/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateACL))))
+	apiMux.Handle("DELETE /acl/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteACL))))
 
 	// === Bridge Management ===
 	// View bridges - any authenticated user can view
-	apiMux.Handle("GET /bridges", AuthMiddleware(http.HandlerFunc(s.handler.ListBridges)))
-	apiMux.Handle("GET /bridges/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetBridge)))
+	apiMux.Handle("GET /bridges", authMiddleware(http.HandlerFunc(s.handler.ListBridges)))
+	apiMux.Handle("GET /bridges/{id}", authMiddleware(http.HandlerFunc(s.handler.GetBridge)))
 
 	// Manage bridges - admin only
-	apiMux.Handle("POST /bridges", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateBridge))))
-	apiMux.Handle("PUT /bridges/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateBridge))))
-	apiMux.Handle("DELETE /bridges/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteBridge))))
+	apiMux.Handle("POST /bridges", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateBridge))))
+	apiMux.Handle("PUT /bridges/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateBridge))))
+	apiMux.Handle("DELETE /bridges/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteBridge))))
 
 	// === Script Management ===
 	// View scripts and logs - any authenticated user can view
-	apiMux.Handle("GET /scripts", AuthMiddleware(http.HandlerFunc(s.handler.ListScripts)))
-	apiMux.Handle("GET /scripts/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetScript)))
-	apiMux.Handle("GET /scripts/{id}/logs", AuthMiddleware(http.HandlerFunc(s.handler.GetScriptLogs)))
-	apiMux.Handle("GET /scripts/{id}/state", AuthMiddleware(http.HandlerFunc(s.handler.GetScriptState)))
+	apiMux.Handle("GET /scripts", authMiddleware(http.HandlerFunc(s.handler.ListScripts)))
+	apiMux.Handle("GET /scripts/{id}", authMiddleware(http.HandlerFunc(s.handler.GetScript)))
+	apiMux.Handle("GET /scripts/{id}/logs", authMiddleware(http.HandlerFunc(s.handler.GetScriptLogs)))
+	apiMux.Handle("GET /scripts/{id}/state", authMiddleware(http.HandlerFunc(s.handler.GetScriptState)))
 
 	// Manage scripts - admin only
-	apiMux.Handle("POST /scripts", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateScript))))
-	apiMux.Handle("PUT /scripts/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateScript))))
-	apiMux.Handle("DELETE /scripts/{id}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteScript))))
-	apiMux.Handle("POST /scripts/{id}/enable", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.EnableScript))))
-	apiMux.Handle("POST /scripts/test", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.TestScript))))
-	apiMux.Handle("DELETE /scripts/{id}/logs", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.ClearScriptLogs))))
-	apiMux.Handle("DELETE /scripts/{id}/state/{key}", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteScriptStateKey))))
+	apiMux.Handle("POST /scripts", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.CreateScript))))
+	apiMux.Handle("PUT /scripts/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.UpdateScript))))
+	apiMux.Handle("DELETE /scripts/{id}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteScript))))
+	apiMux.Handle("POST /scripts/{id}/enable", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.EnableScript))))
+	apiMux.Handle("POST /scripts/test", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.TestScript))))
+	apiMux.Handle("DELETE /scripts/{id}/logs", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.ClearScriptLogs))))
+	apiMux.Handle("DELETE /scripts/{id}/state/{key}", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.DeleteScriptStateKey))))
 
 	// Legacy/deprecated clients endpoint (for backward compatibility)
-	apiMux.Handle("GET /clients", AuthMiddleware(http.HandlerFunc(s.handler.ListClients)))
-	apiMux.Handle("GET /clients/{id}", AuthMiddleware(http.HandlerFunc(s.handler.GetClientDetails)))
-	apiMux.Handle("POST /clients/{id}/disconnect", AuthMiddleware(AdminOnly(http.HandlerFunc(s.handler.DisconnectClient))))
+	apiMux.Handle("GET /clients", authMiddleware(http.HandlerFunc(s.handler.ListClients)))
+	apiMux.Handle("GET /clients/{id}", authMiddleware(http.HandlerFunc(s.handler.GetClientDetails)))
+	apiMux.Handle("POST /clients/{id}/disconnect", authMiddleware(AdminOnly(http.HandlerFunc(s.handler.DisconnectClient))))
 
 	// Metrics - any authenticated user can view
-	apiMux.Handle("GET /metrics", AuthMiddleware(http.HandlerFunc(s.handler.GetMetrics)))
+	apiMux.Handle("GET /metrics", authMiddleware(http.HandlerFunc(s.handler.GetMetrics)))
 
 	// Mount API under /api
 	mux.Handle("/api/", http.StripPrefix("/api", apiMux))

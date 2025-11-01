@@ -162,6 +162,7 @@ type Script struct {
 	Description           string          `gorm:"type:text" json:"description"`
 	ScriptContent         string          `gorm:"type:text;not null" json:"script_content"`
 	Enabled               bool            `gorm:"default:true" json:"enabled"`
+	TimeoutSeconds        *int            `gorm:"default:null" json:"timeout_seconds,omitempty"` // Script execution timeout in seconds (null = use default)
 	ProvisionedFromConfig bool            `gorm:"default:false" json:"provisioned_from_config"`
 	Metadata              datatypes.JSON  `gorm:"type:jsonb" json:"metadata,omitempty"`
 	CreatedAt             time.Time       `json:"created_at"`

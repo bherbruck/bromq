@@ -188,8 +188,11 @@ func main() {
 		// Don't exit - bridges are optional, continue without them
 	}
 
+	// Load API configuration (JWT secret)
+	apiConfig := api.LoadConfig()
+
 	// Start HTTP API server in a goroutine
-	apiServer := api.NewServer(*httpAddr, db, mqttServer, web.FS, scriptEngine)
+	apiServer := api.NewServer(*httpAddr, db, mqttServer, web.FS, scriptEngine, apiConfig)
 	go func() {
 		if err := apiServer.Start(); err != nil {
 			slog.Error("Failed to start HTTP server", "error", err)

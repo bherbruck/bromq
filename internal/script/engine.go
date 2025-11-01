@@ -19,6 +19,7 @@ type Engine struct {
 	mqttServer      *mqtt.Server
 	state           *StateManager
 	runtime         *Runtime
+	defaultTimeout  time.Duration // Default script execution timeout
 	logRetention    time.Duration // How long to keep logs (0 = forever)
 	cleanupInterval time.Duration // How often to run cleanup
 	cleanupTicker   *time.Ticker
@@ -32,6 +33,11 @@ type Engine struct {
 func NewEngine(db *storage.DB, mqttServer *mqtt.Server) *Engine {
 	state := NewStateManager(db)
 	runtime := NewRuntime(db, state, mqttServer)
+
+	// Load timeout configuration
+	defaultTimeout := loadTimeoutConfig()
+	runtime.SetDefaultTimeout(defaultTimeout)
+	slog.Info("Script execution timeout configured", "default_timeout", defaultTimeout)
 
 	// Load log retention configuration
 	logRetention := loadLogRetentionConfig()
@@ -50,10 +56,44 @@ func NewEngine(db *storage.DB, mqttServer *mqtt.Server) *Engine {
 		mqttServer:      mqttServer,
 		state:           state,
 		runtime:         runtime,
+		defaultTimeout:  defaultTimeout,
 		logRetention:    logRetention,
 		cleanupInterval: cleanupInterval,
 		stopChan:        make(chan struct{}),
 	}
+}
+
+// loadTimeoutConfig loads the default script execution timeout from environment
+func loadTimeoutConfig() time.Duration {
+	timeoutStr := os.Getenv("SCRIPT_TIMEOUT")
+	if timeoutStr == "" {
+		return 5 * time.Second // Default: 5 seconds (increased from 1s)
+	}
+
+	timeout, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		slog.Warn("Invalid SCRIPT_TIMEOUT, using default",
+			"value", timeoutStr,
+			"error", err,
+			"default", "5s")
+		return 5 * time.Second
+	}
+
+	// Enforce reasonable limits (100ms to 5 minutes)
+	if timeout < 100*time.Millisecond {
+		slog.Warn("SCRIPT_TIMEOUT too low, using minimum",
+			"value", timeout,
+			"minimum", "100ms")
+		return 100 * time.Millisecond
+	}
+	if timeout > 5*time.Minute {
+		slog.Warn("SCRIPT_TIMEOUT too high, using maximum",
+			"value", timeout,
+			"maximum", "5m")
+		return 5 * time.Minute
+	}
+
+	return timeout
 }
 
 // loadLogRetentionConfig loads the log retention configuration from environment

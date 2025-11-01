@@ -22,25 +22,25 @@ type ExecutionResult struct {
 
 // Runtime handles individual script execution with timeout and error handling
 type Runtime struct {
-	db         *storage.DB
-	state      *StateManager
-	mqttServer *mqtt.Server
-	timeout    time.Duration
+	db             *storage.DB
+	state          *StateManager
+	mqttServer     *mqtt.Server
+	defaultTimeout time.Duration
 }
 
 // NewRuntime creates a new runtime
 func NewRuntime(db *storage.DB, state *StateManager, mqttServer *mqtt.Server) *Runtime {
 	return &Runtime{
-		db:         db,
-		state:      state,
-		mqttServer: mqttServer,
-		timeout:    1 * time.Second, // Default 1 second timeout
+		db:             db,
+		state:          state,
+		mqttServer:     mqttServer,
+		defaultTimeout: 5 * time.Second, // Default 5 seconds timeout (will be overridden by engine)
 	}
 }
 
-// SetTimeout sets the execution timeout
-func (r *Runtime) SetTimeout(timeout time.Duration) {
-	r.timeout = timeout
+// SetDefaultTimeout sets the default execution timeout
+func (r *Runtime) SetDefaultTimeout(timeout time.Duration) {
+	r.defaultTimeout = timeout
 }
 
 // Execute runs a script with the given event context
@@ -52,8 +52,14 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, event *Ev
 		Logs:    make([]ScriptLogEntry, 0),
 	}
 
+	// Determine timeout to use: script-specific or default
+	timeout := r.defaultTimeout
+	if script.TimeoutSeconds != nil && *script.TimeoutSeconds > 0 {
+		timeout = time.Duration(*script.TimeoutSeconds) * time.Second
+	}
+
 	// Create timeout context
-	execCtx, cancel := context.WithTimeout(ctx, r.timeout)
+	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Execute in goroutine to handle timeout
@@ -127,13 +133,13 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, event *Ev
 	case <-execCtx.Done():
 		// Timeout
 		result.ExecutionTimeMs = int(time.Since(startTime).Milliseconds())
-		result.Error = fmt.Errorf("execution timeout after %v", r.timeout)
+		result.Error = fmt.Errorf("execution timeout after %v", timeout)
 		result.Success = false
 
 		slog.Warn("Script execution timeout",
 			"script", script.Name,
 			"trigger", event.Type,
-			"timeout", r.timeout)
+			"timeout", timeout)
 	}
 
 	// Log execution to database

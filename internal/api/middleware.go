@@ -16,7 +16,6 @@ type contextKey string
 
 const (
 	userContextKey contextKey = "user"
-	jwtSecretKey              = "your-secret-key-change-this-in-production" // TODO: Move to config
 )
 
 // JWTClaims represents the JWT token claims
@@ -28,7 +27,7 @@ type JWTClaims struct {
 }
 
 // GenerateJWT generates a new JWT token for a user
-func GenerateJWT(userID int, username, role string) (string, error) {
+func GenerateJWT(secret []byte, userID int, username, role string) (string, error) {
 	claims := JWTClaims{
 		UserID:   userID,
 		Username: username,
@@ -40,16 +39,16 @@ func GenerateJWT(userID int, username, role string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(jwtSecretKey))
+	return token.SignedString(secret)
 }
 
 // ValidateJWT validates a JWT token and returns the claims
-func ValidateJWT(tokenString string) (*JWTClaims, error) {
+func ValidateJWT(secret []byte, tokenString string) (*JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(jwtSecretKey), nil
+		return secret, nil
 	})
 
 	if err != nil {
@@ -63,34 +62,36 @@ func ValidateJWT(tokenString string) (*JWTClaims, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
-// AuthMiddleware validates JWT tokens on protected routes
-func AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract token from Authorization header
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
-			return
-		}
+// NewAuthMiddleware creates a new authentication middleware with the given config
+func NewAuthMiddleware(config *Config) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Extract token from Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+				return
+			}
 
-		// Check for Bearer token
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, `{"error":"invalid authorization header format"}`, http.StatusUnauthorized)
-			return
-		}
+			// Check for Bearer token
+			parts := strings.Split(authHeader, " ")
+			if len(parts) != 2 || parts[0] != "Bearer" {
+				http.Error(w, `{"error":"invalid authorization header format"}`, http.StatusUnauthorized)
+				return
+			}
 
-		// Validate token
-		claims, err := ValidateJWT(parts[1])
-		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error":"invalid token: %s"}`, err), http.StatusUnauthorized)
-			return
-		}
+			// Validate token
+			claims, err := ValidateJWT(config.JWTSecret, parts[1])
+			if err != nil {
+				http.Error(w, fmt.Sprintf(`{"error":"invalid token: %s"}`, err), http.StatusUnauthorized)
+				return
+			}
 
-		// Add claims to context
-		ctx := context.WithValue(r.Context(), userContextKey, claims)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			// Add claims to context
+			ctx := context.WithValue(r.Context(), userContextKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 // GetUserFromContext extracts JWT claims from request context

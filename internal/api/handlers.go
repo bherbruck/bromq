@@ -16,14 +16,16 @@ type Handler struct {
 	db     *storage.DB
 	mqtt   *mqtt.Server
 	engine *script.Engine
+	config *Config
 }
 
 // NewHandler creates a new API handler
-func NewHandler(db *storage.DB, mqttServer *mqtt.Server, scriptEngine *script.Engine) *Handler {
+func NewHandler(db *storage.DB, mqttServer *mqtt.Server, scriptEngine *script.Engine, config *Config) *Handler {
 	return &Handler{
 		db:     db,
 		mqtt:   mqttServer,
 		engine: scriptEngine,
+		config: config,
 	}
 }
 
@@ -48,7 +50,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(int(user.ID), user.Username, user.Role)
+	token, err := GenerateJWT(h.config.JWTSecret, int(user.ID), user.Username, user.Role)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to generate token: %s"}`, err), http.StatusInternalServerError)
 		return
