@@ -12,14 +12,21 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// DB wraps the GORM database connection
+// DB wraps the GORM database connection with in-memory caching
 type DB struct {
 	*gorm.DB
+	cache *Cache
 }
 
 // Open creates a new database connection and runs auto-migrations
 // Supports SQLite, PostgreSQL, and MySQL based on the provided configuration
 func Open(config *DatabaseConfig) (*DB, error) {
+	return OpenWithCache(config, nil)
+}
+
+// OpenWithCache creates a new database connection with a custom cache instance (for testing)
+// If cache is nil, creates a new cache with the default Prometheus registry
+func OpenWithCache(config *DatabaseConfig, cache *Cache) (*DB, error) {
 	if config == nil {
 		// Default to SQLite for backward compatibility
 		config = DefaultSQLiteConfig("bromq.db")
@@ -65,7 +72,15 @@ func Open(config *DatabaseConfig) (*DB, error) {
 		}
 	}
 
-	storage := &DB{gormDB}
+	// Use provided cache or create a new one
+	if cache == nil {
+		cache = NewCache()
+	}
+
+	storage := &DB{
+		DB:    gormDB,
+		cache: cache,
+	}
 
 	// Migrate admin_users table to dashboard_users if it exists
 	if err := storage.migrateAdminUsersToDashboardUsers(config.Type); err != nil {
@@ -80,6 +95,11 @@ func Open(config *DatabaseConfig) (*DB, error) {
 	// Create default admin user if not exists
 	if err := storage.createDefaultAdmin(); err != nil {
 		slog.Warn("Failed to create default admin", "error", err)
+	}
+
+	// Warm cache with MQTT users and ACL rules for performance
+	if err := storage.warmCache(); err != nil {
+		slog.Warn("Failed to warm cache", "error", err)
 	}
 
 	slog.Info("Database connected successfully", "type", config.Type)
@@ -173,11 +193,38 @@ func (db *DB) migrateAdminUsersToDashboardUsers(dbType string) error {
 	return nil
 }
 
-// Close closes the database connection
+// Close closes the database connection and stops the cache cleanup goroutine
 func (db *DB) Close() error {
+	// Stop cache cleanup goroutine
+	if db.cache != nil {
+		db.cache.Stop()
+	}
+
 	sqlDB, err := db.DB.DB()
 	if err != nil {
 		return err
 	}
 	return sqlDB.Close()
+}
+
+// warmCache pre-loads MQTT users and ACL rules into the cache for performance
+// This prevents cache misses on startup and ensures the hot path is fast
+func (db *DB) warmCache() error {
+	// Load all MQTT users
+	var users []MQTTUser
+	if err := db.Find(&users).Error; err != nil {
+		return fmt.Errorf("failed to load MQTT users for cache: %w", err)
+	}
+	db.cache.WarmMQTTUsers(users)
+	slog.Info("Cache warmed with MQTT users", "count", len(users))
+
+	// Load all ACL rules
+	var rules []ACLRule
+	if err := db.Find(&rules).Error; err != nil {
+		return fmt.Errorf("failed to load ACL rules for cache: %w", err)
+	}
+	db.cache.WarmACLRules(rules)
+	slog.Info("Cache warmed with ACL rules", "count", len(rules))
+
+	return nil
 }
