@@ -1,6 +1,7 @@
 package script
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"testing"
 	"time"
 
@@ -14,9 +15,11 @@ import (
 func setupTestHook(t *testing.T) (*storage.DB, *ScriptHook, *mqtt.Server) {
 	t.Helper()
 
-	// Setup in-memory database
-	config := storage.DefaultSQLiteConfig(":memory:")
-	db, err := storage.Open(config)
+	// Setup in-memory database with shared cache mode
+	// This ensures all connections see the same database (important for concurrent goroutines)
+	config := storage.DefaultSQLiteConfig("file::memory:?cache=shared")
+	cache := storage.NewCacheWithRegistry(prometheus.NewRegistry())
+	db, err := storage.OpenWithCache(config, cache)
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
@@ -235,11 +238,14 @@ func TestScriptHookOnSubscribe(t *testing.T) {
 	defer mqttServer.Close()
 
 	// Create script that sets state on subscribe (more reliable for async test)
-	script, _ := db.CreateScript("log-subscribe", "", `
+	script, err := db.CreateScript("log-subscribe", "", `
 		state.set("subscribed_topic", event.topic);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{TriggerType: "on_subscribe", TopicFilter: "test/#", Priority: 100, Enabled: true},
 	})
+	if err != nil {
+		t.Fatalf("Failed to create script: %v", err)
+	}
 
 	// Create mock client
 	cl := &mqtt.Client{

@@ -1,6 +1,7 @@
 package script
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"context"
 	"testing"
 	"time"
@@ -13,9 +14,11 @@ import (
 func setupTestEngine(t *testing.T) (*storage.DB, *internalscript.Engine, *mqtt.Server) {
 	t.Helper()
 
-	// Setup in-memory database
-	config := storage.DefaultSQLiteConfig(":memory:")
-	db, err := storage.Open(config)
+	// Setup in-memory database with shared cache mode
+	// This ensures all connections see the same database (important for concurrent goroutines)
+	config := storage.DefaultSQLiteConfig("file::memory:?cache=shared")
+	cache := storage.NewCacheWithRegistry(prometheus.NewRegistry())
+	db, err := storage.OpenWithCache(config, cache)
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
