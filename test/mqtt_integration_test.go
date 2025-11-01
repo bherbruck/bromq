@@ -6,6 +6,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/prometheus/client_golang/prometheus"
 
 	mqttserver "github/bherbruck/bromq/internal/mqtt"
 	"github/bherbruck/bromq/internal/storage"
@@ -16,9 +17,10 @@ import (
 func setupMQTTTestServer(t *testing.T) (*mqttserver.Server, *storage.DB, func()) {
 	t.Helper()
 
-	// Create in-memory database
+	// Create in-memory database with isolated Prometheus registry for testing
 	config := storage.DefaultSQLiteConfig(":memory:")
-	db, err := storage.Open(config)
+	cache := storage.NewCacheWithRegistry(prometheus.NewRegistry())
+	db, err := storage.OpenWithCache(config, cache)
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}

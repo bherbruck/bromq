@@ -13,9 +13,12 @@ import (
 	"gorm.io/datatypes"
 )
 
+// Test JWT secret for tests
+var testJWTSecret = []byte("test-secret-key-for-unit-tests")
+
 // Helper function to add admin token to request
 func addAdminAuth(t *testing.T, req *http.Request) {
-	token, err := GenerateJWT(1, "admin", "admin")
+	token, err := GenerateJWT(testJWTSecret, 1, "admin", "admin")
 	if err != nil {
 		t.Fatalf("Failed to generate admin token: %v", err)
 	}
@@ -24,7 +27,7 @@ func addAdminAuth(t *testing.T, req *http.Request) {
 
 // Helper function to add user token to request
 func addUserAuth(t *testing.T, req *http.Request) {
-	token, err := GenerateJWT(2, "user", "user")
+	token, err := GenerateJWT(testJWTSecret, 2, "user", "user")
 	if err != nil {
 		t.Fatalf("Failed to generate user token: %v", err)
 	}

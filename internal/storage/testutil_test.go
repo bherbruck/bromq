@@ -2,6 +2,8 @@ package storage
 
 import (
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // setupTestDB creates an in-memory database for testing
@@ -9,7 +11,9 @@ func setupTestDB(t *testing.T) *DB {
 	t.Helper()
 
 	config := DefaultSQLiteConfig(":memory:")
-	db, err := Open(config)
+	// Use isolated Prometheus registry to prevent duplicate registration in tests
+	cache := NewCacheWithRegistry(prometheus.NewRegistry())
+	db, err := OpenWithCache(config, cache)
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}

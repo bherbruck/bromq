@@ -3,6 +3,7 @@
 package test
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"context"
 	"fmt"
 	"os"
@@ -30,7 +31,8 @@ func TestBridgeIntegration(t *testing.T) {
 	defer os.Remove(tempDB)
 
 	dbConfig := storage.DefaultSQLiteConfig(tempDB)
-	db, err := storage.Open(dbConfig)
+	cache := storage.NewCacheWithRegistry(prometheus.NewRegistry())
+	db, err := storage.OpenWithCache(dbConfig, cache)
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}

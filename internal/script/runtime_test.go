@@ -1,6 +1,7 @@
 package script
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"context"
 	"testing"
 	"time"
@@ -15,7 +16,8 @@ func setupTestRuntime(t *testing.T) (*storage.DB, *Runtime, *mqtt.Server) {
 
 	// Setup in-memory database
 	config := storage.DefaultSQLiteConfig(":memory:")
-	db, err := storage.Open(config)
+	cache := storage.NewCacheWithRegistry(prometheus.NewRegistry())
+	db, err := storage.OpenWithCache(config, cache)
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
@@ -153,7 +155,7 @@ func TestRuntimeExecuteTimeout(t *testing.T) {
 	defer mqttServer.Close()
 
 	// Set short timeout for testing
-	runtime.SetTimeout(100 * time.Millisecond)
+	runtime.SetDefaultTimeout(100 * time.Millisecond)
 
 	script := &storage.Script{
 		ID:   1,

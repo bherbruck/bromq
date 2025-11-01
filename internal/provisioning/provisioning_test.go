@@ -3,6 +3,7 @@ package provisioning
 import (
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github/bherbruck/bromq/internal/config"
 	"github/bherbruck/bromq/internal/storage"
 )
@@ -10,7 +11,9 @@ import (
 // setupTestDB creates an in-memory SQLite database for testing
 func setupTestDB(t *testing.T) *storage.DB {
 	cfg := storage.DefaultSQLiteConfig(":memory:")
-	db, err := storage.Open(cfg)
+	// Use isolated Prometheus registry to prevent duplicate registration in tests
+	cache := storage.NewCacheWithRegistry(prometheus.NewRegistry())
+	db, err := storage.OpenWithCache(cfg, cache)
 	if err != nil {
 		t.Fatalf("failed to create test database: %v", err)
 	}

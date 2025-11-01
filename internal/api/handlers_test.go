@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github/bherbruck/bromq/internal/storage"
 )
 
@@ -36,18 +37,27 @@ func (m *MockMQTTServer) GetMetrics() interface{} {
 // setupTestHandler creates a test handler with in-memory database and mock MQTT server
 func setupTestHandler(t *testing.T) *Handler {
 	// Create in-memory test database
-	config := storage.DefaultSQLiteConfig(":memory:")
-	db, err := storage.Open(config)
+	dbConfig := storage.DefaultSQLiteConfig(":memory:")
+	// Use isolated Prometheus registry to prevent duplicate registration in tests
+	cache := storage.NewCacheWithRegistry(prometheus.NewRegistry())
+	db, err := storage.OpenWithCache(dbConfig, cache)
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
+	}
+
+	// Create test config with JWT secret
+	testConfig := &Config{
+		JWTSecret: []byte("test-jwt-secret-for-testing-only"),
 	}
 
 	// Create a mock MQTT server that implements the needed interface
 	// We'll cast it to *mqtt.Server for compatibility
 	// In reality, the handlers should use an interface, but for testing we use a workaround
 	return &Handler{
-		db:   db,
-		mqtt: nil, // Use nil for now, handlers that need MQTT will be skipped
+		db:     db,
+		mqtt:   nil, // Use nil for now, handlers that need MQTT will be skipped
+		engine: nil, // No script engine needed for basic tests
+		config: testConfig,
 	}
 }
 

@@ -37,7 +37,7 @@ func TestGenerateJWT(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			token, err := GenerateJWT(tt.userID, tt.username, tt.role)
+			token, err := GenerateJWT(testJWTSecret, tt.userID, tt.username, tt.role)
 
 			if tt.wantErr {
 				if err == nil {
@@ -55,7 +55,7 @@ func TestGenerateJWT(t *testing.T) {
 			}
 
 			// Verify the token can be validated
-			claims, err := ValidateJWT(token)
+			claims, err := ValidateJWT(testJWTSecret, token)
 			if err != nil {
 				t.Fatalf("ValidateJWT() failed: %v", err)
 			}
@@ -77,7 +77,7 @@ func TestGenerateJWT(t *testing.T) {
 
 func TestValidateJWT(t *testing.T) {
 	// Generate a valid token
-	validToken, err := GenerateJWT(1, "testuser", "user")
+	validToken, err := GenerateJWT(testJWTSecret, 1, "testuser", "user")
 	if err != nil {
 		t.Fatalf("Failed to generate test token: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestValidateJWT(t *testing.T) {
 		},
 	}
 	expiredToken := jwt.NewWithClaims(jwt.SigningMethodHS256, expiredClaims)
-	expiredTokenString, _ := expiredToken.SignedString([]byte(jwtSecretKey))
+	expiredTokenString, _ := expiredToken.SignedString(testJWTSecret)
 
 	tests := []struct {
 		name    string
@@ -129,7 +129,7 @@ func TestValidateJWT(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			claims, err := ValidateJWT(tt.token)
+			claims, err := ValidateJWT(testJWTSecret, tt.token)
 
 			if tt.wantErr {
 				if err == nil {
@@ -150,8 +150,13 @@ func TestValidateJWT(t *testing.T) {
 }
 
 func TestAuthMiddleware(t *testing.T) {
+	// Create test config
+	testConfig := &Config{
+		JWTSecret: testJWTSecret,
+	}
+
 	// Generate a valid token
-	validToken, err := GenerateJWT(1, "testuser", "user")
+	validToken, err := GenerateJWT(testJWTSecret, 1, "testuser", "user")
 	if err != nil {
 		t.Fatalf("Failed to generate test token: %v", err)
 	}
@@ -214,7 +219,7 @@ func TestAuthMiddleware(t *testing.T) {
 			}
 
 			rec := httptest.NewRecorder()
-			handler := AuthMiddleware(protectedHandler)
+			handler := NewAuthMiddleware(testConfig)(protectedHandler)
 			handler.ServeHTTP(rec, req)
 
 			if rec.Code != tt.wantStatusCode {
@@ -226,12 +231,12 @@ func TestAuthMiddleware(t *testing.T) {
 
 func TestGetUserFromContext(t *testing.T) {
 	// Generate a valid token and create a request with claims in context
-	validToken, err := GenerateJWT(1, "testuser", "user")
+	validToken, err := GenerateJWT(testJWTSecret, 1, "testuser", "user")
 	if err != nil {
 		t.Fatalf("Failed to generate test token: %v", err)
 	}
 
-	claims, err := ValidateJWT(validToken)
+	claims, err := ValidateJWT(testJWTSecret, validToken)
 	if err != nil {
 		t.Fatalf("Failed to validate token: %v", err)
 	}
