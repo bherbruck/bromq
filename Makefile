@@ -1,4 +1,4 @@
-.PHONY: help build run stop dev-up dev-down prod-up prod-down logs clean test test-web test-all
+.PHONY: help install run stop dev-up dev-down prod-up prod-down logs clean test test-web test-all backend frontend
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -6,11 +6,31 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: ## Build the Go binary locally
-	cd web && npm run build
-	go build -o bin/bromq .
+# Smart dependency tracking: only install npm packages when needed
+web/node_modules: web/package.json web/package-lock.json
+	@echo "Installing npm dependencies..."
+	cd web && npm ci
+	@touch $@
 
-run: build stop ## Run the server locally
+install: ## Install/update npm dependencies (for adding new packages)
+	cd web && npm install
+
+# Frontend build output (tracks all files in web/app directory)
+web/dist: web/node_modules $(shell find web/app -type f 2>/dev/null || echo "web/app")
+	@echo "Building frontend..."
+	cd web && npm run build
+	@touch $@
+
+# Go binary (tracks all Go source files and embeds frontend)
+bin/bromq: $(shell find . -name '*.go' -not -path './web/*') go.mod go.sum web/dist
+	@echo "Building Go binary..."
+	@mkdir -p bin
+	go build -o $@ .
+
+# Convenience targets
+build: bin/bromq ## Build the complete application
+
+run: bin/bromq stop ## Run the server locally
 	./bin/bromq
 
 stop: ## Stop any running bromq processes
@@ -58,18 +78,16 @@ clean: ## Clean build artifacts and volumes
 test: ## Run Go tests
 	go test -v ./...
 
-test-web: ## Run frontend tests
+test-web: web/node_modules ## Run frontend tests
 	cd web && npm test
 
-test-all: ## Run all tests (Go + frontend)
+test-all: web/node_modules ## Run all tests (Go + frontend)
 	@echo "Running Go tests..."
 	go test -v ./...
 	@echo ""
 	@echo "Running frontend tests..."
 	cd web && npm test
 
-frontend: ## Build frontend only
-	cd web && npm run build
+frontend: web/dist ## Build frontend only
 
-backend: ## Build backend only
-	go build -o bin/bromq .
+backend: bin/bromq ## Build backend only
