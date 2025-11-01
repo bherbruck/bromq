@@ -53,12 +53,23 @@ func (db *DB) ListACLRulesPaginated(page, pageSize int, search, sortBy, sortOrde
 }
 
 // GetACLRulesByMQTTUserID returns all ACL rules for a specific MQTT user
+// Uses in-memory cache to avoid database queries on hot path (MQTT pub/sub)
 func (db *DB) GetACLRulesByMQTTUserID(mqttUserID int) ([]ACLRule, error) {
+	// Check cache first
+	if cachedRules, found := db.cache.GetACLRules(uint(mqttUserID)); found {
+		return cachedRules, nil
+	}
+
+	// Cache miss - query database
 	var rules []ACLRule
 	err := db.Where("mqtt_user_id = ?", mqttUserID).Order("topic_pattern").Find(&rules).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ACL rules: %w", err)
 	}
+
+	// Store in cache for future requests
+	db.cache.SetACLRules(uint(mqttUserID), rules)
+
 	return rules, nil
 }
 
@@ -89,6 +100,9 @@ func (db *DB) CreateACLRule(mqttUserID int, topicPattern, permission string) (*A
 		return nil, fmt.Errorf("failed to create ACL rule: %w", err)
 	}
 
+	// Invalidate ACL cache for this user
+	db.cache.DeleteACLRules(uint(mqttUserID))
+
 	return &rule, nil
 }
 
@@ -113,6 +127,9 @@ func (db *DB) UpdateACLRule(id int, topicPattern, permission string) (*ACLRule, 
 		return nil, fmt.Errorf("failed to update ACL rule: %w", err)
 	}
 
+	// Invalidate ACL cache for this user
+	db.cache.DeleteACLRules(rule.MQTTUserID)
+
 	return &rule, nil
 }
 
@@ -127,6 +144,12 @@ func (db *DB) GetACLRule(id int) (*ACLRule, error) {
 
 // DeleteACLRule deletes an ACL rule by ID
 func (db *DB) DeleteACLRule(id int) error {
+	// Get rule to find user ID for cache invalidation
+	rule, err := db.GetACLRule(id)
+	if err != nil {
+		return fmt.Errorf("ACL rule not found")
+	}
+
 	result := db.Delete(&ACLRule{}, id)
 
 	if result.Error != nil {
@@ -136,6 +159,9 @@ func (db *DB) DeleteACLRule(id int) error {
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("ACL rule not found")
 	}
+
+	// Invalidate ACL cache for this user
+	db.cache.DeleteACLRules(rule.MQTTUserID)
 
 	return nil
 }
@@ -235,6 +261,10 @@ func (db *DB) DeleteProvisionedACLRules(mqttUserID uint) error {
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete provisioned ACL rules: %w", result.Error)
 	}
+
+	// Invalidate ACL cache for this user
+	db.cache.DeleteACLRules(mqttUserID)
+
 	return nil
 }
 
@@ -256,6 +286,9 @@ func (db *DB) CreateProvisionedACLRule(mqttUserID uint, topicPattern, permission
 	if err := db.Create(&rule).Error; err != nil {
 		return fmt.Errorf("failed to create provisioned ACL rule: %w", err)
 	}
+
+	// Invalidate ACL cache for this user
+	db.cache.DeleteACLRules(mqttUserID)
 
 	return nil
 }

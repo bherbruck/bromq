@@ -29,6 +29,9 @@ func (db *DB) CreateMQTTUser(username, password, description string, metadata da
 		return nil, fmt.Errorf("failed to create MQTT user: %w", err)
 	}
 
+	// Add to cache immediately
+	db.cache.SetMQTTUser(username, user)
+
 	return user, nil
 }
 
@@ -42,11 +45,22 @@ func (db *DB) GetMQTTUser(id int) (*MQTTUser, error) {
 }
 
 // GetMQTTUserByUsername retrieves an MQTT user by username
+// Uses in-memory cache to avoid database queries on hot path (MQTT pub/sub)
 func (db *DB) GetMQTTUserByUsername(username string) (*MQTTUser, error) {
+	// Check cache first
+	if cachedUser, found := db.cache.GetMQTTUser(username); found {
+		return cachedUser, nil
+	}
+
+	// Cache miss - query database
 	var user MQTTUser
 	if err := db.Where("username = ?", username).First(&user).Error; err != nil {
 		return nil, err
 	}
+
+	// Store in cache for future requests
+	db.cache.SetMQTTUser(username, &user)
+
 	return &user, nil
 }
 
@@ -100,6 +114,12 @@ func (db *DB) ListMQTTUsersPaginated(page, pageSize int, search, sortBy, sortOrd
 
 // UpdateMQTTUser updates an MQTT user's information
 func (db *DB) UpdateMQTTUser(id int, username, description string, metadata datatypes.JSON) error {
+	// Get old username to invalidate cache
+	oldUser, err := db.GetMQTTUser(id)
+	if err != nil {
+		return fmt.Errorf("MQTT user not found")
+	}
+
 	updates := map[string]interface{}{
 		"username":    username,
 		"description": description,
@@ -118,11 +138,24 @@ func (db *DB) UpdateMQTTUser(id int, username, description string, metadata data
 		return fmt.Errorf("MQTT user not found")
 	}
 
+	// Invalidate cache for old username
+	db.cache.DeleteMQTTUser(oldUser.Username)
+	// If username changed, invalidate new username too (for safety)
+	if username != oldUser.Username {
+		db.cache.DeleteMQTTUser(username)
+	}
+
 	return nil
 }
 
 // UpdateMQTTUserPassword updates an MQTT user's password
 func (db *DB) UpdateMQTTUserPassword(id int, password string) error {
+	// Get username to invalidate cache
+	user, err := db.GetMQTTUser(id)
+	if err != nil {
+		return fmt.Errorf("MQTT user not found")
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
@@ -137,11 +170,20 @@ func (db *DB) UpdateMQTTUserPassword(id int, password string) error {
 		return fmt.Errorf("MQTT user not found")
 	}
 
+	// Invalidate cache (password changed)
+	db.cache.DeleteMQTTUser(user.Username)
+
 	return nil
 }
 
 // DeleteMQTTUser deletes an MQTT user and cascades to ACL rules and clients
 func (db *DB) DeleteMQTTUser(id int) error {
+	// Get username to invalidate cache
+	user, err := db.GetMQTTUser(id)
+	if err != nil {
+		return fmt.Errorf("MQTT user not found")
+	}
+
 	result := db.Delete(&MQTTUser{}, id)
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete MQTT user: %w", result.Error)
@@ -150,6 +192,10 @@ func (db *DB) DeleteMQTTUser(id int) error {
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("MQTT user not found")
 	}
+
+	// Invalidate cache and ACL rules for this user
+	db.cache.DeleteMQTTUser(user.Username)
+	db.cache.DeleteACLRules(user.ID)
 
 	return nil
 }
@@ -189,6 +235,12 @@ func (db *DB) GetMQTTUserByUsernameInterface(username string) (interface{}, erro
 
 // MarkAsProvisioned marks an MQTT user as provisioned from config file
 func (db *DB) MarkAsProvisioned(id uint, provisioned bool) error {
+	// Get username to invalidate cache
+	user, err := db.GetMQTTUser(int(id))
+	if err != nil {
+		return fmt.Errorf("MQTT user not found")
+	}
+
 	result := db.Model(&MQTTUser{}).Where("id = ?", id).Update("provisioned_from_config", provisioned)
 	if result.Error != nil {
 		return fmt.Errorf("failed to mark user as provisioned: %w", result.Error)
@@ -197,6 +249,9 @@ func (db *DB) MarkAsProvisioned(id uint, provisioned bool) error {
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("MQTT user not found")
 	}
+
+	// Invalidate cache so next read gets updated value
+	db.cache.DeleteMQTTUser(user.Username)
 
 	return nil
 }
