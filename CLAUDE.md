@@ -382,6 +382,75 @@ time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Connecting to database" type=
 {"time":"2025-10-23T08:02:38.347-04:00","level":"INFO","msg":"Connecting to database","type":"sqlite"}
 ```
 
+**Security Configuration:**
+The server uses secure defaults and environment variables for sensitive configuration:
+
+```bash
+# JWT Secret (REQUIRED for production)
+JWT_SECRET=your-secret-key-here  # JWT signing secret (auto-generated if not set, but WARNING: tokens invalidated on restart)
+
+# IMPORTANT: Always set JWT_SECRET in production!
+# - If not set, a random secret is generated on startup
+# - This means all JWT tokens become invalid when the server restarts
+# - Set a persistent secret to maintain token validity across restarts
+#
+# Generate a secure secret:
+# openssl rand -hex 32
+
+# Examples:
+# Production (persistent secret)
+JWT_SECRET=$(openssl rand -hex 32) ./bromq
+
+# Development (auto-generated, will warn in logs)
+./bromq  # Logs: "JWT_SECRET not set, generated random secret"
+```
+
+**Script Engine Configuration:**
+Configure script execution timeouts for security and performance:
+
+```bash
+# Global Script Timeout (default: 5s)
+SCRIPT_TIMEOUT=10s           # Global default timeout for all scripts
+                             # Supports: ms, s, m (e.g., 500ms, 5s, 2m)
+                             # Enforced limits: 100ms minimum, 5m maximum
+
+# Script Log Retention (default: 30d)
+SCRIPT_LOG_RETENTION=30d     # How long to keep script logs
+                             # Supports: h, d (e.g., 24h, 30d)
+                             # Set to 0 for infinite retention
+
+# Examples:
+# High-performance scripts with 10s timeout
+SCRIPT_TIMEOUT=10s ./bromq
+
+# Fast-executing scripts with 1s timeout
+SCRIPT_TIMEOUT=1s ./bromq
+
+# Keep logs for 7 days only
+SCRIPT_LOG_RETENTION=7d ./bromq
+```
+
+**Per-Script Timeout:**
+Individual scripts can override the global timeout via API or config:
+
+```json
+// Via API: POST /api/scripts
+{
+  "name": "slow-processor",
+  "script_content": "...",
+  "timeout_seconds": 30  // Override global timeout (null = use default)
+}
+```
+
+```yaml
+# Via config file (provisioning)
+scripts:
+  - name: heavy-processor
+    timeout_seconds: 30  # This script gets 30s instead of global default
+    script_content: |
+      // Heavy processing logic here
+```
+
 **Key functions:**
 
 *Database Management:*
@@ -496,8 +565,13 @@ Hooks implement the mochi-mqtt hook interface to intercept MQTT lifecycle events
 - Automatically tracks which devices are using which MQTT credentials
 
 **MetricsHook** (`hooks/metrics/metrics.go`):
-- Tracks Prometheus metrics for connections, messages, bytes transferred
-- Updates on connect/disconnect, publish, subscribe events
+- Tracks comprehensive Prometheus metrics for monitoring and observability
+- MQTT metrics: connections, messages, bytes, packets (per-client granularity)
+- Authentication metrics: attempts, failures (for security monitoring)
+- ACL metrics: authorization checks, denials (for security monitoring)
+- Script metrics: execution duration histograms, failures, timeouts
+- Bridge metrics: connection status, message forwarding, reconnection attempts
+- All metrics exported at `/metrics` endpoint (Prometheus format, no auth required)
 
 **RetainedHook** (`hooks/retained/retained.go`):
 - Persists retained messages to database
@@ -721,7 +795,9 @@ docker run -d \
 
 ## Important Implementation Details
 
-**JWT Secret:** Currently hardcoded in `internal/api/middleware.go` - move to environment variable for production
+**JWT Secret:** Loaded from `JWT_SECRET` environment variable. If not set, a random secret is generated on startup with a warning. Always set `JWT_SECRET` in production to prevent token invalidation on server restart. See Security Configuration section above for details.
+
+**Script Timeouts:** Scripts have configurable execution timeouts (default 5s, configurable via `SCRIPT_TIMEOUT` env var). Individual scripts can override via `timeout_seconds` field. Enforced limits: 100ms minimum, 5 minutes maximum.
 
 **Anonymous MQTT access:** Enabled by default in auth hook - ACL still enforced
 
@@ -934,13 +1010,76 @@ curl -H "Authorization: Bearer $TOKEN" \
 curl http://localhost:8080/metrics
 ```
 
+## Prometheus Metrics
+
+The `/metrics` endpoint (no auth required) exposes comprehensive Prometheus metrics for monitoring and alerting:
+
+**MQTT Connection Metrics:**
+- `mqtt_clients_connected` (gauge) - Currently connected clients
+- `mqtt_client_connected_timestamp_seconds` (gauge, per-client) - Connection timestamp
+- `mqtt_messages_received_total` (counter, per-client) - Messages received from clients
+- `mqtt_messages_sent_total` (counter, per-client) - Messages sent to clients
+- `mqtt_bytes_received_total` (counter, per-client) - Bytes received
+- `mqtt_bytes_sent_total` (counter, per-client) - Bytes sent
+- `mqtt_packets_received_total` (counter, per-client) - MQTT packets received
+- `mqtt_packets_sent_total` (counter, per-client) - MQTT packets sent
+
+**Security & Authentication Metrics:**
+- `mqtt_auth_attempts_total` (counter, labels: username, result) - All authentication attempts
+- `mqtt_auth_failures_total` (counter, labels: username) - Failed authentications (security monitoring)
+- `mqtt_acl_checks_total` (counter, labels: username, action, result) - ACL authorization checks
+- `mqtt_acl_denied_total` (counter, labels: username, action, topic) - Denied ACL checks (security monitoring)
+
+**Script Execution Metrics:**
+- `script_execution_duration_seconds` (histogram, labels: script_name, trigger_type) - Execution time distribution
+- `script_executions_total` (counter, labels: script_name, trigger_type, result) - Total executions
+- `script_execution_failures_total` (counter, labels: script_name, trigger_type, error_type) - Failures
+- `script_execution_timeouts_total` (counter, labels: script_name, trigger_type) - Timeouts
+- `scripts_active_total` (gauge) - Number of enabled scripts
+
+**Bridge Connection Metrics:**
+- `bridge_connection_status` (gauge, labels: bridge_name, remote_host) - 1=connected, 0=disconnected
+- `bridge_connection_attempts_total` (counter, labels: bridge_name, remote_host) - Connection attempts
+- `bridge_connection_failures_total` (counter, labels: bridge_name, remote_host, error_type) - Connection failures
+- `bridge_messages_forwarded_total` (counter, labels: bridge_name, direction) - Messages forwarded (in/out)
+- `bridge_messages_dropped_total` (counter, labels: bridge_name, direction, reason) - Dropped messages
+- `bridge_reconnect_attempts_total` (counter, labels: bridge_name) - Reconnection attempts
+- `bridge_current_backoff_seconds` (gauge, labels: bridge_name) - Current exponential backoff delay
+- `bridge_last_connected_timestamp_seconds` (gauge, labels: bridge_name) - Last connection timestamp
+- `bridge_last_disconnected_timestamp_seconds` (gauge, labels: bridge_name) - Last disconnection timestamp
+
+**Example Prometheus Queries:**
+
+```promql
+# Auth failure rate (potential brute force attacks)
+rate(mqtt_auth_failures_total[5m])
+
+# ACL denial rate by user (potential unauthorized access attempts)
+rate(mqtt_acl_denied_total[5m])
+
+# Script execution duration 95th percentile
+histogram_quantile(0.95, rate(script_execution_duration_seconds_bucket[5m]))
+
+# Bridge connection health
+bridge_connection_status == 0  # Alert on disconnected bridges
+
+# Message throughput by client
+rate(mqtt_messages_received_total[1m])
+```
+
 ## Security Considerations
 
-- **Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` before first run in production** - these env vars only work on initial startup
+**Critical Production Checklist:**
+- **Set `JWT_SECRET` environment variable** - Required for production! Random secret is generated if not set, but all tokens become invalid on restart. Generate with: `openssl rand -hex 32`
+- **Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` before first run** - These env vars only work on initial startup (like Grafana)
 - If using default credentials (`admin`/`admin`), change the password immediately via API after first login
-- Use TLS for production deployments (not yet implemented)
-- Store JWT secret in environment variable, not code
+- **Configure script timeouts** - Set `SCRIPT_TIMEOUT` appropriately for your use case (default 5s). Individual scripts can override via `timeout_seconds` field.
+
+**Additional Recommendations:**
+- Use TLS for production MQTT deployments (not yet implemented)
 - Implement rate limiting on API endpoints for production
-- Consider using proper secrets management for production databases (use Docker secrets or cloud provider secrets)
-- Review CORS policy before production deployment
-- use slog for golang logging
+- Consider using proper secrets management (Docker secrets, cloud provider secrets, or HashiCorp Vault)
+- Review CORS policy before production deployment (currently allows all origins)
+- Monitor security metrics: `mqtt_auth_failures_total` and `mqtt_acl_denied_total` for potential attacks
+- Set up Prometheus alerts for authentication failures and ACL denials
+- Configure log aggregation for audit trails (use `LOG_FORMAT=json` for structured logs)
