@@ -113,23 +113,7 @@ func main() {
 	}
 	mqttServer := mqtt.New(mqttConfig)
 
-	// Add authentication hook
-	authHook := auth.NewAuthHook(db)
-	if err := mqttServer.AddAuthHook(authHook); err != nil {
-		slog.Error("Failed to add auth hook", "error", err)
-		os.Exit(1)
-	}
-	slog.Info("Authentication hook registered")
-
-	// Add ACL hook
-	aclHook := auth.NewACLHook(db)
-	if err := mqttServer.AddACLHook(aclHook); err != nil {
-		slog.Error("Failed to add ACL hook", "error", err)
-		os.Exit(1)
-	}
-	slog.Info("ACL hook registered")
-
-	// Add metrics tracking hook with Prometheus
+	// Add metrics tracking hook with Prometheus (create first so we can pass to other hooks)
 	promMetrics := mqtt.NewPrometheusMetrics()
 	metricsHook := metrics.NewMetricsHook(promMetrics)
 	if err := mqttServer.AddHook(metricsHook, nil); err != nil {
@@ -137,6 +121,24 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("Metrics hook registered")
+
+	// Add authentication hook with metrics
+	authHook := auth.NewAuthHook(db)
+	authHook.SetMetrics(promMetrics)
+	if err := mqttServer.AddAuthHook(authHook); err != nil {
+		slog.Error("Failed to add auth hook", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("Authentication hook registered")
+
+	// Add ACL hook with metrics
+	aclHook := auth.NewACLHook(db)
+	aclHook.SetMetrics(promMetrics)
+	if err := mqttServer.AddACLHook(aclHook); err != nil {
+		slog.Error("Failed to add ACL hook", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("ACL hook registered")
 
 	// Add retained message persistence hook
 	// The hook will automatically load retained messages on startup via StoredRetainedMessages()

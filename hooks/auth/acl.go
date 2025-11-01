@@ -11,6 +11,7 @@ import (
 type ACLHook struct {
 	mqtt.HookBase
 	checker ACLChecker
+	metrics ACLMetrics
 }
 
 // ACLChecker interface for checking ACL permissions
@@ -19,11 +20,22 @@ type ACLChecker interface {
 	CheckACL(username, clientID, topic, action string) (bool, error)
 }
 
+// ACLMetrics interface for recording ACL metrics
+type ACLMetrics interface {
+	RecordACLCheck(username, action, result string)
+	RecordACLDenied(username, action, topic string)
+}
+
 // NewACLHook creates a new ACL hook
 func NewACLHook(checker ACLChecker) *ACLHook {
 	return &ACLHook{
 		checker: checker,
 	}
+}
+
+// SetMetrics sets the metrics recorder (optional)
+func (h *ACLHook) SetMetrics(metrics ACLMetrics) {
+	h.metrics = metrics
 }
 
 // ID returns the hook identifier
@@ -59,7 +71,21 @@ func (h *ACLHook) OnACLCheck(cl *mqtt.Client, topic string, write bool) bool {
 	allowed, err := h.checker.CheckACL(username, clientID, topic, action)
 	if err != nil {
 		slog.Error("ACL check error", "username", username, "clientid", clientID, "topic", topic, "action", action, "error", err)
+		if h.metrics != nil {
+			h.metrics.RecordACLCheck(username, action, "error")
+		}
 		return false
+	}
+
+	// Record metrics
+	if h.metrics != nil {
+		if allowed {
+			h.metrics.RecordACLCheck(username, action, "allowed")
+		} else {
+			h.metrics.RecordACLCheck(username, action, "denied")
+			h.metrics.RecordACLDenied(username, action, topic)
+			slog.Warn("ACL denied", "username", username, "clientid", clientID, "topic", topic, "action", action)
+		}
 	}
 
 	return allowed

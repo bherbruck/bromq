@@ -15,6 +15,11 @@ type PrometheusMetrics struct {
 	packetsSent         *prometheus.CounterVec
 	clientsConnected    prometheus.Gauge
 	clientConnectedTime *prometheus.GaugeVec
+	// ACL metrics
+	aclChecks    *prometheus.CounterVec
+	aclDenied    *prometheus.CounterVec
+	authAttempts *prometheus.CounterVec
+	authFailures *prometheus.CounterVec
 }
 
 // NewPrometheusMetrics creates a new Prometheus metrics collector
@@ -75,6 +80,34 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			},
 			[]string{"client_id"},
 		),
+		aclChecks: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "mqtt_acl_checks_total",
+				Help: "Total number of ACL authorization checks",
+			},
+			[]string{"username", "action", "result"},
+		),
+		aclDenied: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "mqtt_acl_denied_total",
+				Help: "Total number of ACL denials (security monitoring)",
+			},
+			[]string{"username", "action", "topic"},
+		),
+		authAttempts: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "mqtt_auth_attempts_total",
+				Help: "Total number of authentication attempts",
+			},
+			[]string{"username", "result"},
+		),
+		authFailures: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "mqtt_auth_failures_total",
+				Help: "Total number of authentication failures (security monitoring)",
+			},
+			[]string{"username"},
+		),
 	}
 }
 
@@ -110,4 +143,24 @@ func (pm *PrometheusMetrics) RecordPacketReceived(clientID string, bytes int64) 
 func (pm *PrometheusMetrics) RecordPacketSent(clientID string, bytes int64) {
 	pm.packetsSent.WithLabelValues(clientID).Inc()
 	pm.bytesSent.WithLabelValues(clientID).Add(float64(bytes))
+}
+
+// RecordACLCheck records an ACL authorization check
+func (pm *PrometheusMetrics) RecordACLCheck(username, action, result string) {
+	pm.aclChecks.WithLabelValues(username, action, result).Inc()
+}
+
+// RecordACLDenied records an ACL denial (for security monitoring)
+func (pm *PrometheusMetrics) RecordACLDenied(username, action, topic string) {
+	pm.aclDenied.WithLabelValues(username, action, topic).Inc()
+}
+
+// RecordAuthAttempt records an authentication attempt
+func (pm *PrometheusMetrics) RecordAuthAttempt(username, result string) {
+	pm.authAttempts.WithLabelValues(username, result).Inc()
+}
+
+// RecordAuthFailure records an authentication failure (for security monitoring)
+func (pm *PrometheusMetrics) RecordAuthFailure(username string) {
+	pm.authFailures.WithLabelValues(username).Inc()
 }

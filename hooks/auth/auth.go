@@ -12,6 +12,7 @@ import (
 type AuthHook struct {
 	mqtt.HookBase
 	authenticator Authenticator
+	metrics       AuthMetrics
 }
 
 // Authenticator interface for user authentication
@@ -19,12 +20,22 @@ type Authenticator interface {
 	AuthenticateUser(username, password string) (interface{}, error)
 }
 
+// AuthMetrics interface for recording authentication metrics
+type AuthMetrics interface {
+	RecordAuthAttempt(username, result string)
+	RecordAuthFailure(username string)
+}
 
 // NewAuthHook creates a new authentication hook
 func NewAuthHook(authenticator Authenticator) *AuthHook {
 	return &AuthHook{
 		authenticator: authenticator,
 	}
+}
+
+// SetMetrics sets the metrics recorder (optional)
+func (h *AuthHook) SetMetrics(metrics AuthMetrics) {
+	h.metrics = metrics
 }
 
 // ID returns the hook identifier
@@ -48,6 +59,9 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 	// Allow anonymous connections if no username provided
 	if username == "" {
 		slog.Debug("Client connecting anonymously", "client_id", cl.ID)
+		if h.metrics != nil {
+			h.metrics.RecordAuthAttempt("anonymous", "success")
+		}
 		return true
 	}
 
@@ -55,16 +69,27 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 	user, err := h.authenticator.AuthenticateUser(username, password)
 	if err != nil {
 		slog.Warn("Authentication failed", "username", username, "error", err)
+		if h.metrics != nil {
+			h.metrics.RecordAuthAttempt(username, "failure")
+			h.metrics.RecordAuthFailure(username)
+		}
 		return false
 	}
 
 	if user == nil {
 		slog.Warn("Authentication failed - user not found", "username", username)
+		if h.metrics != nil {
+			h.metrics.RecordAuthAttempt(username, "failure")
+			h.metrics.RecordAuthFailure(username)
+		}
 		return false
 	}
 
 	// Username is already stored in cl.Properties.Username by mochi-mqtt
 	slog.Info("Client authenticated", "client_id", cl.ID, "username", username)
+	if h.metrics != nil {
+		h.metrics.RecordAuthAttempt(username, "success")
+	}
 	return true
 }
 
