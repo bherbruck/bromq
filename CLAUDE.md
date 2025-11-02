@@ -1,142 +1,226 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guide for Claude Code when working with BroMQ.
 
 ## Project Overview
 
-A single-node MQTT broker with embedded web UI built on mochi-mqtt/server. Features include database-backed authentication, granular ACL permissions, REST API, and a web dashboard (Vite + shadcn/ui). The entire application compiles to a single binary with the frontend embedded.
+BroMQ is a production-ready MQTT broker with embedded web UI built on mochi-mqtt/server. Single binary deployment (~19MB) with database-backed authentication, ACL system, MQTT bridging, JavaScript scripting engine, and REST API.
+
+**Core purpose:** Provide a batteries-included, truly open-source MQTT broker for IoT, edge computing, and multi-tenant systems without enterprise licensing restrictions.
 
 ## Tech Stack
 
-**Backend:**
-- mochi-mqtt/server v2 - MQTT broker core
-- GORM v1.31+ - ORM with auto-migration support
-- Database support: SQLite (default), PostgreSQL, MySQL
-- stdlib net/http (Go 1.22+) - HTTP server and routing
-- JWT (golang-jwt/jwt/v5) - API authentication
-- slog (stdlib log/slog) - Structured logging with configurable levels and formats
-
-**Frontend:**
-- React Router v7 (SPA mode) - Routing and build tool
-- Vite - Build tool and dev server
-- shadcn/ui - Component library (Radix UI + Tailwind CSS)
-- Frontend embeds into Go binary via `go:embed`
+- **Go 1.25+** - Backend with stdlib net/http
+- **mochi-mqtt/server v2** - MQTT broker core
+- **GORM** - ORM with auto-migration (SQLite/PostgreSQL/MySQL)
+- **goja** - JavaScript engine for scripting
+- **JWT** - API authentication
+- **React Router v7 + shadcn/ui** - Frontend (embedded via go:embed)
+- **Prometheus** - Metrics
 
 ## Project Structure
 
 ```
 bromq/
-├── main.go                      # Entry point, wires everything together
+├── main.go                      # Entry point, wires hooks and servers
 ├── internal/
-│   ├── storage/                    # Database layer (SQLite/PostgreSQL/MySQL)
-│   │   ├── db.go                  # Connection, schema, GORM auto-migration
-│   │   ├── config.go              # Database configuration (env vars + flags)
-│   │   ├── models.go              # GORM models with tags
-│   │   ├── dashboard_users.go     # Dashboard admin CRUD + authentication
-│   │   ├── mqtt_users.go          # MQTT credentials CRUD + authentication
-│   │   ├── mqtt_clients.go        # Client connection tracking CRUD
-│   │   ├── acl.go                 # ACL rules CRUD + topic matching
-│   │   └── retained.go            # Retained message persistence
-│   ├── config/                     # Configuration file support
-│   │   └── config.go              # YAML parsing with env var interpolation
-│   ├── provisioning/               # Configuration provisioning
-│   │   └── provisioning.go        # Sync config to database (Grafana-style)
-│   ├── mqtt/                       # MQTT server wrapper
-│   │   ├── config.go              # Configuration struct
-│   │   ├── server.go              # Server initialization
-│   │   └── metrics.go             # Stats/metrics extraction
-│   └── api/                        # REST API
-│       ├── models.go              # Request/response types
-│       ├── middleware.go          # JWT auth, CORS, logging, admin guard
-│       ├── dashboard_handlers.go  # Dashboard user management endpoints
-│       ├── mqtt_handlers.go       # MQTT users/clients/ACL endpoints
-│       ├── handlers.go            # Legacy endpoints + metrics
-│       └── server.go              # HTTP server setup + routing
-├── hooks/
-│   ├── auth/
-│   │   ├── auth.go                # MQTT authentication hook
-│   │   └── acl.go                 # MQTT ACL authorization hook
-│   ├── tracking/
-│   │   └── tracking.go            # Client connection tracking hook
-│   ├── metrics/
-│   │   └── metrics.go             # Prometheus metrics hook
-│   └── retained/
-│       └── retained.go            # Retained message persistence hook
-├── web/                            # Frontend (React Router v7 + shadcn/ui)
-│   ├── app/                       # React application source
-│   │   ├── components/           # Reusable UI components
-│   │   ├── routes/               # Page routes
-│   │   └── lib/                  # API client and utilities
-│   └── dist/client/              # Build output (embedded via go:embed)
-├── examples/
-│   ├── config/
-│   │   ├── config.example.yml          # Full provisioning example
-│   │   ├── config.minimal.example.yml  # Minimal example
-│   │   └── config.multitenant.example.yml  # Multi-tenant example
-│   ├── compose.postgres.yml    # PostgreSQL compose example
-│   └── compose.mysql.yml       # MySQL compose example
-├── Dockerfile                  # Multi-stage build (Node → Go → Alpine)
-└── go.mod
+│   ├── storage/                 # Database layer (GORM models + CRUD)
+│   │   ├── models.go           # Schema: dashboard_users, mqtt_users, mqtt_clients, acl_rules, bridges, scripts, etc
+│   │   ├── db.go               # Connection + auto-migration
+│   │   ├── config.go           # DB config (env vars + CLI flags)
+│   │   ├── dashboard_users.go  # Dashboard admin CRUD
+│   │   ├── mqtt_users.go       # MQTT credentials CRUD
+│   │   ├── mqtt_clients.go     # Client tracking CRUD
+│   │   ├── acl.go              # ACL rules + topic matching
+│   │   ├── bridges.go          # Bridge config CRUD
+│   │   ├── scripts.go          # Script CRUD
+│   │   ├── script_state.go     # Persistent key-value store for scripts
+│   │   ├── script_logs.go      # Script execution logs
+│   │   └── retained.go         # Retained message persistence
+│   ├── api/                    # REST API (JWT auth)
+│   │   ├── server.go           # HTTP server + routing
+│   │   ├── middleware.go       # JWT validation, CORS, admin guard
+│   │   ├── dashboard_handlers.go  # Dashboard user management
+│   │   ├── mqtt_handlers.go    # MQTT users + clients + ACL
+│   │   ├── bridge_handlers.go  # Bridge management
+│   │   ├── script_handlers.go  # Script management + logs
+│   │   └── handlers.go         # Metrics + legacy endpoints
+│   ├── mqtt/                   # MQTT server wrapper
+│   │   ├── server.go           # mochi-mqtt wrapper
+│   │   ├── config.go           # Server config
+│   │   ├── metrics.go          # Stats extraction
+│   │   └── prometheus_metrics.go  # Prometheus metrics
+│   ├── config/                 # YAML config parsing
+│   │   └── config.go           # Env var interpolation
+│   ├── provisioning/           # Config-to-DB sync (Grafana-style)
+│   │   └── provisioning.go     # Sync users, ACL, bridges, scripts
+│   └── script/                 # JavaScript engine
+│       ├── engine.go           # Script lifecycle management
+│       ├── runtime.go          # goja VM execution
+│       ├── api.go              # Script API (mqtt.publish, state.get, etc)
+│       └── state.go            # Persistent state management
+├── hooks/                      # MQTT hooks (mochi-mqtt interface)
+│   ├── auth/                   # Authentication + ACL
+│   │   ├── auth.go            # Validate MQTT credentials
+│   │   └── acl.go             # Topic permission checks
+│   ├── tracking/              # Client connection tracking
+│   │   └── tracking.go        # Track connect/disconnect in DB
+│   ├── metrics/               # Prometheus metrics
+│   │   └── metrics.go         # MQTT metrics collection
+│   ├── retained/              # Retained messages
+│   │   └── retained.go        # Persist retained messages to DB
+│   ├── bridge/                # MQTT bridging
+│   │   ├── manager.go         # Bridge lifecycle management
+│   │   ├── bridge_hook.go     # Message forwarding hook
+│   │   └── topic.go           # Topic pattern matching
+│   └── script/                # Script execution
+│       └── script_hook.go     # Execute scripts on MQTT events
+├── web/                       # Frontend (React Router v7 SPA)
+│   ├── app/                   # React source
+│   ├── dist/client/           # Build output (embedded)
+│   └── embed.go               # go:embed directive
+└── examples/
+    └── config/                # YAML config examples
+        ├── config.yml         # Full featured example
+        ├── minimal.yml        # Minimal example
+        └── multitenant.yml    # Multi-tenant isolation example
 ```
+
+## Database Schema
+
+**Three-table user architecture:**
+
+1. **`dashboard_users`** - Web UI administrators (can login to dashboard)
+
+   - `id`, `username`, `password_hash`, `role` (admin/viewer), `metadata`
+
+2. **`mqtt_users`** - MQTT credentials (shared by devices, cannot login to dashboard)
+
+   - `id`, `username`, `password_hash`, `description`, `metadata`, `provisioned_from_config`
+
+3. **`mqtt_clients`** - Individual device tracking (one per Client ID)
+   - `id`, `client_id`, `mqtt_user_id` (FK), `metadata`, `first_seen`, `last_seen`, `is_active`
+
+**Other tables:**
+
+- **`acl_rules`** - Topic permissions (`mqtt_user_id`, `topic_pattern`, `permission`)
+- **`bridges`** - Bridge configs (`name`, `remote_host`, `remote_port`, auth, timeouts)
+- **`bridge_topics`** - Topic mappings (`bridge_id`, `local_pattern`, `remote_pattern`, `direction`)
+- **`scripts`** - JavaScript scripts (`name`, `script_content`, `enabled`, `timeout_seconds`)
+- **`script_triggers`** - When to run scripts (`script_id`, `trigger_type`, `topic_filter`)
+- **`script_state`** - Persistent key-value store for scripts
+- **`script_logs`** - Execution logs
+- **`retained_messages`** - Retained MQTT messages
+
+## Key Concepts
+
+### User Separation
+
+- **DashboardUser** - Logs into web UI, manages system via API
+- **MQTTUser** - Credentials for MQTT connections (shared by multiple devices)
+- **MQTTClient** - Individual tracked device (unique Client ID)
+- Multiple devices can use same MQTTUser credentials with different Client IDs
+
+### ACL System
+
+- Rules attached to **MQTTUser**, not individual clients
+- Supports MQTT wildcards: `+` (single level), `#` (multi-level)
+- Supports dynamic placeholders: `${username}`, `${clientid}`
+- Examples:
+  - `sensor/+/temp` - Wildcard matching
+  - `user/${username}/#` - Multi-tenant isolation
+  - `device/${clientid}/status` - Per-device isolation
+
+### Provisioning (Config-as-Code)
+
+- YAML config file syncs to database on startup (Grafana-style)
+- Env var interpolation: `${VAR_NAME}`
+- Supports: users, ACL rules, bridges, scripts
+- Provisioned items marked with `provisioned_from_config=true`
+- **Cannot modify/delete via API** (returns 409 Conflict)
+- See `examples/config/` for examples
+
+### MQTT Bridging
+
+- Connect to remote MQTT brokers
+- Bidirectional topic routing (in/out/both)
+- Topic pattern remapping
+- Auto-reconnect with exponential backoff
+- Managed via `bridge.Manager`
+
+### JavaScript Scripting
+
+- Execute custom logic on MQTT events (publish, connect, disconnect, subscribe)
+- JavaScript engine: goja (pure Go)
+- Script API: `mqtt.publish()`, `state.get()`, `state.set()`, `console.log()`
+- Configurable timeouts (global + per-script)
+- Persistent state storage
+- Execution logs with retention
 
 ## Common Commands
 
-### Using Makefile (Recommended)
-
 ```bash
-make help          # Show all available commands
+# Build everything
+make build
 
-# Development
-make dev-up        # Start development environment (hot reload)
-make dev-down      # Stop development environment
-make logs          # View logs
-
-# Production
-make prod-up       # Start production environment
-make prod-down     # Stop production environment
-
-# Local development (without Docker)
-make build         # Build frontend + Go binary
-make run           # Build and run locally
-
-# Utilities
-make clean         # Clean build artifacts and volumes
-make test          # Run Go tests
-```
-
-### Docker Compose
-
-```bash
-# Production with SQLite (recommended for deployment)
-docker compose up -d              # Start in background
-docker compose logs -f            # Follow logs
-docker compose down               # Stop and remove containers
-docker compose down -v            # Stop and remove volumes
-
-# Production with PostgreSQL
-docker compose -f examples/compose.postgres.yml up -d
-docker compose -f examples/compose.postgres.yml down
-
-# Production with MySQL
-docker compose -f examples/compose.mysql.yml up -d
-docker compose -f examples/compose.mysql.yml down
+# Run locally
+make run
 
 # Development (hot reload)
-docker compose -f compose.dev.yml up -d
-docker compose -f compose.dev.yml down
+make dev-up          # Backend :8080, Frontend :5173
+make logs            # View logs
+make dev-down
+
+# Production
+make prod-up         # Single binary with embedded UI
+make prod-down
+
+# Testing
+make test            # Go tests
+make test-web        # Frontend tests
+make test-all        # All tests
+
+# Clean
+make clean           # Remove build artifacts + volumes
 ```
 
-### Manual Commands
+## Configuration
+
+**Environment Variables:**
 
 ```bash
-# Build (without frontend)
-go build -o bin/bromq .
+# Database (CLI flags override env vars)
+DB_TYPE=sqlite              # sqlite (default), postgres, mysql
+DB_PATH=bromq.db           # SQLite path
+DB_HOST=localhost          # Postgres/MySQL host
+DB_PORT=5432               # Postgres/MySQL port
+DB_USER=mqtt               # Postgres/MySQL user
+DB_PASSWORD=secret         # Postgres/MySQL password
+DB_NAME=mqtt               # Postgres/MySQL database
 
-# Run server (defaults to SQLite)
-./bin/bromq
+# Admin (ONLY used on first run)
+ADMIN_USERNAME=admin       # Default: admin
+ADMIN_PASSWORD=admin       # Default: admin
 
-# Run with custom database configuration
-./bin/bromq \
+# Security
+JWT_SECRET=<secret>        # REQUIRED for production (openssl rand -hex 32)
+
+# Logging
+LOG_LEVEL=info             # debug, info, warn, error
+LOG_FORMAT=text            # text, json
+
+# Scripts
+SCRIPT_TIMEOUT=5s          # Global timeout (100ms-5m)
+SCRIPT_LOG_RETENTION=30d   # Log retention period
+
+# Config file
+CONFIG_FILE=config.yml     # Path to YAML config
+```
+
+**CLI Flags:**
+
+```bash
+./bromq \
   -db-type postgres \
   -db-host localhost \
   -db-port 5432 \
@@ -144,942 +228,126 @@ go build -o bin/bromq .
   -db-password secret \
   -mqtt-tcp :1883 \
   -mqtt-ws :8883 \
-  -http :8080
-
-# Run directly
-go run .
-
-# Build with embedded frontend
-cd web && npm run build && cd ..
-go build -o bin/bromq .
-
-# Run all tests
-go test ./...
-
-# Run tests with verbose output
-go test -v ./...
-
-# Run tests in a specific package
-go test ./internal/storage
-go test ./internal/api
-go test ./hooks/auth
-
-# Run a specific test
-go test -v -run TestCreateUser ./internal/storage
-
-# Run tests without cache
-go test -count=1 ./...
-
-# Tidy dependencies
-go mod tidy
-
-# Run with configuration file
-./bin/bromq -config config.yml
-
-# Set environment variables for config passwords
-export SENSOR_PASSWORD="secret123"
-export ADMIN_DEVICE_PASSWORD="admin456"
-./bin/bromq -config config.yml
+  -http :8080 \
+  -config config.yml
 ```
 
-## Configuration File (Provisioning)
+## API Overview
 
-The server supports YAML configuration files for provisioning MQTT users and ACL rules. The config file is the source of truth and syncs to the database on every startup (like Grafana provisioning).
+**Authentication:** JWT tokens (24h expiry) via `POST /api/auth/login`
 
-**Features:**
-- Environment variable interpolation: `${VAR_NAME}` or `$VAR_NAME`
-- Automatic sync on startup: Create, update, and remove provisioned items
-- Coexists with manually created items via API (provisioned items tracked separately)
-- Provisioned items can be updated via API, but changes are overwritten on next restart
+**Key endpoints:**
 
-**Configuration:**
-```bash
-# Via command-line flag
-./bromq -config config.yml
+- `/api/auth/login` - Login (DashboardUser only)
+- `/api/admin/users` - Dashboard admin management
+- `/api/mqtt/users` - MQTT credentials CRUD
+- `/api/mqtt/clients` - Client tracking
+- `/api/acl` - ACL rules
+- `/api/bridges` - Bridge management
+- `/api/scripts` - Script management
+- `/api/scripts/{id}/logs` - Script logs
+- `/api/metrics` - Server metrics (JSON, auth required)
+- `/metrics` - Prometheus metrics (no auth)
 
-# Via environment variable
-CONFIG_FILE=/etc/bromq/config.yml ./bromq
-```
+See `internal/api/*_handlers.go` for full API.
 
-**Config file structure:**
-```yaml
-# MQTT users (device credentials)
-users:
-  - username: sensor_user
-    password: ${SENSOR_PASSWORD}  # Environment variable
-    description: "Temperature sensors"
-    metadata:
-      location: "warehouse"
-      device_type: "sensor"
+## Development Notes
 
-# ACL rules (topic access control)
-acl_rules:
-  - mqtt_username: sensor_user
-    topic_pattern: "sensors/${username}/#"  # Dynamic placeholder
-    permission: pubsub  # pub, sub, or pubsub
-```
+**Adding database columns:**
+Update struct in `internal/storage/models.go` - GORM auto-migrates on startup.
 
-**Example files:**
-- `examples/config/config.example.yml` - Full example with multiple users and rules
-- `examples/config/config.minimal.example.yml` - Minimal example for testing
-- `examples/config/config.multitenant.example.yml` - Multi-tenant SaaS example
+**Hook execution order:**
 
-**Provisioning behavior:**
-- **Users**: Created if missing, updated if exists (password, description, metadata)
-- **ACL rules**: Old provisioned rules deleted, new rules created from config
-- **Orphaned users**: Users provisioned but no longer in config are removed
-- **Manual items**: Items created via API (not provisioned) are never touched
-- **Modification protection**: Provisioned items **cannot be modified or deleted** via API/UI
-  - API returns `409 Conflict` with helpful error message
-  - Frontend UI shows "Config File" badge and disables edit/delete buttons
-  - To modify: Edit the config file and restart the server
+1. Metrics hook (tracks everything)
+2. Auth hook (validates credentials)
+3. ACL hook (checks permissions)
+4. Retained hook (persists messages)
+5. Tracking hook (records connections)
+6. Bridge hook (forwards messages)
+7. Script hook (executes custom logic)
 
-**Usage example:**
-```bash
-# Set passwords via environment
-export SENSOR_PASSWORD="super_secret_123"
-export CAMERA_PASSWORD="camera_pass_456"
+**Security considerations:**
 
-# Run with config
-./bromq -config config.yml
+- Set `JWT_SECRET` in production (tokens invalidate on restart if not set)
+- Change default `admin`/`admin` credentials immediately
+- `ADMIN_USERNAME`/`ADMIN_PASSWORD` only work on first run
+- Provisioned items cannot be modified via API (edit config + restart)
 
-# Docker Compose
-services:
-  bromq:
-    image: bromq
-    environment:
-      - SENSOR_PASSWORD=super_secret_123
-      - CAMERA_PASSWORD=camera_pass_456
-    volumes:
-      - ./config.yml:/app/config.yml
-    command: ["-config", "/app/config.yml"]
-```
-
-## Architecture & Key Concepts
-
-### 1. Database Layer (`internal/storage`)
-
-**Uses GORM for ORM and Auto-Migration:**
-- Models defined in `internal/storage/models.go` with GORM tags
-- Auto-migration runs on startup - add columns by updating struct definitions
-- **Supports multiple databases:** SQLite (default), PostgreSQL, MySQL
-
-**Schema (Three-Table Architecture):**
-
-The system uses a three-table architecture to separate concerns between dashboard administration, MQTT credentials, and individual device tracking:
-
-1. **`dashboard_users`**: Dashboard administrators (human users)
-   - `id` (uint, primary key)
-   - `username` (string, unique, not null)
-   - `password_hash` (string, not null, bcrypt)
-   - `role` (string, not null, default='admin') - 'admin' or 'viewer'
-   - `metadata` (jsonb) - Custom attributes
-   - `created_at`, `updated_at` (timestamps)
-
-2. **`mqtt_users`**: MQTT authentication credentials (shared by multiple devices)
-   - `id` (uint, primary key)
-   - `username` (string, unique, not null)
-   - `password_hash` (string, not null, bcrypt)
-   - `description` (text) - Human-readable description
-   - `metadata` (jsonb) - Custom attributes
-   - `provisioned_from_config` (boolean, default=false) - Managed by config file
-   - `created_at`, `updated_at` (timestamps)
-
-3. **`mqtt_clients`**: Individual MQTT device/client connection tracking
-   - `id` (uint, primary key)
-   - `client_id` (string, unique, not null) - MQTT Client ID
-   - `mqtt_user_id` (uint, foreign key to mqtt_users, cascade delete)
-   - `metadata` (jsonb) - Custom attributes per device
-   - `first_seen`, `last_seen` (timestamps)
-   - `is_active` (boolean) - Currently connected
-   - `created_at`, `updated_at` (timestamps)
-
-4. **`acl_rules`**: Access control rules for MQTT topics
-   - `id` (uint, primary key)
-   - `mqtt_user_id` (uint, foreign key to mqtt_users, cascade delete)
-   - `topic_pattern` (string, not null) - Supports MQTT wildcards (+, #) and dynamic placeholders (${username}, ${clientid})
-   - `permission` (string, not null) - 'pub', 'sub', or 'pubsub'
-   - `provisioned_from_config` (boolean, default=false) - Managed by config file
-   - `created_at` (timestamp)
-
-5. **`retained_messages`**: Retained MQTT messages
-   - `topic` (string, primary key)
-   - `payload` (bytes, not null)
-   - `qos` (byte, not null)
-   - `created_at` (timestamp)
-
-**User Architecture:**
-- **DashboardUser**: Web UI administrators. Can log in to dashboard and use REST API to manage the system. Role can be 'admin' (full access) or 'viewer' (read-only).
-- **MQTTUser**: MQTT credentials that can be shared by multiple devices. Cannot log in to dashboard.
-- **MQTTClient**: Individual devices that connect using an MQTTUser's credentials. Tracked with unique Client ID.
-- The login endpoint (`POST /api/auth/login`) only accepts DashboardUsers. MQTTUsers authenticate via MQTT protocol.
-- Multiple MQTT clients (e.g., sensors in a building) can share the same MQTTUser credentials but have unique Client IDs.
-
-**Database Configuration:**
-The server supports three database backends (SQLite, PostgreSQL, MySQL) configured via environment variables or command-line flags:
+**Testing MQTT:**
 
 ```bash
-# Database Configuration
-DB_TYPE=postgres          # Database type: sqlite (default), postgres, mysql
-DB_PATH=mqtt.db          # SQLite: file path (default: bromq.db)
-DB_HOST=localhost        # Postgres/MySQL: host (default: localhost)
-DB_PORT=5432            # Postgres/MySQL: port (default: 5432 for postgres, 3306 for mysql)
-DB_USER=mqtt            # Postgres/MySQL: username (default: mqtt)
-DB_PASSWORD=secret      # Postgres/MySQL: password
-DB_NAME=mqtt            # Postgres/MySQL: database name (default: mqtt)
-DB_SSLMODE=disable      # Postgres: SSL mode (default: disable)
-
-# Admin Credentials (ONLY used on first run - like Grafana)
-ADMIN_USERNAME=admin     # Default admin username (default: admin)
-ADMIN_PASSWORD=admin     # Default admin password (default: admin)
-
-# Command-line flags (override environment variables for database config)
-./bromq \
-  -db-type postgres \
-  -db-host localhost \
-  -db-port 5432 \
-  -db-user mqtt \
-  -db-password secret \
-  -db-name mqtt \
-  -db-sslmode disable
+# Create MQTT user via API first, then:
+mosquitto_pub -h localhost -p 1883 -u sensor_user -P password123 -t "test/topic" -m "hello"
+mosquitto_sub -h localhost -p 1883 -u sensor_user -P password123 -t "test/#"
 ```
 
-**Docker Compose Examples:**
-- `compose.yml` - SQLite (default, embedded database)
-- `examples/compose.postgres.yml` - PostgreSQL with separate database container
-- `examples/compose.mysql.yml` - MySQL with separate database container
+**Script development:**
 
-**Logging Configuration:**
-The server uses Go's `log/slog` for structured logging with configurable levels and output formats:
+- Scripts execute in sandboxed goja runtime
+- Configurable timeouts prevent infinite loops
+- Use `console.log()` for debugging (saved to script_logs table)
+- State API: `state.get(key)`, `state.set(key, value, {ttl: 3600})`
+- MQTT API: `mqtt.publish(topic, payload, {qos: 1})`
 
-```bash
-# Logging Configuration (environment variables)
-LOG_LEVEL=info          # Log level: debug, info, warn, error (default: info)
-LOG_FORMAT=text         # Output format: text, json (default: text)
+## Architecture Flow
 
-# Examples:
-# Development with debug logging
-LOG_LEVEL=debug LOG_FORMAT=text ./bromq
-
-# Production with JSON logging for aggregation tools
-LOG_LEVEL=info LOG_FORMAT=json ./bromq
+```
+Client → MQTT Server (mochi-mqtt)
+           ↓
+        Hooks (in order):
+           → MetricsHook (Prometheus)
+           → AuthHook (validate credentials)
+           → ACLHook (check topic permissions)
+           → RetainedHook (persist retained messages)
+           → TrackingHook (record connections)
+           → BridgeHook (forward to remote brokers)
+           → ScriptHook (execute custom logic)
+           ↓
+        Database (GORM)
+           ↓
+        REST API (JWT auth)
+           ↓
+        Web UI (React Router v7)
 ```
 
-Log levels:
-- `debug` - Verbose logging including client connections/disconnections, tracking details
-- `info` - Standard operational logging (default)
-- `warn` - Warning messages (auth failures, errors that don't stop execution)
-- `error` - Error messages (ACL check errors, database errors)
+## Important Behaviors
 
-Output format examples:
-```
-# Text format (human-readable, for development)
-time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Starting BroMQ"
-time=2025-10-23T08:02:38.347-04:00 level=INFO msg="Connecting to database" type=sqlite
+- **Provisioned items** (from config file) return 409 Conflict on API modification attempts
+- **Default admin** auto-created on first run with `ADMIN_USERNAME`/`ADMIN_PASSWORD`
+- **JWT secret** auto-generated if not set (warns in logs, invalidates on restart)
+- **Script timeouts** enforced globally + per-script override
+- **Bridge reconnection** uses exponential backoff
+- **Client tracking** upserts on connect, marks inactive on disconnect
+- **ACL wildcards** and **placeholders** evaluated at runtime
+- **Retained messages** loaded from DB on startup
 
-# JSON format (machine-readable, for production log aggregation)
-{"time":"2025-10-23T08:02:38.347-04:00","level":"INFO","msg":"Starting BroMQ"}
-{"time":"2025-10-23T08:02:38.347-04:00","level":"INFO","msg":"Connecting to database","type":"sqlite"}
-```
+## Common Tasks
 
-**Security Configuration:**
-The server uses secure defaults and environment variables for sensitive configuration:
+**Add a new API endpoint:**
 
-```bash
-# JWT Secret (REQUIRED for production)
-JWT_SECRET=your-secret-key-here  # JWT signing secret (auto-generated if not set, but WARNING: tokens invalidated on restart)
+1. Add handler function to `internal/api/*_handlers.go`
+2. Register route in `internal/api/server.go`
+3. Add middleware if needed (auth, admin-only)
 
-# IMPORTANT: Always set JWT_SECRET in production!
-# - If not set, a random secret is generated on startup
-# - This means all JWT tokens become invalid when the server restarts
-# - Set a persistent secret to maintain token validity across restarts
-#
-# Generate a secure secret:
-# openssl rand -hex 32
+**Add a new database table:**
 
-# Examples:
-# Production (persistent secret)
-JWT_SECRET=$(openssl rand -hex 32) ./bromq
+1. Define struct in `internal/storage/models.go`
+2. Add to `AutoMigrate()` in `internal/storage/db.go`
+3. Add CRUD functions in new file (e.g., `internal/storage/new_table.go`)
 
-# Development (auto-generated, will warn in logs)
-./bromq  # Logs: "JWT_SECRET not set, generated random secret"
-```
+**Add a new hook:**
 
-**Script Engine Configuration:**
-Configure script execution timeouts for security and performance:
+1. Implement hook interface in `hooks/newhook/newhook.go`
+2. Register in `main.go` after existing hooks
 
-```bash
-# Global Script Timeout (default: 5s)
-SCRIPT_TIMEOUT=10s           # Global default timeout for all scripts
-                             # Supports: ms, s, m (e.g., 500ms, 5s, 2m)
-                             # Enforced limits: 100ms minimum, 5m maximum
+**Add script API function:**
 
-# Script Log Retention (default: 30d)
-SCRIPT_LOG_RETENTION=30d     # How long to keep script logs
-                             # Supports: h, d (e.g., 24h, 30d)
-                             # Set to 0 for infinite retention
+1. Add function to `internal/script/api.go`
+2. Register in `setupScriptAPI()` runtime
 
-# Examples:
-# High-performance scripts with 10s timeout
-SCRIPT_TIMEOUT=10s ./bromq
+**Testing:**
 
-# Fast-executing scripts with 1s timeout
-SCRIPT_TIMEOUT=1s ./bromq
-
-# Keep logs for 7 days only
-SCRIPT_LOG_RETENTION=7d ./bromq
-```
-
-**Per-Script Timeout:**
-Individual scripts can override the global timeout via API or config:
-
-```json
-// Via API: POST /api/scripts
-{
-  "name": "slow-processor",
-  "script_content": "...",
-  "timeout_seconds": 30  // Override global timeout (null = use default)
-}
-```
-
-```yaml
-# Via config file (provisioning)
-scripts:
-  - name: heavy-processor
-    timeout_seconds: 30  # This script gets 30s instead of global default
-    script_content: |
-      // Heavy processing logic here
-```
-
-**Key functions:**
-
-*Database Management:*
-- `storage.Open(config)` - Opens database with GORM, runs AutoMigrate, adds default admin
-- `storage.LoadConfigFromEnv()` - Loads configuration from environment variables
-- `storage.DefaultSQLiteConfig(path)` - Creates SQLite configuration
-
-*AdminUser (Dashboard) Management:*
-- `db.CreateAdminUser(username, password, role)` - Create dashboard admin
-- `db.AuthenticateAdminUser(username, password)` - Validate admin login
-- `db.GetAdminUser(id)` / `db.GetAdminUserByUsername(username)` - Retrieve admin
-- `db.ListAdminUsers()` - List all admin users
-- `db.UpdateAdminUser(id, username, role)` - Update admin info
-- `db.UpdateAdminUserPassword(id, password)` - Change admin password
-- `db.DeleteAdminUser(id)` - Delete admin user
-
-*MQTTUser (Credentials) Management:*
-- `db.CreateMQTTUser(username, password, description, metadata)` - Create MQTT credentials
-- `db.AuthenticateMQTTUser(username, password)` - Validate MQTT credentials
-- `db.AuthenticateUser(username, password)` - Compatibility wrapper for auth hook
-- `db.GetMQTTUser(id)` / `db.GetMQTTUserByUsername(username)` - Retrieve MQTT user
-- `db.ListMQTTUsers()` - List all MQTT credentials
-- `db.UpdateMQTTUser(id, username, description, metadata)` - Update MQTT user
-- `db.UpdateMQTTUserPassword(id, password)` - Change MQTT password
-- `db.DeleteMQTTUser(id)` - Delete MQTT user (cascades to clients and ACL rules)
-
-*MQTTClient (Device Tracking) Management:*
-- `db.UpsertMQTTClient(clientID, mqttUserID, metadata)` - Create/update client record on connect
-- `db.MarkMQTTClientInactive(clientID)` - Mark client as disconnected
-- `db.GetMQTTClient(id)` / `db.GetMQTTClientByClientID(clientID)` - Retrieve client
-- `db.ListMQTTClients(activeOnly)` - List all clients or just active ones
-- `db.ListMQTTClientsByUser(mqttUserID, activeOnly)` - List clients for a specific MQTT user
-- `db.UpdateMQTTClientMetadata(clientID, metadata)` - Update client metadata
-- `db.DeleteMQTTClient(id)` - Delete client record
-- `db.GetClientCount(activeOnly)` - Count total or active clients
-
-*ACL Management:*
-- `db.CreateACLRule(mqttUserID, topicPattern, permission)` - Create ACL rule for MQTT user
-- `db.UpdateACLRule(id, topicPattern, permission)` - Update existing ACL rule
-- `db.ListACLRules()` - List all ACL rules
-- `db.GetACLRulesByMQTTUserID(mqttUserID)` - Get rules for specific MQTT user
-- `db.DeleteACLRule(id)` - Delete ACL rule
-- `db.CheckACL(username, clientID, topic, action)` - Check if MQTT user can pub/sub to topic
-- Topic matching supports:
-  - MQTT wildcards: `+` (single level), `#` (multi-level)
-  - Dynamic placeholders: `${username}`, `${clientid}` (replaced at runtime)
-
-**Topic Pattern Examples:**
-```
-# Static patterns with wildcards
-devices/+/telemetry        # Matches devices/sensor1/telemetry, devices/sensor2/telemetry
-commands/#                 # Matches all subtopics under commands/
-
-# Dynamic patterns with ${username} placeholder (multi-tenant isolation)
-user/${username}/data      # alice can only access user/alice/data
-user/${username}/#         # bob can access all subtopics under user/bob/
-
-# Dynamic patterns with ${clientid} placeholder (per-device isolation)
-device/${clientid}/status  # client "sensor-001" can only access device/sensor-001/status
-
-# Combined placeholders and wildcards
-users/${username}/devices/${clientid}/#  # Full isolation per user and device
-```
-
-**Use Cases for Placeholders:**
-- **Multi-tenant systems**: Users can only access their own namespace
-- **IoT deployments**: Devices can only publish to topics matching their client ID
-- **Security**: No need to create individual ACL rules per user/device
-
-**Auto-Migration:**
-To add a new column to a table, simply update the struct in `models.go`:
-```go
-type AdminUser struct {
-    ID           uint
-    Username     string
-    Email        string  // ← Add new field here
-    PasswordHash string
-    Role         string
-    CreatedAt    time.Time
-}
-```
-Restart the app - GORM will automatically add the `email` column!
-
-**Default Admin Credentials:**
-- Default: `admin` / `admin` (auto-created on first run)
-- Configurable via `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables
-- **Important:** Like Grafana, these env vars **ONLY work on first launch**
-- Once the admin user exists in the database, changing env vars has no effect
-- To reset: delete the database/volume and restart, or use the API to change the password
-- For production: Set custom credentials before first run to avoid using defaults
-
-### 2. MQTT Hooks
-
-Hooks implement the mochi-mqtt hook interface to intercept MQTT lifecycle events:
-
-**AuthHook** (`hooks/auth/auth.go`):
-- Implements `OnConnectAuthenticate` to validate MQTT client credentials against database
-- Validates against MQTTUser table (not DashboardUser)
-- Anonymous connections allowed if no username provided
-- Stores username in `cl.Properties.Username` for ACL checks
-
-**ACLHook** (`hooks/auth/acl.go`):
-- Implements `OnACLCheck` to authorize publish/subscribe operations
-- Reads username from `cl.Properties.Username`
-- Calls `db.CheckACL()` to validate against stored ACL rules
-- Checks against MQTTUser credentials and their ACL rules
-
-**TrackingHook** (`hooks/tracking/tracking.go`):
-- Implements `OnConnect` to track client connections in the database
-- Creates or updates MQTTClient record with first_seen, last_seen, is_active
-- Implements `OnDisconnect` to mark clients as inactive
-- Automatically tracks which devices are using which MQTT credentials
-
-**MetricsHook** (`hooks/metrics/metrics.go`):
-- Tracks comprehensive Prometheus metrics for monitoring and observability
-- MQTT metrics: connections, messages, bytes, packets (per-client granularity)
-- Authentication metrics: attempts, failures (for security monitoring)
-- ACL metrics: authorization checks, denials (for security monitoring)
-- Script metrics: execution duration histograms, failures, timeouts
-- Bridge metrics: connection status, message forwarding, reconnection attempts
-- All metrics exported at `/metrics` endpoint (Prometheus format, no auth required)
-
-**RetainedHook** (`hooks/retained/retained.go`):
-- Persists retained messages to database
-- Automatically loads retained messages on startup
-- Implements `StoredRetainedMessages()` and `OnRetainMessage()`
-
-### 3. BroMQ (`internal/mqtt`)
-
-**Config options:**
-- TCPAddr: MQTT TCP listener (default `:1883`)
-- WSAddr: WebSocket listener (default `:8883`)
-- EnableTLS: TLS support (not yet implemented)
-- MaxClients: Connection limit (0 = unlimited)
-- RetainAvailable: Enable retained messages
-
-**Key functions:**
-- `mqtt.New(config)` - Creates server instance
-- `server.AddAuthHook()` - Registers authentication hook
-- `server.AddACLHook()` - Registers ACL hook
-- `server.Start()` - Starts all listeners
-- `server.GetClients()` - Returns connected clients info
-- `server.GetMetrics()` - Returns server statistics
-
-### 4. REST API (`internal/api`)
-
-**Authentication:** JWT tokens (24h expiry)
-- Header: `Authorization: Bearer <token>`
-- Middleware: `AuthMiddleware` validates JWT, adds claims to context
-- Admin guard: `AdminOnly` middleware restricts endpoints
-
-**Endpoints:**
-
-Public:
-- `POST /api/auth/login` - Get JWT token (DashboardUser only)
-
-Protected (any authenticated admin):
-- `PUT /api/auth/change-password` - Change own password
-
-Protected (admin only - all routes below):
-
-*Dashboard Administration:*
-- `GET /api/admin/users` - List all admin users
-- `POST /api/admin/users` - Create admin user
-- `PUT /api/admin/users/{id}` - Update admin user
-- `PUT /api/admin/users/{id}/password` - Reset admin password
-- `DELETE /api/admin/users/{id}` - Delete admin user
-
-*MQTT User Management:*
-- `GET /api/mqtt/users` - List all MQTT users
-- `POST /api/mqtt/users` - Create MQTT user
-- `PUT /api/mqtt/users/{id}` - Update MQTT user
-- `PUT /api/mqtt/users/{id}/password` - Reset MQTT user password
-- `DELETE /api/mqtt/users/{id}` - Delete MQTT user (cascades to clients and ACL)
-
-*MQTT Clients (Connected Devices):*
-- `GET /api/mqtt/clients` - List all MQTT clients (with active status)
-- `GET /api/mqtt/clients/{client_id}` - Get client details
-- `PUT /api/mqtt/clients/{client_id}/metadata` - Update client metadata
-- `DELETE /api/mqtt/clients/{id}` - Delete client record
-
-*ACL Rules:*
-- `GET /api/acl` - List all ACL rules
-- `POST /api/acl` - Create ACL rule for MQTT user
-- `PUT /api/acl/{id}` - Update ACL rule
-- `DELETE /api/acl/{id}` - Delete ACL rule
-
-*Bridge Management:*
-- `GET /api/bridges` - List all bridges (with pagination)
-- `GET /api/bridges/{id}` - Get specific bridge
-- `POST /api/bridges` - Create bridge
-- `PUT /api/bridges/{id}` - Update bridge
-- `DELETE /api/bridges/{id}` - Delete bridge
-
-*Legacy Endpoints (for backward compatibility):*
-- `GET /api/clients` - List connected MQTT clients
-- `GET /api/clients/{id}` - Get client details
-- `POST /api/clients/{id}/disconnect` - Force disconnect client
-
-*Monitoring:*
-- `GET /api/metrics` - Get server metrics (JSON)
-- `GET /metrics` - Prometheus metrics endpoint (no auth)
-
-**Frontend serving:**
-- Root path (`/`) serves embedded SPA from `web/dist`
-- Falls back to `index.html` for client-side routing
-
-### 5. Main Entry Point (`main.go`)
-
-Orchestrates startup:
-1. Parse CLI flags and load environment variables
-2. Open database (SQLite/PostgreSQL/MySQL based on config)
-3. Create MQTT server with config
-4. Register hooks in order:
-   - Auth hook (validates MQTT credentials)
-   - ACL hook (checks topic permissions)
-   - Metrics hook (Prometheus metrics)
-   - Retained message hook (persistent retained messages)
-   - Tracking hook (records client connections)
-5. Start MQTT server (goroutine)
-6. Start HTTP API server (goroutine)
-7. Wait for SIGINT/SIGTERM
-
-### 6. Frontend Integration
-
-**Setup (React Router v7 + shadcn/ui):**
-```bash
-cd web
-npm install
-npm run build  # Outputs to web/dist/client/
-
-# The react-router.config.ts is configured for SPA mode:
-# - ssr: false (static builds, no server)
-# - buildDirectory: './dist' (outputs to dist/client/)
-```
-
-**Embedding:**
-- `main.go` has `//go:embed all:web/dist/client`
-- Binary includes all frontend assets
-- `api.Server` serves files via `http.FileServer`
-- React Router v7 in SPA mode with client-side routing
-
-## Development Workflow
-
-### Option 1: Docker Compose Development (Recommended)
-
-**Easiest way to get started with hot reload for both frontend and backend:**
-
-```bash
-# Start everything
-make dev-up
-# or: docker compose -f compose.dev.yml up -d
-
-# Access points:
-# - Backend API: http://localhost:8080
-# - Frontend:    http://localhost:5173 (with HMR)
-
-# View logs
-make logs
-# or: docker compose logs -f
-
-# Stop everything
-make dev-down
-```
-
-**Features:**
-- ✅ Automatic Go code reload (via volume mount)
-- ✅ Vite HMR for instant React updates
-- ✅ Persistent database in Docker volume
-- ✅ No need to install Go/Node locally
-
-### Option 2: Local Development (No Docker)
-
-**Terminal 1 - Start Go backend:**
-```bash
-go run .
-# API server running on http://localhost:8080
-```
-
-**Terminal 2 - Start Vite dev server:**
-```bash
-cd web
-npm run dev
-# Frontend with HMR on http://localhost:5173
-# API requests to /api/* automatically proxied to :8080
-```
-
-**Frontend Dev Server Proxy:**
-The `vite.config.ts` includes proxy configuration:
-```typescript
-server: {
-  proxy: {
-    '/api': {
-      target: 'http://localhost:8080',  // Go backend
-      changeOrigin: true,
-    }
-  }
-}
-```
-
-This means:
-- Visit http://localhost:5173 for frontend development
-- All `/api/*` requests are automatically forwarded to the Go backend
-- No CORS issues during development
-- Hot module reloading for instant React updates
-
-### Production Deployment
-
-**Option 1: Docker Compose (Recommended)**
-```bash
-make prod-up
-# or: docker compose up -d --build
-
-# Everything available at:
-# - MQTT TCP:       localhost:1883
-# - MQTT WebSocket: localhost:8883
-# - Web UI + API:   http://localhost:8080
-```
-
-**Option 2: Manual Build**
-```bash
-# Build
-cd web && npm run build && cd ..
-go build -o bin/bromq .
-
-# Deploy single binary (19MB stripped, includes all 3 database drivers)
-scp bin/bromq user@server:/opt/bromq/
-ssh user@server "/opt/bromq/bromq"
-```
-
-**Option 3: Docker Only**
-```bash
-docker build -t bromq .
-docker run -d \
-  -p 1883:1883 \
-  -p 8883:8883 \
-  -p 8080:8080 \
-  -v mqtt-data:/app/data \
-  --name bromq \
-  bromq
-```
-
-## Important Implementation Details
-
-**JWT Secret:** Loaded from `JWT_SECRET` environment variable. If not set, a random secret is generated on startup with a warning. Always set `JWT_SECRET` in production to prevent token invalidation on server restart. See Security Configuration section above for details.
-
-**Script Timeouts:** Scripts have configurable execution timeouts (default 5s, configurable via `SCRIPT_TIMEOUT` env var). Individual scripts can override via `timeout_seconds` field. Enforced limits: 100ms minimum, 5 minutes maximum.
-
-**Anonymous MQTT access:** Enabled by default in auth hook - ACL still enforced
-
-**User Separation:**
-- DashboardUsers can log in to the web dashboard and REST API to manage the system
-- MQTTUsers are credentials for MQTT connections (cannot access dashboard/API)
-- MQTTClients are individual devices tracked by their Client ID
-- Multiple devices can share the same MQTTUser credentials
-- ACL rules are attached to MQTTUsers, not individual clients
-
-**Topic wildcards:**
-- `sensor/+/temperature` matches `sensor/living-room/temperature`
-- `device/#` matches `device/1/status` and `device/2/info/version`
-- See `matchTopic()` in `storage/acl.go` for implementation
-
-**Error handling:** All handlers return JSON errors with appropriate HTTP status codes
-
-**CORS:** Enabled for all origins in `CORSMiddleware` - restrict for production
-
-## Testing MQTT
-
-```bash
-# Install mosquitto clients
-sudo apt-get install mosquitto-clients  # or brew install mosquitto
-
-# First, create MQTT credentials via API (see Testing API section)
-# Then use those credentials (NOT admin credentials) for MQTT:
-
-# Test anonymous connection (if enabled)
-mosquitto_pub -h localhost -p 1883 -t "test/topic" -m "hello"
-
-# Test with MQTT credentials (requires creating MQTT user via API first)
-mosquitto_pub -h localhost -p 1883 -u sensor_user -P sensor123 -t "test/topic" -m "hello"
-
-# Subscribe with MQTT credentials
-mosquitto_sub -h localhost -p 1883 -u sensor_user -P sensor123 -t "test/#"
-
-# Test with different client IDs (same credentials, different devices)
-mosquitto_pub -h localhost -p 1883 -i "device-001" -u sensor_user -P sensor123 -t "sensor/temp" -m "22.5"
-mosquitto_pub -h localhost -p 1883 -i "device-002" -u sensor_user -P sensor123 -t "sensor/temp" -m "23.1"
-
-# Note: DashboardUser credentials (admin/admin) do NOT work for MQTT connections
-# You must create separate MQTTUser credentials via the API
-```
-
-## Testing API
-
-```bash
-# Login as admin
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}'
-
-# Save token from response, then:
-TOKEN="<your-token>"
-
-# === Dashboard Admin Management ===
-# List admin users
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/admin/users
-
-# Create admin user
-curl -X POST http://localhost:8080/api/admin/users \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"newadmin","password":"secure123","role":"admin"}'
-
-# === MQTT User Management ===
-# Create MQTT user
-curl -X POST http://localhost:8080/api/mqtt/users \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"sensor_user","password":"sensor123","description":"Sensor credentials"}'
-
-# List MQTT users
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/mqtt/users
-
-# === MQTT Clients Tracking ===
-# List all connected clients
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/mqtt/clients
-
-# Get specific client details
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/mqtt/clients/sensor-device-001
-
-# Update client metadata
-curl -X PUT http://localhost:8080/api/mqtt/clients/sensor-device-001/metadata \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"location":"warehouse-A","device_type":"temperature_sensor"}'
-
-# === ACL Rules ===
-# Create ACL rule with wildcards
-curl -X POST http://localhost:8080/api/acl \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"mqtt_user_id":1,"topic_pattern":"sensor/+/temp","permission":"pubsub"}'
-
-# Create ACL rule with ${username} placeholder (multi-tenant isolation)
-curl -X POST http://localhost:8080/api/acl \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"mqtt_user_id":1,"topic_pattern":"user/${username}/#","permission":"pubsub"}'
-
-# Create ACL rule with ${clientid} placeholder (per-device isolation)
-curl -X POST http://localhost:8080/api/acl \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"mqtt_user_id":1,"topic_pattern":"device/${clientid}/status","permission":"pub"}'
-
-# Create ACL rule with combined placeholders
-curl -X POST http://localhost:8080/api/acl \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"mqtt_user_id":1,"topic_pattern":"users/${username}/devices/${clientid}/#","permission":"pubsub"}'
-
-# List ACL rules
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/acl
-
-# === Bridge Management ===
-# List all bridges
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/bridges
-
-# Get specific bridge
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/bridges/1
-
-# Create bridge
-curl -X POST http://localhost:8080/api/bridges \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "cloud-bridge",
-    "remote_host": "mqtt.example.com",
-    "remote_port": 1883,
-    "remote_username": "bridge_user",
-    "remote_password": "bridge_pass",
-    "client_id": "my-bridge-client",
-    "clean_session": true,
-    "keep_alive": 60,
-    "connection_timeout": 30,
-    "metadata": {"location": "datacenter-1"},
-    "topics": [
-      {
-        "local_pattern": "sensors/#",
-        "remote_pattern": "edge/site-a/sensors/#",
-        "direction": "out",
-        "qos": 1
-      },
-      {
-        "local_pattern": "commands/#",
-        "remote_pattern": "cloud/commands/#",
-        "direction": "in",
-        "qos": 1
-      }
-    ]
-  }'
-
-# Update bridge
-curl -X PUT http://localhost:8080/api/bridges/1 \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "cloud-bridge-updated",
-    "remote_host": "mqtt-new.example.com",
-    "remote_port": 1883,
-    "client_id": "my-bridge-client",
-    "clean_session": true,
-    "keep_alive": 90,
-    "connection_timeout": 45,
-    "topics": [...]
-  }'
-
-# Delete bridge
-curl -X DELETE http://localhost:8080/api/bridges/1 \
-  -H "Authorization: Bearer $TOKEN"
-
-# Note: Bridges provisioned from config file cannot be modified or deleted via API
-# They will return 409 Conflict with an error message
-
-# === Password Management ===
-# Change your own password
-curl -X PUT http://localhost:8080/api/auth/change-password \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"current_password":"admin","new_password":"new_secure_password"}'
-
-# Reset another admin's password
-curl -X PUT http://localhost:8080/api/admin/users/2/password \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"password":"reset_password_123"}'
-
-# Reset MQTT user password
-curl -X PUT http://localhost:8080/api/mqtt/users/1/password \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"password":"new_mqtt_password"}'
-
-# === Monitoring ===
-# Get metrics
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/metrics
-
-# Prometheus metrics (no auth)
-curl http://localhost:8080/metrics
-```
-
-## Prometheus Metrics
-
-The `/metrics` endpoint (no auth required) exposes comprehensive Prometheus metrics for monitoring and alerting:
-
-**MQTT Connection Metrics:**
-- `mqtt_clients_connected` (gauge) - Currently connected clients
-- `mqtt_client_connected_timestamp_seconds` (gauge, per-client) - Connection timestamp
-- `mqtt_messages_received_total` (counter, per-client) - Messages received from clients
-- `mqtt_messages_sent_total` (counter, per-client) - Messages sent to clients
-- `mqtt_bytes_received_total` (counter, per-client) - Bytes received
-- `mqtt_bytes_sent_total` (counter, per-client) - Bytes sent
-- `mqtt_packets_received_total` (counter, per-client) - MQTT packets received
-- `mqtt_packets_sent_total` (counter, per-client) - MQTT packets sent
-
-**Security & Authentication Metrics:**
-- `mqtt_auth_attempts_total` (counter, labels: username, result) - All authentication attempts
-- `mqtt_auth_failures_total` (counter, labels: username) - Failed authentications (security monitoring)
-- `mqtt_acl_checks_total` (counter, labels: username, action, result) - ACL authorization checks
-- `mqtt_acl_denied_total` (counter, labels: username, action, topic) - Denied ACL checks (security monitoring)
-
-**Script Execution Metrics:**
-- `script_execution_duration_seconds` (histogram, labels: script_name, trigger_type) - Execution time distribution
-- `script_executions_total` (counter, labels: script_name, trigger_type, result) - Total executions
-- `script_execution_failures_total` (counter, labels: script_name, trigger_type, error_type) - Failures
-- `script_execution_timeouts_total` (counter, labels: script_name, trigger_type) - Timeouts
-- `scripts_active_total` (gauge) - Number of enabled scripts
-
-**Bridge Connection Metrics:**
-- `bridge_connection_status` (gauge, labels: bridge_name, remote_host) - 1=connected, 0=disconnected
-- `bridge_connection_attempts_total` (counter, labels: bridge_name, remote_host) - Connection attempts
-- `bridge_connection_failures_total` (counter, labels: bridge_name, remote_host, error_type) - Connection failures
-- `bridge_messages_forwarded_total` (counter, labels: bridge_name, direction) - Messages forwarded (in/out)
-- `bridge_messages_dropped_total` (counter, labels: bridge_name, direction, reason) - Dropped messages
-- `bridge_reconnect_attempts_total` (counter, labels: bridge_name) - Reconnection attempts
-- `bridge_current_backoff_seconds` (gauge, labels: bridge_name) - Current exponential backoff delay
-- `bridge_last_connected_timestamp_seconds` (gauge, labels: bridge_name) - Last connection timestamp
-- `bridge_last_disconnected_timestamp_seconds` (gauge, labels: bridge_name) - Last disconnection timestamp
-
-**Example Prometheus Queries:**
-
-```promql
-# Auth failure rate (potential brute force attacks)
-rate(mqtt_auth_failures_total[5m])
-
-# ACL denial rate by user (potential unauthorized access attempts)
-rate(mqtt_acl_denied_total[5m])
-
-# Script execution duration 95th percentile
-histogram_quantile(0.95, rate(script_execution_duration_seconds_bucket[5m]))
-
-# Bridge connection health
-bridge_connection_status == 0  # Alert on disconnected bridges
-
-# Message throughput by client
-rate(mqtt_messages_received_total[1m])
-```
-
-## Security Considerations
-
-**Critical Production Checklist:**
-- **Set `JWT_SECRET` environment variable** - Required for production! Random secret is generated if not set, but all tokens become invalid on restart. Generate with: `openssl rand -hex 32`
-- **Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` before first run** - These env vars only work on initial startup (like Grafana)
-- If using default credentials (`admin`/`admin`), change the password immediately via API after first login
-- **Configure script timeouts** - Set `SCRIPT_TIMEOUT` appropriately for your use case (default 5s). Individual scripts can override via `timeout_seconds` field.
-
-**Additional Recommendations:**
-- Use TLS for production MQTT deployments (not yet implemented)
-- Implement rate limiting on API endpoints for production
-- Consider using proper secrets management (Docker secrets, cloud provider secrets, or HashiCorp Vault)
-- Review CORS policy before production deployment (currently allows all origins)
-- Monitor security metrics: `mqtt_auth_failures_total` and `mqtt_acl_denied_total` for potential attacks
-- Set up Prometheus alerts for authentication failures and ACL denials
-- Configure log aggregation for audit trails (use `LOG_FORMAT=json` for structured logs)
+- Go tests: `go test ./...`
+- Specific package: `go test ./internal/storage`
+- With coverage: `go test -cover ./...`
+- Frontend: `cd web && npm test`
