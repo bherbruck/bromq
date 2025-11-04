@@ -41,7 +41,7 @@ func (h *Handler) ListDashboardUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // CreateDashboardUser creates a new admin user
@@ -60,7 +60,7 @@ func (h *Handler) CreateDashboardUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // GetDashboardUser returns a single dashboard user by ID
@@ -79,7 +79,7 @@ func (h *Handler) GetDashboardUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // UpdateDashboardUser updates an admin user's information
@@ -109,7 +109,7 @@ func (h *Handler) UpdateDashboardUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // DeleteDashboardUser deletes an admin user
@@ -134,7 +134,7 @@ func (h *Handler) DeleteDashboardUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "admin user deleted"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "admin user deleted"})
 }
 
 // UpdateDashboardUserPassword updates an admin user's password
@@ -163,7 +163,7 @@ func (h *Handler) UpdateDashboardUserPassword(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "password updated"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "password updated"})
 }
 
 // ChangePassword allows authenticated admin users to change their own password
@@ -204,5 +204,5 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "password changed successfully"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "password changed successfully"})
 }

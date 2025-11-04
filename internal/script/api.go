@@ -132,32 +132,32 @@ func NewScriptAPI(vm *goja.Runtime, scriptID uint, scriptName, triggerType strin
 func (api *ScriptAPI) setupAPIs() {
 	// Create log object
 	logObj := api.vm.NewObject()
-	logObj.Set("debug", api.logDebug)
-	logObj.Set("info", api.logInfo)
-	logObj.Set("warn", api.logWarn)
-	logObj.Set("error", api.logError)
-	api.vm.Set("log", logObj)
+	_ = logObj.Set("debug", api.logDebug)
+	_ = logObj.Set("info", api.logInfo)
+	_ = logObj.Set("warn", api.logWarn)
+	_ = logObj.Set("error", api.logError)
+	_ = api.vm.Set("log", logObj)
 
 	// Create mqtt object
 	mqttObj := api.vm.NewObject()
-	mqttObj.Set("publish", api.mqttPublish)
-	api.vm.Set("mqtt", mqttObj)
+	_ = mqttObj.Set("publish", api.mqttPublish)
+	_ = api.vm.Set("mqtt", mqttObj)
 
 	// Create state object (script-scoped)
 	stateObj := api.vm.NewObject()
-	stateObj.Set("set", api.stateSet)
-	stateObj.Set("get", api.stateGet)
-	stateObj.Set("delete", api.stateDelete)
-	stateObj.Set("keys", api.stateKeys)
-	api.vm.Set("state", stateObj)
+	_ = stateObj.Set("set", api.stateSet)
+	_ = stateObj.Set("get", api.stateGet)
+	_ = stateObj.Set("delete", api.stateDelete)
+	_ = stateObj.Set("keys", api.stateKeys)
+	_ = api.vm.Set("state", stateObj)
 
 	// Create global object (shared across all scripts)
 	globalObj := api.vm.NewObject()
-	globalObj.Set("set", api.globalSet)
-	globalObj.Set("get", api.globalGet)
-	globalObj.Set("delete", api.globalDelete)
-	globalObj.Set("keys", api.globalKeys)
-	api.vm.Set("global", globalObj)
+	_ = globalObj.Set("set", api.globalSet)
+	_ = globalObj.Set("get", api.globalGet)
+	_ = globalObj.Set("delete", api.globalDelete)
+	_ = globalObj.Set("keys", api.globalKeys)
+	_ = api.vm.Set("global", globalObj)
 }
 
 // GetLogs returns all collected logs

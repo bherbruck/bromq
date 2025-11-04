@@ -77,14 +77,14 @@ clean: ## Clean build artifacts and volumes
 	docker compose -f compose.dev.yml down -v
 
 test: ## Run Go tests
-	go test -v ./...
+	go test ./...
 
 test-web: web/node_modules ## Run frontend tests
 	cd web && npm test
 
 test-all: web/node_modules ## Run all tests (Go + frontend)
 	@echo "Running Go tests..."
-	go test -v ./...
+	go test ./...
 	@echo ""
 	@echo "Running frontend tests..."
 	cd web && npm test

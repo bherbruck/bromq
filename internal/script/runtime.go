@@ -106,7 +106,7 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, message *
 		}
 
 		// Set msg object in scope
-		vm.Set("msg", msgMap)
+		_ = vm.Set("msg", msgMap)
 
 		// Compile and run script
 		program, err := goja.Compile(script.Name, script.ScriptContent, false)

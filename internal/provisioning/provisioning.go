@@ -129,16 +129,6 @@ func provisionUser(db *storage.DB, userCfg config.MQTTUserConfig) (uint, error) 
 	return user.ID, nil
 }
 
-// deleteProvisionedACLRules deletes all provisioned ACL rules for a user
-func deleteProvisionedACLRules(db *storage.DB, userID uint) error {
-	return db.DeleteProvisionedACLRules(userID)
-}
-
-// provisionACLRule creates a new ACL rule marked as provisioned
-func provisionACLRule(db *storage.DB, userID uint, ruleCfg config.ACLRuleConfig) error {
-	return db.CreateProvisionedACLRule(userID, ruleCfg.TopicPattern, ruleCfg.Permission)
-}
-
 // syncACLRules intelligently syncs ACL rules - only modifies what changed
 func syncACLRules(db *storage.DB, userIDMap map[string]uint, configRules []config.ACLRuleConfig) error {
 	// Build map of config rules by user

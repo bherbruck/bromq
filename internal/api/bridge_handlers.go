@@ -42,7 +42,7 @@ func (h *Handler) ListBridges(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // GetBridge returns a single bridge by ID
@@ -61,7 +61,7 @@ func (h *Handler) GetBridge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(bridge)
+	_ = json.NewEncoder(w).Encode(bridge)
 }
 
 // CreateBridge creates a new bridge
@@ -145,7 +145,7 @@ func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(bridge)
+	_ = json.NewEncoder(w).Encode(bridge)
 }
 
 // UpdateBridge updates a bridge's configuration
@@ -259,7 +259,7 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(bridge)
+	_ = json.NewEncoder(w).Encode(bridge)
 }
 
 // DeleteBridge deletes a bridge
@@ -289,5 +289,5 @@ func (h *Handler) DeleteBridge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "bridge deleted"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "bridge deleted"})
 }

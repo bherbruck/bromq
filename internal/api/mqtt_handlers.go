@@ -73,7 +73,7 @@ func (h *Handler) ListMQTTUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // CreateMQTTUser creates new MQTT user
@@ -92,7 +92,7 @@ func (h *Handler) CreateMQTTUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // GetMQTTUser returns a single MQTT user by ID
@@ -111,7 +111,7 @@ func (h *Handler) GetMQTTUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // UpdateMQTTUser updates MQTT user information
@@ -153,7 +153,7 @@ func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // DeleteMQTTUser deletes MQTT user
@@ -183,7 +183,7 @@ func (h *Handler) DeleteMQTTUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "MQTT user deleted"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "MQTT user deleted"})
 }
 
 // UpdateMQTTUserPassword updates MQTT user password
@@ -224,7 +224,7 @@ func (h *Handler) UpdateMQTTUserPassword(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "password updated"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "password updated"})
 }
 
 // === MQTT Client Management Handlers ===
@@ -267,7 +267,7 @@ func (h *Handler) ListMQTTClients(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // GetMQTTClientDetails returns details about a specific MQTT client
@@ -285,7 +285,7 @@ func (h *Handler) GetMQTTClientDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(client)
+	_ = json.NewEncoder(w).Encode(client)
 }
 
 // UpdateMQTTClientMetadata updates a client's metadata
@@ -308,7 +308,7 @@ func (h *Handler) UpdateMQTTClientMetadata(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "client metadata updated"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "client metadata updated"})
 }
 
 // DeleteMQTTClient deletes a client record
@@ -326,5 +326,5 @@ func (h *Handler) DeleteMQTTClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "client record deleted"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "client record deleted"})
 }

@@ -22,11 +22,11 @@ type Metrics struct {
 
 // GetMetrics returns current server metrics
 func (s *Server) GetMetrics() Metrics {
-	info := s.Server.Info
+	info := s.Info
 
 	return Metrics{
 		Uptime:            time.Since(time.Unix(info.Started, 0)),
-		ConnectedClients:  len(s.Server.Clients.GetAll()),
+		ConnectedClients:  len(s.Clients.GetAll()),
 		TotalClients:      int(info.ClientsConnected),
 		MessagesReceived:  info.MessagesReceived,
 		MessagesSent:      info.MessagesSent,

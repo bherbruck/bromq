@@ -93,7 +93,7 @@ func main() {
 		slog.Error("Failed to open database", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Load and provision configuration if provided
 	configPath := *configFile

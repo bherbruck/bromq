@@ -37,12 +37,12 @@ func New(cfg *Config) *Server {
 
 // AddAuthHook adds an authentication hook to the server
 func (s *Server) AddAuthHook(hook mqtt.Hook) error {
-	return s.Server.AddHook(hook, nil)
+	return s.AddHook(hook, nil)
 }
 
 // AddACLHook adds an ACL hook to the server
 func (s *Server) AddACLHook(hook mqtt.Hook) error {
-	return s.Server.AddHook(hook, nil)
+	return s.AddHook(hook, nil)
 }
 
 // Start starts the MQTT server with configured listeners
@@ -53,7 +53,7 @@ func (s *Server) Start() error {
 			ID:      "tcp",
 			Address: s.config.TCPAddr,
 		})
-		err := s.Server.AddListener(tcp)
+		err := s.AddListener(tcp)
 		if err != nil {
 			return fmt.Errorf("failed to add TCP listener: %w", err)
 		}
@@ -66,7 +66,7 @@ func (s *Server) Start() error {
 			ID:      "ws",
 			Address: s.config.WSAddr,
 		})
-		err := s.Server.AddListener(ws)
+		err := s.AddListener(ws)
 		if err != nil {
 			return fmt.Errorf("failed to add WebSocket listener: %w", err)
 		}
@@ -74,12 +74,12 @@ func (s *Server) Start() error {
 	}
 
 	// Start the server
-	return s.Server.Serve()
+	return s.Serve()
 }
 
 // GetClients returns information about all connected clients
 func (s *Server) GetClients() []ClientInfo {
-	clients := s.Server.Clients.GetAll()
+	clients := s.Clients.GetAll()
 	info := make([]ClientInfo, 0, len(clients))
 
 	for _, cl := range clients {
@@ -101,7 +101,7 @@ func (s *Server) GetClients() []ClientInfo {
 
 // GetClientDetails returns detailed information about a specific client
 func (s *Server) GetClientDetails(clientID string) (*ClientDetails, error) {
-	cl, ok := s.Server.Clients.Get(clientID)
+	cl, ok := s.Clients.Get(clientID)
 	if !ok {
 		return nil, fmt.Errorf("client not found")
 	}
@@ -163,7 +163,7 @@ type SubscriptionInfo struct {
 
 // DisconnectClient forcefully disconnects a client by ID
 func (s *Server) DisconnectClient(clientID string) error {
-	cl, ok := s.Server.Clients.Get(clientID)
+	cl, ok := s.Clients.Get(clientID)
 	if !ok {
 		return fmt.Errorf("client not found")
 	}

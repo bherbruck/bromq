@@ -42,7 +42,7 @@ func (h *Handler) ListScripts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // GetScript returns a single script by ID
@@ -61,7 +61,7 @@ func (h *Handler) GetScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(script)
+	_ = json.NewEncoder(w).Encode(script)
 }
 
 // CreateScript creates a new script
@@ -112,7 +112,7 @@ func (h *Handler) CreateScript(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(script)
+	_ = json.NewEncoder(w).Encode(script)
 }
 
 // UpdateScript updates a script
@@ -176,7 +176,7 @@ func (h *Handler) UpdateScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(script)
+	_ = json.NewEncoder(w).Encode(script)
 }
 
 // DeleteScript deletes a script
@@ -206,7 +206,7 @@ func (h *Handler) DeleteScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "script deleted successfully"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "script deleted successfully"})
 }
 
 // EnableScript toggles script enabled status
@@ -237,7 +237,7 @@ func (h *Handler) EnableScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: fmt.Sprintf("script %s successfully", status)})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: fmt.Sprintf("script %s successfully", status)})
 }
 
 // TestScript tests a script with mock event data
@@ -272,7 +272,7 @@ func (h *Handler) TestScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // GetScriptLogs returns logs for a script
@@ -312,7 +312,7 @@ func (h *Handler) GetScriptLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // ClearScriptLogs clears all logs for a script
@@ -330,7 +330,7 @@ func (h *Handler) ClearScriptLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "logs cleared successfully"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "logs cleared successfully"})
 }
 
 // GetScriptState returns state keys for a script
@@ -352,7 +352,7 @@ func (h *Handler) GetScriptState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // DeleteScriptStateKey deletes a specific state key for a script
@@ -377,5 +377,5 @@ func (h *Handler) DeleteScriptStateKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "state key deleted successfully"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "state key deleted successfully"})
 }

@@ -57,7 +57,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(LoginResponse{
+	_ = json.NewEncoder(w).Encode(LoginResponse{
 		Token: token,
 		User:  user,
 	})
@@ -98,7 +98,7 @@ func (h *Handler) ListACL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // CreateACL creates a new ACL rule
@@ -117,7 +117,7 @@ func (h *Handler) CreateACL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(rule)
+	_ = json.NewEncoder(w).Encode(rule)
 }
 
 // UpdateACL updates an existing ACL rule
@@ -154,7 +154,7 @@ func (h *Handler) UpdateACL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rule)
+	_ = json.NewEncoder(w).Encode(rule)
 }
 
 // DeleteACL deletes an ACL rule
@@ -184,7 +184,7 @@ func (h *Handler) DeleteACL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "ACL rule deleted"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "ACL rule deleted"})
 }
 
 // ListClients returns all connected MQTT clients
@@ -192,7 +192,7 @@ func (h *Handler) ListClients(w http.ResponseWriter, r *http.Request) {
 	clients := h.mqtt.GetClients()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(clients)
+	_ = json.NewEncoder(w).Encode(clients)
 }
 
 // GetClientDetails returns detailed information about a specific client
@@ -210,7 +210,7 @@ func (h *Handler) GetClientDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(details)
+	_ = json.NewEncoder(w).Encode(details)
 }
 
 // DisconnectClient forcefully disconnects an MQTT client
@@ -227,7 +227,7 @@ func (h *Handler) DisconnectClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(SuccessResponse{Message: "client disconnected"})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "client disconnected"})
 }
 
 // GetMetrics returns server metrics
@@ -235,5 +235,5 @@ func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	metrics := h.mqtt.GetMetrics()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(metrics)
+	_ = json.NewEncoder(w).Encode(metrics)
 }

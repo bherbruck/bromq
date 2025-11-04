@@ -1,7 +1,7 @@
 # Multi-stage build for BroMQ with embedded frontend
 
-# Stage 1: Build frontend
-FROM node:22-alpine AS frontend
+# Stage 1: Build frontend (always on amd64 since output is platform-agnostic)
+FROM --platform=linux/amd64 node:22-alpine AS frontend
 WORKDIR /app/web
 
 # Copy package files
