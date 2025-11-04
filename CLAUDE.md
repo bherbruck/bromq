@@ -210,8 +210,9 @@ LOG_LEVEL=info             # debug, info, warn, error
 LOG_FORMAT=text            # text, json
 
 # Scripts
-SCRIPT_TIMEOUT=5s          # Global timeout (100ms-5m)
-SCRIPT_LOG_RETENTION=30d   # Log retention period
+SCRIPT_TIMEOUT=5s                        # Global timeout (100ms-5m)
+SCRIPT_MAX_PUBLISHES_PER_EXECUTION=100   # Max publishes per execution (1-10000)
+SCRIPT_LOG_RETENTION=30d                 # Log retention period
 
 # Config file
 CONFIG_FILE=config.yml     # Path to YAML config
@@ -284,12 +285,13 @@ mosquitto_sub -h localhost -p 1883 -u sensor_user -P password123 -t "test/#"
 **Script development:**
 
 - Scripts execute in sandboxed goja runtime
-- Configurable timeouts prevent infinite loops
+- Configurable timeouts prevent infinite loops (default 5s)
+- Publish rate limit prevents message spam (default 100 per execution)
 - Message context: `msg.topic`, `msg.payload`, `msg.clientId`, `msg.username`, `msg.type`
 - Logging API: `log.info()`, `log.warn()`, `log.error()`, `log.debug()` (saved to script_logs table)
 - State API: `state.get(key)`, `state.set(key, value, {ttl: 3600})`
 - Global state API: `global.get(key)`, `global.set(key, value, {ttl: 3600})`
-- MQTT API: `mqtt.publish(topic, payload, qos, retain)`
+- MQTT API: `mqtt.publish(topic, payload, qos, retain)` - limited to prevent spam
 
 ## Architecture Flow
 

@@ -26,6 +26,7 @@ type Runtime struct {
 	state          *StateManager
 	mqttServer     *mqtt.Server
 	defaultTimeout time.Duration
+	maxPublishes   int
 }
 
 // NewRuntime creates a new runtime
@@ -35,12 +36,18 @@ func NewRuntime(db *storage.DB, state *StateManager, mqttServer *mqtt.Server) *R
 		state:          state,
 		mqttServer:     mqttServer,
 		defaultTimeout: 5 * time.Second, // Default 5 seconds timeout (will be overridden by engine)
+		maxPublishes:   100,              // Default 100 publishes per execution (will be overridden by engine)
 	}
 }
 
 // SetDefaultTimeout sets the default execution timeout
 func (r *Runtime) SetDefaultTimeout(timeout time.Duration) {
 	r.defaultTimeout = timeout
+}
+
+// SetMaxPublishes sets the max publishes per execution limit
+func (r *Runtime) SetMaxPublishes(maxPublishes int) {
+	r.maxPublishes = maxPublishes
 }
 
 // Execute runs a script with the given message context
@@ -83,7 +90,7 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, message *
 		vm = goja.New()
 
 		// Set up APIs
-		api := NewScriptAPI(vm, script.ID, script.Name, message.Type, r.state, r.mqttServer)
+		api := NewScriptAPI(vm, script.ID, script.Name, message.Type, r.state, r.mqttServer, r.maxPublishes)
 
 		// Convert Message to map with JSON field names for JavaScript access
 		msgMap := map[string]interface{}{

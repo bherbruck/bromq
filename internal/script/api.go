@@ -93,13 +93,15 @@ func CleanupScriptPublishTracker() {
 
 // ScriptAPI provides JavaScript APIs for scripts
 type ScriptAPI struct {
-	vm          *goja.Runtime
-	scriptID    uint
-	scriptName  string
-	triggerType string
-	state       *StateManager
-	mqttServer  *mqtt.Server
-	logs        []ScriptLogEntry
+	vm           *goja.Runtime
+	scriptID     uint
+	scriptName   string
+	triggerType  string
+	state        *StateManager
+	mqttServer   *mqtt.Server
+	logs         []ScriptLogEntry
+	publishCount int // Track publishes in this execution
+	maxPublishes int // Rate limit: max publishes per execution
 }
 
 // ScriptLogEntry represents a log entry from a script
@@ -109,15 +111,17 @@ type ScriptLogEntry struct {
 }
 
 // NewScriptAPI creates a new script API instance
-func NewScriptAPI(vm *goja.Runtime, scriptID uint, scriptName, triggerType string, state *StateManager, mqttServer *mqtt.Server) *ScriptAPI {
+func NewScriptAPI(vm *goja.Runtime, scriptID uint, scriptName, triggerType string, state *StateManager, mqttServer *mqtt.Server, maxPublishes int) *ScriptAPI {
 	api := &ScriptAPI{
-		vm:          vm,
-		scriptID:    scriptID,
-		scriptName:  scriptName,
-		triggerType: triggerType,
-		state:       state,
-		mqttServer:  mqttServer,
-		logs:        make([]ScriptLogEntry, 0),
+		vm:           vm,
+		scriptID:     scriptID,
+		scriptName:   scriptName,
+		triggerType:  triggerType,
+		state:        state,
+		mqttServer:   mqttServer,
+		logs:         make([]ScriptLogEntry, 0),
+		publishCount: 0,
+		maxPublishes: maxPublishes,
 	}
 
 	api.setupAPIs()
@@ -236,6 +240,12 @@ func (api *ScriptAPI) mqttPublish(call goja.FunctionCall) goja.Value {
 	if qos > 2 {
 		panic(api.vm.NewTypeError("QoS must be 0, 1, or 2"))
 	}
+
+	// Check publish rate limit (prevent infinite loop spam)
+	if api.publishCount >= api.maxPublishes {
+		panic(api.vm.NewTypeError(fmt.Sprintf("publish rate limit exceeded (max %d per execution)", api.maxPublishes)))
+	}
+	api.publishCount++
 
 	// Track this publish to prevent self-triggering (expires in 100ms)
 	scriptPublishTracker.track(topic, payload, api.scriptID)

@@ -1,11 +1,12 @@
 package script
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	mqtt "github.com/mochi-mqtt/server/v2"
 
 	"github/bherbruck/bromq/internal/storage"
@@ -355,19 +356,27 @@ func TestRuntimeExecuteInfiniteLoopWithPublish(t *testing.T) {
 	result := runtime.Execute(ctx, scriptRecord, message)
 	duration := time.Since(startTime)
 
-	// Should timeout and not run forever
+	// Should fail (either timeout or rate limit - both are valid protections)
 	if result.Success {
-		t.Error("Expected execution to timeout")
+		t.Error("Expected execution to fail (timeout or rate limit)")
 	}
 
-	if result.Error == nil || result.Error.Error() != "execution timeout after 200ms" {
-		t.Errorf("Expected timeout error, got: %v", result.Error)
+	if result.Error == nil {
+		t.Error("Expected error (timeout or rate limit)")
 	}
 
-	// Verify that execution was actually interrupted (should be close to 200ms, not forever)
+	// Verify that execution was actually stopped (not running forever)
+	// With rate limit, it stops much faster than timeout
 	if duration > 300*time.Millisecond {
 		t.Errorf("Execution took too long (%v), infinite loop not interrupted", duration)
 	}
 
-	t.Logf("✓ Infinite loop was interrupted after %v (expected ~200ms)", duration)
+	errorMsg := result.Error.Error()
+	if strings.Contains(errorMsg, "rate limit") {
+		t.Logf("✓ Infinite loop stopped by rate limit after %v: %v", duration, result.Error)
+	} else if strings.Contains(errorMsg, "timeout") {
+		t.Logf("✓ Infinite loop stopped by timeout after %v: %v", duration, result.Error)
+	} else {
+		t.Errorf("Unexpected error type: %v", result.Error)
+	}
 }

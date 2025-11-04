@@ -367,3 +367,94 @@ func TestScriptAPIComplexDataTypes(t *testing.T) {
 		t.Errorf("Expected success, got error: %v", result.Error)
 	}
 }
+
+func TestScriptAPIMqttPublishRateLimit(t *testing.T) {
+	db, runtime, mqttServer := setupTestRuntime(t)
+	defer mqttServer.Close()
+
+	// Set a low rate limit for testing
+	runtime.SetMaxPublishes(5)
+
+	// Script that tries to publish more than the limit
+	script, err := db.CreateScript("rate-limit-test", "", `
+		for (var i = 0; i < 10; i++) {
+			mqtt.publish("test/topic/" + i, "message " + i, 0, false);
+		}
+	`, true, []byte("{}"), []storage.ScriptTrigger{})
+	if err != nil {
+		t.Fatalf("Failed to create script: %v", err)
+	}
+
+	message := &Message{
+		Type:     "publish",
+		Topic:    "trigger/topic",
+		Payload:  "test",
+		ClientID: "test-client",
+	}
+
+	ctx := context.Background()
+	result := runtime.Execute(ctx, script, message)
+
+	// Should fail with rate limit error
+	if result.Success {
+		t.Error("Expected execution to fail due to rate limit")
+	}
+
+	if result.Error == nil {
+		t.Error("Expected rate limit error")
+	}
+
+	// Verify error message mentions rate limit
+	errorMsg := result.Error.Error()
+	if !contains(errorMsg, "rate limit") {
+		t.Errorf("Expected rate limit error, got: %s", errorMsg)
+	}
+
+	t.Logf("✓ Rate limit enforced: %v", result.Error)
+}
+
+func TestScriptAPIMqttPublishWithinLimit(t *testing.T) {
+	db, runtime, mqttServer := setupTestRuntime(t)
+	defer mqttServer.Close()
+
+	// Set rate limit
+	runtime.SetMaxPublishes(5)
+
+	// Script that publishes exactly at the limit
+	script, err := db.CreateScript("within-limit-test", "", `
+		for (var i = 0; i < 5; i++) {
+			mqtt.publish("test/topic/" + i, "message " + i, 0, false);
+		}
+		log.info("Published 5 messages");
+	`, true, []byte("{}"), []storage.ScriptTrigger{})
+	if err != nil {
+		t.Fatalf("Failed to create script: %v", err)
+	}
+
+	message := &Message{
+		Type:     "publish",
+		Topic:    "trigger/topic",
+		Payload:  "test",
+		ClientID: "test-client",
+	}
+
+	ctx := context.Background()
+	result := runtime.Execute(ctx, script, message)
+
+	// Should succeed (exactly at limit)
+	if !result.Success {
+		t.Errorf("Expected success, got error: %v", result.Error)
+	}
+
+	t.Log("✓ Script successfully published 5 messages (at limit)")
+}
+
+// Helper function for string contains check
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

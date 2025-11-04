@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ type Engine struct {
 	state           *StateManager
 	runtime         *Runtime
 	defaultTimeout  time.Duration // Default script execution timeout
+	maxPublishes    int           // Max publishes per script execution
 	logRetention    time.Duration // How long to keep logs (0 = forever)
 	cleanupInterval time.Duration // How often to run cleanup
 	cleanupTicker   *time.Ticker
@@ -39,6 +41,11 @@ func NewEngine(db *storage.DB, mqttServer *mqtt.Server) *Engine {
 	runtime.SetDefaultTimeout(defaultTimeout)
 	slog.Info("Script execution timeout configured", "default_timeout", defaultTimeout)
 
+	// Load max publishes configuration
+	maxPublishes := loadMaxPublishesConfig()
+	runtime.SetMaxPublishes(maxPublishes)
+	slog.Info("Script publish rate limit configured", "max_publishes_per_execution", maxPublishes)
+
 	// Load log retention configuration
 	logRetention := loadLogRetentionConfig()
 	cleanupInterval := CalculateCleanupInterval(logRetention)
@@ -57,6 +64,7 @@ func NewEngine(db *storage.DB, mqttServer *mqtt.Server) *Engine {
 		state:           state,
 		runtime:         runtime,
 		defaultTimeout:  defaultTimeout,
+		maxPublishes:    maxPublishes,
 		logRetention:    logRetention,
 		cleanupInterval: cleanupInterval,
 		stopChan:        make(chan struct{}),
@@ -113,6 +121,39 @@ func loadLogRetentionConfig() time.Duration {
 	}
 
 	return retention
+}
+
+// loadMaxPublishesConfig loads the max publishes per execution limit from environment
+func loadMaxPublishesConfig() int {
+	maxPublishesStr := os.Getenv("SCRIPT_MAX_PUBLISHES_PER_EXECUTION")
+	if maxPublishesStr == "" {
+		return 100 // Default: 100 publishes per execution
+	}
+
+	maxPublishes, err := strconv.Atoi(maxPublishesStr)
+	if err != nil {
+		slog.Warn("Invalid SCRIPT_MAX_PUBLISHES_PER_EXECUTION, using default",
+			"value", maxPublishesStr,
+			"error", err,
+			"default", "100")
+		return 100
+	}
+
+	// Enforce reasonable limits (1 to 10000)
+	if maxPublishes < 1 {
+		slog.Warn("SCRIPT_MAX_PUBLISHES_PER_EXECUTION too low, using minimum",
+			"value", maxPublishes,
+			"minimum", "1")
+		return 1
+	}
+	if maxPublishes > 10000 {
+		slog.Warn("SCRIPT_MAX_PUBLISHES_PER_EXECUTION too high, using maximum",
+			"value", maxPublishes,
+			"maximum", "10000")
+		return 10000
+	}
+
+	return maxPublishes
 }
 
 // Start starts the script engine and background workers
