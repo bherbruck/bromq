@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -74,7 +75,27 @@ type ScriptTriggerConfig struct {
 	Enabled     bool   `yaml:"enabled"`
 }
 
+// protectScriptVariables protects ${...} in script_content blocks from env var expansion
+func protectScriptVariables(content string) string {
+	// Match script_content: followed by | or > and capture the indented block
+	// This regex finds script_content blocks and protects ${...} inside them
+	re := regexp.MustCompile(`(?m)(script_content:\s*[|>][-+]?\s*\n)((?:[ \t]+.+\n)*)`)
+
+	return re.ReplaceAllStringFunc(content, func(match string) string {
+		// Replace ${ with marker only in script content
+		return strings.ReplaceAll(match, "${", "__SCRIPT_VAR_OPEN__")
+	})
+}
+
+// restoreScriptVariables restores protected ${...} markers back to original form
+func restoreScriptVariables(content string) string {
+	return strings.ReplaceAll(content, "__SCRIPT_VAR_OPEN__", "${")
+}
+
 // Load reads and parses a YAML config file with environment variable interpolation
+// Environment variables in ${VAR} format are expanded EXCEPT:
+// - ${username} and ${clientid} (ACL placeholders)
+// - Any ${...} inside script_content blocks (JavaScript template literals)
 func Load(path string) (*Config, error) {
 	// Read the file
 	data, err := os.ReadFile(path)
@@ -82,16 +103,24 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Protect reserved placeholders before env var expansion
-	// Replace ${username} and ${clientid} with temporary markers
+	// Protect script content and reserved placeholders before env var expansion
 	content := string(data)
+
+	// Protect ACL placeholders
 	content = strings.ReplaceAll(content, "${username}", "__RESERVED_USERNAME__")
 	content = strings.ReplaceAll(content, "${clientid}", "__RESERVED_CLIENTID__")
 
-	// Expand environment variables (will not touch our markers)
-	expanded := os.ExpandEnv(content)
+	// Protect script content from env var expansion
+	// Pattern: script_content: | or script_content: >
+	// We need to protect everything between script_content: and the next top-level key
+	// Simple approach: protect ${ inside script blocks by escaping them
+	protectedContent := protectScriptVariables(content)
 
-	// Restore reserved placeholders
+	// Expand environment variables (will not touch protected markers)
+	expanded := os.ExpandEnv(protectedContent)
+
+	// Restore protected script variables and ACL placeholders
+	expanded = restoreScriptVariables(expanded)
 	expanded = strings.ReplaceAll(expanded, "__RESERVED_USERNAME__", "${username}")
 	expanded = strings.ReplaceAll(expanded, "__RESERVED_CLIENTID__", "${clientid}")
 

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -597,4 +598,48 @@ func stringContains(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestJavaScriptTemplateLiteralsInScripts(t *testing.T) {
+	configYAML := `
+users:
+  - username: testuser
+    password: testpass
+
+scripts:
+  - name: test-template-literals
+    enabled: true
+    script_content: |
+      const msg = "Hello ${world}";
+      const topic = 'devices/${deviceId}/status';
+      mqtt.publish(topic, msg);
+    triggers:
+      - trigger_type: on_publish
+        topic_filter: "test/#"
+        enabled: true
+`
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	if err := os.WriteFile(configPath, []byte(configYAML), 0644); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	// Verify JavaScript template literals are preserved
+	if len(cfg.Scripts) != 1 {
+		t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
+	}
+
+	script := cfg.Scripts[0].ScriptContent
+	if !strings.Contains(script, "${world}") {
+		t.Errorf("JavaScript template literal ${world} was incorrectly expanded, got: %s", script)
+	}
+	if !strings.Contains(script, "${deviceId}") {
+		t.Errorf("JavaScript template literal ${deviceId} was incorrectly expanded, got: %s", script)
+	}
 }
