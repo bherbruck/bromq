@@ -86,23 +86,23 @@ Aggregates message statistics across all topics using global state.
 
 ### Event Object
 
-Scripts execute with an `event` object in scope containing:
+Scripts execute with a `msg` object in scope containing:
 
 ```javascript
 // For on_publish and on_subscribe
-event.type       // 'publish', 'connect', 'disconnect', 'subscribe'
-event.topic      // MQTT topic
-event.payload    // Message payload (string)
-event.clientId   // Client ID
-event.username   // Username (may be empty)
-event.qos        // Quality of Service (0, 1, 2)
-event.retain     // Retain flag (boolean)
+msg.type       // 'publish', 'connect', 'disconnect', 'subscribe'
+msg.topic      // MQTT topic
+msg.payload    // Message payload (string)
+msg.clientId   // Client ID
+msg.username   // Username (may be empty)
+msg.qos        // Quality of Service (0, 1, 2)
+msg.retain     // Retain flag (boolean)
 
 // For on_connect
-event.cleanSession  // Clean session flag
+msg.cleanSession  // Clean session flag
 
 // For on_disconnect
-event.error      // Error message (if abnormal disconnect)
+msg.error      // Error message (if abnormal disconnect)
 ```
 
 ### Logging
@@ -221,7 +221,7 @@ scripts:
     description: "Temperature monitoring"
     enabled: true
     script_content: |
-      const temp = parseFloat(event.payload);
+      const temp = parseFloat(msg.payload);
       if (temp > 30) {
         mqtt.publish('alerts/temp', 'HIGH: ' + temp, 1, false);
       }
@@ -267,7 +267,7 @@ curl -X POST http://localhost:8080/api/scripts/test \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "script_content": "log.info(\"Test:\", event.payload)",
+    "script_content": "log.info(\"Test:\", msg.payload)",
     "trigger_type": "on_publish",
     "event_data": {
       "topic": "test/topic",

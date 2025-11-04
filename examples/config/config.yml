@@ -266,11 +266,11 @@ scripts:
     enabled: false
     script_content: |
       // Simple inline script
-      if (event.payload === 'ALERT') {
-        log.warn('Alert received from', event.clientId, 'on topic', event.topic);
+      if (msg.payload === 'ALERT') {
+        log.warn('Alert received from', msg.clientId, 'on topic', msg.topic);
         mqtt.publish('alerts/generic', JSON.stringify({
-          source: event.topic,
-          client: event.clientId,
+          source: msg.topic,
+          client: msg.clientId,
           timestamp: Date.now()
         }), 1, false);
       }

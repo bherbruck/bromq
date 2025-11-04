@@ -2,29 +2,29 @@
 // Tracks client connection durations using state
 // Use with on_connect and on_disconnect triggers
 
-if (event.type === 'connect') {
+if (msg.type === 'connect') {
     // Store connection time
-    state.set('connect_time:' + event.clientId, Date.now());
+    state.set('connect_time:' + msg.clientId, Date.now());
 
-    log.info('Client connected:', event.clientId, 'User:', event.username);
+    log.info('Client connected:', msg.clientId, 'User:', msg.username);
 
     // Track total connections in global state
     const totalConnects = global.get('total_connections') || 0;
     global.set('total_connections', totalConnects + 1);
 
-} else if (event.type === 'disconnect') {
+} else if (msg.type === 'disconnect') {
     // Calculate session duration
-    const connectTime = state.get('connect_time:' + event.clientId);
+    const connectTime = state.get('connect_time:' + msg.clientId);
 
     if (connectTime) {
         const duration = Date.now() - connectTime;
         const durationSeconds = Math.floor(duration / 1000);
 
-        log.info('Client disconnected:', event.clientId,
+        log.info('Client disconnected:', msg.clientId,
                  'Duration:', durationSeconds, 'seconds');
 
         // Store duration in history
-        const historyKey = 'duration_history:' + event.clientId;
+        const historyKey = 'duration_history:' + msg.clientId;
         const history = state.get(historyKey) || [];
         history.push({
             connected_at: connectTime,
@@ -38,6 +38,6 @@ if (event.type === 'connect') {
         }
 
         state.set(historyKey, history);
-        state.delete('connect_time:' + event.clientId);
+        state.delete('connect_time:' + msg.clientId);
     }
 }

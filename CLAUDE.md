@@ -152,7 +152,7 @@ bromq/
 
 - Execute custom logic on MQTT events (publish, connect, disconnect, subscribe)
 - JavaScript engine: goja (pure Go)
-- Script API: `mqtt.publish()`, `state.get()`, `state.set()`, `console.log()`
+- Script API: `msg` (message context), `mqtt.publish()`, `state.get()`, `state.set()`, `log.info()`, `global.get()`
 - Configurable timeouts (global + per-script)
 - Persistent state storage
 - Execution logs with retention
@@ -285,9 +285,11 @@ mosquitto_sub -h localhost -p 1883 -u sensor_user -P password123 -t "test/#"
 
 - Scripts execute in sandboxed goja runtime
 - Configurable timeouts prevent infinite loops
-- Use `console.log()` for debugging (saved to script_logs table)
+- Message context: `msg.topic`, `msg.payload`, `msg.clientId`, `msg.username`, `msg.type`
+- Logging API: `log.info()`, `log.warn()`, `log.error()`, `log.debug()` (saved to script_logs table)
 - State API: `state.get(key)`, `state.set(key, value, {ttl: 3600})`
-- MQTT API: `mqtt.publish(topic, payload, {qos: 1})`
+- Global state API: `global.get(key)`, `global.set(key, value, {ttl: 3600})`
+- MQTT API: `mqtt.publish(topic, payload, qos, retain)`
 
 ## Architecture Flow
 

@@ -29,6 +29,9 @@ export function ScriptEditor({ value, onChange, readOnly = false, height = '400p
       module: monaco.languages.typescript.ModuleKind.CommonJS,
       noEmit: true,
       typeRoots: ['node_modules/@types'],
+      // Only include ES5 standard lib, exclude DOM types
+      lib: ['ES5'],
+      noLib: false,
     })
 
     // Configure diagnostics options

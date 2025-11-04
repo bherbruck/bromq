@@ -2,8 +2,8 @@
 // These provide autocomplete for the JavaScript APIs available to scripts
 
 export const SCRIPT_TYPE_DEFINITIONS = `
-// Event object available in all scripts
-declare const event: {
+// Message context object available in all scripts
+declare const msg: {
   /** Event type: 'publish', 'connect', 'disconnect', or 'subscribe' */
   type: 'publish' | 'connect' | 'disconnect' | 'subscribe';
 
@@ -20,7 +20,7 @@ declare const event: {
   username?: string;
 
   /** Quality of Service level: 0, 1, or 2 (for publish and subscribe events) */
-  qos?: number;
+  qos?: 0 | 1 | 2;
 
   /** Retain flag (for publish events) */
   retain?: boolean;
@@ -145,13 +145,13 @@ declare const Object: ObjectConstructor;
 
 export const SCRIPT_EXAMPLE_TEMPLATES = {
   'message-logger': `// Log all published messages
-log.info('Message on', event.topic, ':', event.payload);
-log.debug('From client:', event.clientId, 'User:', event.username);`,
+log.info('Message on', msg.topic, ':', msg.payload);
+log.debug('From client:', msg.clientId, 'User:', msg.username);`,
 
   'temperature-alert': `// Monitor temperature and send alerts
-const temp = parseFloat(event.payload);
+const temp = parseFloat(msg.payload);
 const threshold = 30.0;
-const sensorId = event.topic.split('/')[1];
+const sensorId = msg.topic.split('/')[1];
 
 if (temp > threshold) {
   const alertKey = 'last_alert:' + sensorId;
@@ -174,41 +174,41 @@ if (temp > threshold) {
 }`,
 
   'connection-tracker': `// Track client connections
-if (event.type === 'connect') {
-  state.set('connect_time:' + event.clientId, Date.now());
-  log.info('Client connected:', event.clientId);
+if (msg.type === 'connect') {
+  state.set('connect_time:' + msg.clientId, Date.now());
+  log.info('Client connected:', msg.clientId);
 
   // Increment global connection counter
   const total = global.get('total_connections') || 0;
   global.set('total_connections', total + 1);
 
-} else if (event.type === 'disconnect') {
-  const connectTime = state.get('connect_time:' + event.clientId);
+} else if (msg.type === 'disconnect') {
+  const connectTime = state.get('connect_time:' + msg.clientId);
 
   if (connectTime) {
     const duration = Math.floor((Date.now() - connectTime) / 1000);
-    log.info('Client disconnected:', event.clientId, 'Duration:', duration, 'seconds');
-    state.delete('connect_time:' + event.clientId);
+    log.info('Client disconnected:', msg.clientId, 'Duration:', duration, 'seconds');
+    state.delete('connect_time:' + msg.clientId);
   }
 }`,
 
   'rate-limiter': `// Rate limit messages per client
-const countKey = 'msg_count:' + event.clientId;
+const countKey = 'msg_count:' + msg.clientId;
 const count = state.get(countKey) || 0;
 const maxPerMinute = 100;
 
 if (count >= maxPerMinute) {
-  log.warn('Rate limit exceeded:', event.clientId);
+  log.warn('Rate limit exceeded:', msg.clientId);
 } else if ((count + 1) % 10 === 0) {
-  log.debug('Client', event.clientId, 'sent', count + 1, 'messages this minute');
+  log.debug('Client', msg.clientId, 'sent', count + 1, 'messages this minute');
 }
 
 // Increment with 60 second TTL
 state.set(countKey, count + 1, {ttl: 60});`,
 
   blank: `// Your script code here
-// Available APIs: event, log, mqtt, state, global
+// Available APIs: msg, log, mqtt, state, global
 
-log.info('Script triggered:', event.type);
+log.info('Script triggered:', msg.type);
 `,
 }

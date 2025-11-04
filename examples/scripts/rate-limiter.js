@@ -1,8 +1,8 @@
 // Rate Limiter
-// Prevents message flooding by counting messages per client
+// Prmsgs message flooding by counting messages per client
 // Resets every minute using TTL
 
-const clientId = event.clientId;
+const clientId = msg.clientId;
 const countKey = 'msg_count:' + clientId;
 
 // Get current count (resets every minute via TTL)
@@ -12,7 +12,7 @@ const count = state.get(countKey) || 0;
 const maxPerMinute = 100;
 if (count >= maxPerMinute) {
     log.warn('Rate limit exceeded for client:', clientId,
-             '- Message on', event.topic, 'logged but not blocked');
+             '- Message on', msg.topic, 'logged but not blocked');
     // Note: Message blocking not implemented yet, just logging
 } else {
     // Log every 10 messages

@@ -1,16 +1,16 @@
 // Temperature Alert
 // Monitors temperature readings and sends alerts when threshold exceeded
-// Uses state to prevent alert flooding
+// Uses state to prmsg alert flooding
 
-const temp = parseFloat(event.payload);
+const temp = parseFloat(msg.payload);
 
 if (isNaN(temp)) {
-    log.warn('Invalid temperature value:', event.payload);
+    log.warn('Invalid temperature value:', msg.payload);
     return;
 }
 
 const threshold = 30.0;
-const sensorId = event.topic.split('/')[1]; // Extract from sensors/{id}/temperature
+const sensorId = msg.topic.split('/')[1]; // Extract from sensors/{id}/temperature
 
 if (temp > threshold) {
     // Check if we already alerted recently (rate limiting)
@@ -28,7 +28,7 @@ if (temp > threshold) {
             temperature: temp,
             threshold: threshold,
             timestamp: now,
-            client_id: event.clientId
+            client_id: msg.clientId
         }), 1, false);
 
         // Update last alert time with 5 minute TTL
