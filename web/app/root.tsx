@@ -10,6 +10,24 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60, // 1 minute
       refetchOnWindowFocus: false,
+      retry: (failureCount, error) => {
+        // Don't retry on 401 Unauthorized errors
+        if (error instanceof Error && error.message === 'Unauthorized') {
+          return false
+        }
+        // Retry other errors up to 2 times
+        return failureCount < 2
+      },
+    },
+    mutations: {
+      retry: (failureCount, error) => {
+        // Never retry mutations on 401 errors
+        if (error instanceof Error && error.message === 'Unauthorized') {
+          return false
+        }
+        // Don't retry mutations by default
+        return false
+      },
     },
   },
 })

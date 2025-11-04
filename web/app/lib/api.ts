@@ -302,6 +302,8 @@ class APIClient {
     if (!response.ok) {
       if (response.status === 401) {
         this.removeToken()
+        // Dispatch a custom event to notify listeners (e.g., auth context) that the user is unauthorized
+        window.dispatchEvent(new CustomEvent('unauthorized'))
         throw new Error('Unauthorized')
       }
       const error = await response.json().catch(() => ({ error: response.statusText }))

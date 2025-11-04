@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { api, type DashboardUser } from './api'
 
 interface AuthContextType {
@@ -16,6 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<DashboardUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     // Check if user has a token on mount
@@ -31,7 +33,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setIsLoading(false)
-  }, [])
+
+    // Listen for unauthorized events from API calls
+    const handleUnauthorized = () => {
+      // Clear state and redirect to login
+      setUser(null)
+      localStorage.removeItem('mqtt_token')
+      localStorage.removeItem('mqtt_user')
+      queryClient.clear()
+      navigate('/login', { replace: true })
+    }
+
+    window.addEventListener('unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('unauthorized', handleUnauthorized)
+  }, [navigate, queryClient])
 
   const login = async (username: string, password: string) => {
     const { user } = await api.login(username, password)
@@ -44,6 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     api.removeToken()
     localStorage.removeItem('mqtt_user')
     setUser(null)
+    // Clear all cached queries to prevent stale data
+    queryClient.clear()
     navigate('/login')
   }
 
