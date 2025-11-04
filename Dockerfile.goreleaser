@@ -1,0 +1,39 @@
+# Dockerfile for GoReleaser
+# This expects the binary and frontend to be pre-built
+
+FROM alpine:latest
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates tzdata curl
+
+# Copy pre-built binary from GoReleaser
+COPY bromq .
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Default database configuration (SQLite in mounted volume)
+ENV DB_TYPE=sqlite \
+    DB_PATH=/app/data/bromq.db
+
+# Expose ports
+# 1883: MQTT TCP
+# 8883: MQTT WebSocket
+# 8080: HTTP API & Web UI
+EXPOSE 1883 8883 8080
+
+# Run as non-root user
+RUN addgroup -g 1000 mqtt && \
+    adduser -D -u 1000 -G mqtt mqtt && \
+    chown -R mqtt:mqtt /app
+
+USER mqtt
+
+# Health check - verify HTTP server is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Start server
+CMD ["/app/bromq"]
