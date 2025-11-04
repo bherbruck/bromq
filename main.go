@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -25,11 +26,15 @@ import (
 	"github/bherbruck/bromq/web"
 )
 
+// version is set via ldflags during build
+var version = "dev"
+
 func main() {
 	// Set up structured logging
 	setupLogging()
 
 	// Parse command line flags
+	showVersion := flag.Bool("version", false, "Show version and exit")
 	dbType := flag.String("db-type", "", "Database type (sqlite, postgres, mysql). Defaults to DB_TYPE env var or 'sqlite'")
 	dbPath := flag.String("db-path", "", "SQLite database file path. Defaults to DB_PATH env var or 'bromq.db'")
 	dbHost := flag.String("db-host", "", "Database host (postgres/mysql). Defaults to DB_HOST env var or 'localhost'")
@@ -44,7 +49,13 @@ func main() {
 	httpAddr := flag.String("http", ":8080", "HTTP API server address")
 	flag.Parse()
 
-	slog.Info("Starting BroMQ")
+	// Handle version flag
+	if *showVersion {
+		fmt.Printf("BroMQ version %s\n", version)
+		os.Exit(0)
+	}
+
+	slog.Info("Starting BroMQ", "version", version)
 
 	// Load database configuration from environment variables first
 	dbConfig := storage.LoadConfigFromEnv()

@@ -25,7 +25,8 @@ web/dist: web/node_modules $(shell find web/app -type f 2>/dev/null || echo "web
 bin/bromq: $(shell find . -name '*.go' -not -path './web/*') go.mod go.sum web/dist
 	@echo "Building Go binary..."
 	@mkdir -p bin
-	go build -o $@ .
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	go build -ldflags="-X main.version=$$VERSION" -o $@ .
 
 # Convenience targets
 build: bin/bromq ## Build the complete application

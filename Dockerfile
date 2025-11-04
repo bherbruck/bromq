@@ -20,6 +20,9 @@ RUN npm run build
 FROM golang:1.25-alpine AS backend
 WORKDIR /app
 
+# Accept version as build argument
+ARG VERSION=dev
+
 # Copy Go modules files
 COPY go.mod go.sum ./
 RUN go mod download
@@ -37,7 +40,7 @@ COPY --from=frontend /app/web/dist/client ./web/dist/client
 
 # Build the application with optimizations (pure Go, no CGO!)
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X main.version=${VERSION}" \
     -o bromq .
 
 # Stage 3: Runtime image
