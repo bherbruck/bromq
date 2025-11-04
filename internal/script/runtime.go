@@ -65,6 +65,7 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, message *
 	// Execute in goroutine to handle timeout
 	done := make(chan bool)
 	var execErr error
+	var vm *goja.Runtime // Store VM reference for interrupt
 
 	go func() {
 		defer func() {
@@ -79,7 +80,7 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, message *
 		}()
 
 		// Create new Goja VM for this execution
-		vm := goja.New()
+		vm = goja.New()
 
 		// Set up APIs
 		api := NewScriptAPI(vm, script.ID, script.Name, message.Type, r.state, r.mqttServer)
@@ -131,7 +132,22 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, message *
 		}
 
 	case <-execCtx.Done():
-		// Timeout
+		// Timeout - interrupt the VM to stop execution
+		if vm != nil {
+			vm.Interrupt("execution timeout")
+		}
+
+		// Wait for goroutine to finish after interrupt (with a safety timeout)
+		select {
+		case <-done:
+			// Goroutine finished after interrupt
+		case <-time.After(100 * time.Millisecond):
+			// Safety timeout: goroutine didn't finish, log warning but continue
+			slog.Error("Script goroutine did not terminate after interrupt",
+				"script", script.Name,
+				"trigger", message.Type)
+		}
+
 		result.ExecutionTimeMs = int(time.Since(startTime).Milliseconds())
 		result.Error = fmt.Errorf("execution timeout after %v", timeout)
 		result.Success = false

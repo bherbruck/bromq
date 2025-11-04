@@ -323,3 +323,51 @@ func TestRuntimeCompilationError(t *testing.T) {
 		t.Errorf("Expected compilation error, got: %v", result.Error)
 	}
 }
+
+func TestRuntimeExecuteInfiniteLoopWithPublish(t *testing.T) {
+	db, runtime, mqttServer := setupTestRuntime(t)
+	defer mqttServer.Close()
+
+	// Set short timeout for testing
+	runtime.SetDefaultTimeout(200 * time.Millisecond)
+
+	// Create script in database (needed for mqtt.publish to work)
+	scriptRecord, err := db.CreateScript("infinite-publish", "", `
+		while (true) {
+			mqtt.publish(msg.topic + "/echo", msg.payload, msg.qos, msg.retain);
+		}
+	`, true, []byte("{}"), []storage.ScriptTrigger{})
+	if err != nil {
+		t.Fatalf("Failed to create script: %v", err)
+	}
+
+	message := &Message{
+		Type:     "publish",
+		Topic:    "test/topic",
+		Payload:  "test",
+		ClientID: "test-client",
+		QoS:      0,
+		Retain:   false,
+	}
+
+	ctx := context.Background()
+	startTime := time.Now()
+	result := runtime.Execute(ctx, scriptRecord, message)
+	duration := time.Since(startTime)
+
+	// Should timeout and not run forever
+	if result.Success {
+		t.Error("Expected execution to timeout")
+	}
+
+	if result.Error == nil || result.Error.Error() != "execution timeout after 200ms" {
+		t.Errorf("Expected timeout error, got: %v", result.Error)
+	}
+
+	// Verify that execution was actually interrupted (should be close to 200ms, not forever)
+	if duration > 300*time.Millisecond {
+		t.Errorf("Execution took too long (%v), infinite loop not interrupted", duration)
+	}
+
+	t.Logf("✓ Infinite loop was interrupted after %v (expected ~200ms)", duration)
+}
