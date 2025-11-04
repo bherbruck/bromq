@@ -4,16 +4,28 @@ on:
   push:
     tags:
       - "v*.*.*"
+  pull_request:
+    branches: ["main"]
 
 permissions:
   contents: write
+  packages: write
+  id-token: write
 
 jobs:
-  build-frontend:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -22,160 +34,55 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'web/package-lock.json'
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3.7.0
+        with:
+          cosign-release: "v2.4.1"
+
       - name: Install frontend dependencies
         run: cd web && npm ci
 
       - name: Build frontend
         run: cd web && npm run build
 
-      - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
+      - name: Run tests
+        run: go test ./...
+
+      - name: Run GoReleaser (snapshot for PRs)
+        if: github.event_name == 'pull_request'
+        uses: goreleaser/goreleaser-action@v6
         with:
-          name: frontend-dist
-          path: web/dist/
-          retention-days: 1
-
-  build-binaries:
-    needs: build-frontend
-    runs-on: ${{ matrix.runs-on }}
-    strategy:
-      matrix:
-        include:
-          # Linux builds
-          - goos: linux
-            goarch: amd64
-            runs-on: ubuntu-latest
-            binary_name: bromq
-            archive_name: bromq-linux-amd64
-          - goos: linux
-            goarch: arm64
-            runs-on: ubuntu-latest
-            binary_name: bromq
-            archive_name: bromq-linux-arm64
-          - goos: linux
-            goarch: arm
-            goarm: 7
-            runs-on: ubuntu-latest
-            binary_name: bromq
-            archive_name: bromq-linux-armv7
-
-          # Windows builds
-          - goos: windows
-            goarch: amd64
-            runs-on: windows-latest
-            binary_name: bromq.exe
-            archive_name: bromq-windows-amd64
-          - goos: windows
-            goarch: arm64
-            runs-on: windows-latest
-            binary_name: bromq.exe
-            archive_name: bromq-windows-arm64
-
-          # macOS builds
-          - goos: darwin
-            goarch: amd64
-            runs-on: macos-latest
-            binary_name: bromq
-            archive_name: bromq-darwin-amd64
-          - goos: darwin
-            goarch: arm64
-            runs-on: macos-latest
-            binary_name: bromq
-            archive_name: bromq-darwin-arm64
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: web/dist/
-
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          GOARM: ${{ matrix.goarm }}
-          CGO_ENABLED: 0
-        run: |
-          go build -v -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ${{ matrix.binary_name }} .
-
-      - name: Prepare distribution files
-        run: |
-          mkdir -p dist
-          cp ${{ matrix.binary_name }} dist/
-          cp LICENSE dist/
-          cp README.md dist/
-
-      - name: Compress binary (Unix)
-        if: matrix.goos != 'windows'
-        run: |
-          cd dist
-          tar -czf ../${{ matrix.archive_name }}.tar.gz *
-          cd ..
-          sha256sum ${{ matrix.archive_name }}.tar.gz > ${{ matrix.archive_name }}.tar.gz.sha256
-
-      - name: Compress binary (Windows)
-        if: matrix.goos == 'windows'
-        run: |
-          cd dist
-          Compress-Archive -Path * -DestinationPath ../${{ matrix.archive_name }}.zip
-          cd ..
-          (Get-FileHash ${{ matrix.archive_name }}.zip -Algorithm SHA256).Hash | Out-File -Encoding ASCII ${{ matrix.archive_name }}.zip.sha256
-
-      - name: Upload Unix artifacts
-        if: matrix.goos != 'windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.archive_name }}
-          path: |
-            ${{ matrix.archive_name }}.tar.gz
-            ${{ matrix.archive_name }}.tar.gz.sha256
-          retention-days: 1
-
-      - name: Upload Windows artifacts
-        if: matrix.goos == 'windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.archive_name }}
-          path: |
-            ${{ matrix.archive_name }}.zip
-            ${{ matrix.archive_name }}.zip.sha256
-          retention-days: 1
-
-  create-release:
-    needs: build-binaries
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
-
-      - name: Display structure of downloaded files
-        run: ls -R artifacts/
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: |
-            artifacts/**/*.tar.gz
-            artifacts/**/*.tar.gz.sha256
-            artifacts/**/*.zip
-            artifacts/**/*.zip.sha256
+          distribution: goreleaser
+          version: latest
+          args: release --snapshot --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+
+      - name: Run GoReleaser (release for tags)
+        if: github.event_name != 'pull_request'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
