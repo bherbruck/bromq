@@ -40,7 +40,7 @@ func (h *ScriptHook) Provides(b byte) bool {
 
 // OnPublish is called when a message is published
 func (h *ScriptHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Packet, error) {
-	event := &internalscript.Event{
+	message := &internalscript.Message{
 		Type:     "publish",
 		Topic:    pk.TopicName,
 		Payload:  string(pk.Payload),
@@ -54,18 +54,18 @@ func (h *ScriptHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pack
 	// Scripts use the inline client (ID: "inline")
 	if cl.ID == "inline" {
 		// Look up which script published this message
-		event.PublishedByScriptID = internalscript.LookupScriptPublish(pk.TopicName, string(pk.Payload))
+		message.PublishedByScriptID = internalscript.LookupScriptPublish(pk.TopicName, string(pk.Payload))
 	}
 
 	// Execute matching scripts asynchronously (don't block message flow)
-	go h.engine.ExecuteForTrigger("on_publish", pk.TopicName, event)
+	go h.engine.ExecuteForTrigger("on_publish", pk.TopicName, message)
 
 	return pk, nil
 }
 
 // OnConnect is called when a client connects
 func (h *ScriptHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
-	event := &internalscript.Event{
+	message := &internalscript.Message{
 		Type:         "connect",
 		ClientID:     cl.ID,
 		Username:     string(cl.Properties.Username),
@@ -73,32 +73,32 @@ func (h *ScriptHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
 	}
 
 	// Execute matching scripts asynchronously
-	go h.engine.ExecuteForTrigger("on_connect", "", event)
+	go h.engine.ExecuteForTrigger("on_connect", "", message)
 
 	return nil
 }
 
 // OnDisconnect is called when a client disconnects
 func (h *ScriptHook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
-	event := &internalscript.Event{
+	message := &internalscript.Message{
 		Type:     "disconnect",
 		ClientID: cl.ID,
 		Username: string(cl.Properties.Username),
 	}
 
 	if err != nil {
-		event.Error = err.Error()
+		message.Error = err.Error()
 	}
 
 	// Execute matching scripts asynchronously
-	go h.engine.ExecuteForTrigger("on_disconnect", "", event)
+	go h.engine.ExecuteForTrigger("on_disconnect", "", message)
 }
 
 // OnSubscribe is called before a subscription is added
 func (h *ScriptHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Packet {
 	// OnSubscribe can have multiple filters
 	for _, filter := range pk.Filters {
-		event := &internalscript.Event{
+		message := &internalscript.Message{
 			Type:     "subscribe",
 			Topic:    filter.Filter,
 			ClientID: cl.ID,
@@ -107,7 +107,7 @@ func (h *ScriptHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Pac
 		}
 
 		// Execute matching scripts asynchronously
-		go h.engine.ExecuteForTrigger("on_subscribe", filter.Filter, event)
+		go h.engine.ExecuteForTrigger("on_subscribe", filter.Filter, message)
 	}
 
 	return pk

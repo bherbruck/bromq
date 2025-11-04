@@ -371,8 +371,8 @@ func (api *ScriptAPI) globalKeys(call goja.FunctionCall) goja.Value {
 	return api.vm.ToValue(keys)
 }
 
-// Event represents the context passed to scripts
-type Event struct {
+// Message represents the context passed to scripts
+type Message struct {
 	Type                string `json:"type"`
 	Topic               string `json:"topic,omitempty"`
 	Payload             string `json:"payload,omitempty"`
@@ -385,8 +385,8 @@ type Event struct {
 	PublishedByScriptID *uint  `json:"-"` // Internal: tracks which script published this message (prevents self-triggering)
 }
 
-// ToJSON converts event to JSON for logging
-func (e *Event) ToJSON() datatypes.JSON {
-	data, _ := json.Marshal(e)
+// ToJSON converts message to JSON for logging
+func (m *Message) ToJSON() datatypes.JSON {
+	data, _ := json.Marshal(m)
 	return datatypes.JSON(data)
 }

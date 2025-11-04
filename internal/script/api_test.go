@@ -21,7 +21,7 @@ func TestScriptAPIMqttPublish(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "input/topic",
 		Payload:  "trigger",
@@ -29,7 +29,7 @@ func TestScriptAPIMqttPublish(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected success, got error: %v", result.Error)
@@ -52,7 +52,7 @@ func TestScriptAPIMqttPublishInvalidQoS(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "input/topic",
 		Payload:  "test",
@@ -60,7 +60,7 @@ func TestScriptAPIMqttPublishInvalidQoS(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if result.Success {
 		t.Error("Expected execution to fail with invalid QoS")
@@ -93,7 +93,7 @@ func TestScriptAPIStateSetGet(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -101,7 +101,7 @@ func TestScriptAPIStateSetGet(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected success, got error: %v", result.Error)
@@ -127,7 +127,7 @@ func TestScriptAPIStateWithTTL(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -135,7 +135,7 @@ func TestScriptAPIStateWithTTL(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected success, got error: %v", result.Error)
@@ -157,7 +157,7 @@ func TestScriptAPIStateWithTTL(t *testing.T) {
 		`,
 	}
 
-	result2 := runtime.Execute(ctx, script2, event)
+	result2 := runtime.Execute(ctx, script2, message)
 	if !result2.Success {
 		t.Errorf("Expected success, got error: %v", result2.Error)
 	}
@@ -185,7 +185,7 @@ func TestScriptAPIStateDelete(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -193,7 +193,7 @@ func TestScriptAPIStateDelete(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected success, got error: %v", result.Error)
@@ -219,7 +219,7 @@ func TestScriptAPIStateKeys(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -227,7 +227,7 @@ func TestScriptAPIStateKeys(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected success, got error: %v", result.Error)
@@ -248,7 +248,7 @@ func TestScriptAPIGlobalState(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -256,7 +256,7 @@ func TestScriptAPIGlobalState(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result1 := runtime.Execute(ctx, script1, event)
+	result1 := runtime.Execute(ctx, script1, message)
 	if !result1.Success {
 		t.Errorf("Script 1 failed: %v", result1.Error)
 	}
@@ -272,7 +272,7 @@ func TestScriptAPIGlobalState(t *testing.T) {
 		`,
 	}
 
-	result2 := runtime.Execute(ctx, script2, event)
+	result2 := runtime.Execute(ctx, script2, message)
 	if !result2.Success {
 		t.Errorf("Script 2 failed: %v", result2.Error)
 	}
@@ -292,7 +292,7 @@ func TestScriptAPIStateIsolation(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -300,7 +300,7 @@ func TestScriptAPIStateIsolation(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result1 := runtime.Execute(ctx, script1, event)
+	result1 := runtime.Execute(ctx, script1, message)
 	if !result1.Success {
 		t.Errorf("Script 1 failed: %v", result1.Error)
 	}
@@ -318,7 +318,7 @@ func TestScriptAPIStateIsolation(t *testing.T) {
 		`,
 	}
 
-	result2 := runtime.Execute(ctx, script2, event)
+	result2 := runtime.Execute(ctx, script2, message)
 	if !result2.Success {
 		t.Errorf("Script 2 failed: %v", result2.Error)
 	}
@@ -353,7 +353,7 @@ func TestScriptAPIComplexDataTypes(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -361,7 +361,7 @@ func TestScriptAPIComplexDataTypes(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected success, got error: %v", result.Error)

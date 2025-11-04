@@ -167,7 +167,7 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 }
 
 // ExecuteForTrigger executes all matching scripts for a given trigger and topic
-func (e *Engine) ExecuteForTrigger(triggerType, topic string, event *Event) {
+func (e *Engine) ExecuteForTrigger(triggerType, topic string, message *Message) {
 	// Check if shutting down
 	select {
 	case <-e.stopChan:
@@ -197,19 +197,19 @@ func (e *Engine) ExecuteForTrigger(triggerType, topic string, event *Event) {
 		e.wg.Add(1)
 		go func(s storage.Script) {
 			defer e.wg.Done()
-			e.executeScript(&s, event)
+			e.executeScript(&s, message)
 		}(script)
 	}
 }
 
 // executeScript executes a single script
-func (e *Engine) executeScript(script *storage.Script, event *Event) {
+func (e *Engine) executeScript(script *storage.Script, message *Message) {
 	// Prevent self-triggering: if this script published the message, skip execution
-	if event.PublishedByScriptID != nil && *event.PublishedByScriptID == script.ID {
+	if message.PublishedByScriptID != nil && *message.PublishedByScriptID == script.ID {
 		slog.Debug("Skipping self-triggered script",
 			"script", script.Name,
-			"trigger", event.Type,
-			"topic", event.Topic)
+			"trigger", message.Type,
+			"topic", message.Topic)
 		return
 	}
 
@@ -217,28 +217,28 @@ func (e *Engine) executeScript(script *storage.Script, event *Event) {
 
 	slog.Debug("Executing script",
 		"script", script.Name,
-		"trigger", event.Type,
-		"topic", event.Topic,
-		"client", event.ClientID)
+		"trigger", message.Type,
+		"topic", message.Topic,
+		"client", message.ClientID)
 
-	result := e.runtime.Execute(ctx, script, event)
+	result := e.runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		slog.Error("Script execution failed",
 			"script", script.Name,
-			"trigger", event.Type,
+			"trigger", message.Type,
 			"error", result.Error,
 			"execution_time_ms", result.ExecutionTimeMs)
 	} else {
 		slog.Debug("Script executed successfully",
 			"script", script.Name,
-			"trigger", event.Type,
+			"trigger", message.Type,
 			"execution_time_ms", result.ExecutionTimeMs)
 	}
 }
 
-// TestScript tests a script with mock event data (for API testing endpoint)
-func (e *Engine) TestScript(scriptContent string, triggerType string, eventData map[string]interface{}) *ExecutionResult {
+// TestScript tests a script with mock message data (for API testing endpoint)
+func (e *Engine) TestScript(scriptContent string, triggerType string, messageData map[string]interface{}) *ExecutionResult {
 	// Create mock script
 	script := &storage.Script{
 		ID:            0, // Test script has no ID
@@ -247,34 +247,34 @@ func (e *Engine) TestScript(scriptContent string, triggerType string, eventData 
 		Enabled:       true,
 	}
 
-	// Build event from provided data
-	event := &Event{
+	// Build message from provided data
+	message := &Message{
 		Type: triggerType,
 	}
 
-	// Populate event fields from eventData
-	if topic, ok := eventData["topic"].(string); ok {
-		event.Topic = topic
+	// Populate message fields from messageData
+	if topic, ok := messageData["topic"].(string); ok {
+		message.Topic = topic
 	}
-	if payload, ok := eventData["payload"].(string); ok {
-		event.Payload = payload
+	if payload, ok := messageData["payload"].(string); ok {
+		message.Payload = payload
 	}
-	if clientID, ok := eventData["clientId"].(string); ok {
-		event.ClientID = clientID
+	if clientID, ok := messageData["clientId"].(string); ok {
+		message.ClientID = clientID
 	}
-	if username, ok := eventData["username"].(string); ok {
-		event.Username = username
+	if username, ok := messageData["username"].(string); ok {
+		message.Username = username
 	}
-	if qos, ok := eventData["qos"].(float64); ok {
-		event.QoS = byte(qos)
+	if qos, ok := messageData["qos"].(float64); ok {
+		message.QoS = byte(qos)
 	}
-	if retain, ok := eventData["retain"].(bool); ok {
-		event.Retain = retain
+	if retain, ok := messageData["retain"].(bool); ok {
+		message.Retain = retain
 	}
 
 	// Execute script
 	ctx := context.Background()
-	return e.runtime.Execute(ctx, script, event)
+	return e.runtime.Execute(ctx, script, message)
 }
 
 // GetState returns the state manager (for API access)

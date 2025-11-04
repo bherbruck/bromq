@@ -36,7 +36,7 @@ func TestEngineExecuteForTrigger(t *testing.T) {
 		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 10, Enabled: true},
 	})
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -44,7 +44,7 @@ func TestEngineExecuteForTrigger(t *testing.T) {
 	}
 
 	// Execute - should run script2 and script1 (in priority order)
-	engine.ExecuteForTrigger("on_publish", "test/topic", event)
+	engine.ExecuteForTrigger("on_publish", "test/topic", message)
 
 	// Give scripts time to execute asynchronously
 	time.Sleep(100 * time.Millisecond)
@@ -80,7 +80,7 @@ func TestEngineExecuteForTriggerNoMatch(t *testing.T) {
 		{TriggerType: "on_publish", TopicFilter: "other/#", Priority: 100, Enabled: true},
 	})
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -88,7 +88,7 @@ func TestEngineExecuteForTriggerNoMatch(t *testing.T) {
 	}
 
 	// Execute - should not run the script
-	engine.ExecuteForTrigger("on_publish", "test/topic", event)
+	engine.ExecuteForTrigger("on_publish", "test/topic", message)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -108,18 +108,18 @@ func TestEngineExecuteForTriggerConnect(t *testing.T) {
 	defer engine.Shutdown(context.Background())
 
 	// Create script for connect event
-	script, _ := db.CreateScript("on-connect", "", `log.info("Client connected: " + event.clientId);`, true, []byte("{}"), []storage.ScriptTrigger{
+	script, _ := db.CreateScript("on-connect", "", `log.info("Client connected: " + msg.clientId);`, true, []byte("{}"), []storage.ScriptTrigger{
 		{TriggerType: "on_connect", TopicFilter: "", Priority: 100, Enabled: true},
 	})
 
-	event := &Event{
+	message := &Message{
 		Type:     "connect",
 		ClientID: "client-123",
 		Username: "test-user",
 	}
 
 	// Execute
-	engine.ExecuteForTrigger("on_connect", "", event)
+	engine.ExecuteForTrigger("on_connect", "", message)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -142,8 +142,8 @@ func TestEngineTestScript(t *testing.T) {
 	defer engine.Shutdown(context.Background())
 
 	scriptContent := `
-		log.info("Test topic:", event.topic);
-		log.info("Test payload:", event.payload);
+		log.info("Test topic:", msg.topic);
+		log.info("Test payload:", msg.payload);
 		state.set("test_key", "test_value");
 	`
 
@@ -214,14 +214,14 @@ func TestEngineShutdown(t *testing.T) {
 		{TriggerType: "on_publish", TopicFilter: "#", Priority: 100, Enabled: true},
 	})
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
 		ClientID: "test-client",
 	}
 
-	engine.ExecuteForTrigger("on_publish", "test/topic", event)
+	engine.ExecuteForTrigger("on_publish", "test/topic", message)
 	time.Sleep(100 * time.Millisecond)
 
 	// Shutdown with timeout
@@ -258,7 +258,7 @@ func TestEngineShutdownDuringExecution(t *testing.T) {
 		{TriggerType: "on_publish", TopicFilter: "#", Priority: 100, Enabled: true},
 	})
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -266,7 +266,7 @@ func TestEngineShutdownDuringExecution(t *testing.T) {
 	}
 
 	// Start script execution
-	engine.ExecuteForTrigger("on_publish", "test/topic", event)
+	engine.ExecuteForTrigger("on_publish", "test/topic", message)
 
 	// Immediately shutdown (should wait for script to complete)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)

@@ -78,7 +78,7 @@ func TestRuntimeExecuteSuccess(t *testing.T) {
 
 	script := scriptRecord
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test payload",
@@ -87,7 +87,7 @@ func TestRuntimeExecuteSuccess(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected successful execution, got error: %v", result.Error)
@@ -121,7 +121,7 @@ func TestRuntimeExecuteWithError(t *testing.T) {
 
 	script := scriptRecord
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -129,7 +129,7 @@ func TestRuntimeExecuteWithError(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if result.Success {
 		t.Error("Expected execution to fail, but it succeeded")
@@ -168,7 +168,7 @@ func TestRuntimeExecuteTimeout(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -176,7 +176,7 @@ func TestRuntimeExecuteTimeout(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if result.Success {
 		t.Error("Expected execution to timeout")
@@ -197,7 +197,7 @@ func TestRuntimeExecuteWithPanic(t *testing.T) {
 		ScriptContent: `var x = undefined.property;`, // This will cause a panic
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -205,7 +205,7 @@ func TestRuntimeExecuteWithPanic(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if result.Success {
 		t.Error("Expected execution to fail")
@@ -224,18 +224,18 @@ func TestRuntimeExecuteWithEventData(t *testing.T) {
 		ID:   1,
 		Name: "event-test",
 		ScriptContent: `
-			if (event.type !== "publish") throw new Error("Wrong type");
-			if (event.topic !== "test/topic") throw new Error("Wrong topic");
-			if (event.payload !== "hello") throw new Error("Wrong payload");
-			if (event.clientId !== "client-123") throw new Error("Wrong clientId");
-			if (event.username !== "user-456") throw new Error("Wrong username");
-			if (event.qos !== 1) throw new Error("Wrong QoS");
-			if (event.retain !== true) throw new Error("Wrong retain");
-			log.info("All event fields correct");
+			if (msg.type !== "publish") throw new Error("Wrong type");
+			if (msg.topic !== "test/topic") throw new Error("Wrong topic");
+			if (msg.payload !== "hello") throw new Error("Wrong payload");
+			if (msg.clientId !== "client-123") throw new Error("Wrong clientId");
+			if (msg.username !== "user-456") throw new Error("Wrong username");
+			if (msg.qos !== 1) throw new Error("Wrong QoS");
+			if (msg.retain !== true) throw new Error("Wrong retain");
+			log.info("All msg fields correct");
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "hello",
@@ -246,7 +246,7 @@ func TestRuntimeExecuteWithEventData(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected success, got error: %v", result.Error)
@@ -268,7 +268,7 @@ func TestRuntimeLogLevels(t *testing.T) {
 		`,
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -276,7 +276,7 @@ func TestRuntimeLogLevels(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if !result.Success {
 		t.Errorf("Expected success, got error: %v", result.Error)
@@ -305,7 +305,7 @@ func TestRuntimeCompilationError(t *testing.T) {
 		ScriptContent: `var x = ;`, // Invalid syntax
 	}
 
-	event := &Event{
+	message := &Message{
 		Type:     "publish",
 		Topic:    "test/topic",
 		Payload:  "test",
@@ -313,7 +313,7 @@ func TestRuntimeCompilationError(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result := runtime.Execute(ctx, script, event)
+	result := runtime.Execute(ctx, script, message)
 
 	if result.Success {
 		t.Error("Expected compilation to fail")

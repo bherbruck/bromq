@@ -43,8 +43,8 @@ func (r *Runtime) SetDefaultTimeout(timeout time.Duration) {
 	r.defaultTimeout = timeout
 }
 
-// Execute runs a script with the given event context
-func (r *Runtime) Execute(ctx context.Context, script *storage.Script, event *Event) *ExecutionResult {
+// Execute runs a script with the given message context
+func (r *Runtime) Execute(ctx context.Context, script *storage.Script, message *Message) *ExecutionResult {
 	startTime := time.Now()
 
 	result := &ExecutionResult{
@@ -73,7 +73,7 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, event *Ev
 				slog.Error("Script panic",
 					"script", script.Name,
 					"error", execErr,
-					"trigger", event.Type)
+					"trigger", message.Type)
 			}
 			done <- true
 		}()
@@ -82,23 +82,23 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, event *Ev
 		vm := goja.New()
 
 		// Set up APIs
-		api := NewScriptAPI(vm, script.ID, script.Name, event.Type, r.state, r.mqttServer)
+		api := NewScriptAPI(vm, script.ID, script.Name, message.Type, r.state, r.mqttServer)
 
-		// Convert Event to map with JSON field names for JavaScript access
-		eventMap := map[string]interface{}{
-			"type":         event.Type,
-			"topic":        event.Topic,
-			"payload":      event.Payload,
-			"clientId":     event.ClientID,
-			"username":     event.Username,
-			"qos":          event.QoS,
-			"retain":       event.Retain,
-			"cleanSession": event.CleanSession,
-			"error":        event.Error,
+		// Convert Message to map with JSON field names for JavaScript access
+		msgMap := map[string]interface{}{
+			"type":         message.Type,
+			"topic":        message.Topic,
+			"payload":      message.Payload,
+			"clientId":     message.ClientID,
+			"username":     message.Username,
+			"qos":          message.QoS,
+			"retain":       message.Retain,
+			"cleanSession": message.CleanSession,
+			"error":        message.Error,
 		}
 
-		// Set event object in scope
-		vm.Set("event", eventMap)
+		// Set msg object in scope
+		vm.Set("msg", msgMap)
 
 		// Compile and run script
 		program, err := goja.Compile(script.Name, script.ScriptContent, false)
@@ -138,34 +138,34 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, event *Ev
 
 		slog.Warn("Script execution timeout",
 			"script", script.Name,
-			"trigger", event.Type,
+			"trigger", message.Type,
 			"timeout", timeout)
 	}
 
 	// Log execution to database
-	r.logExecution(script.ID, event, result)
+	r.logExecution(script.ID, message, result)
 
 	return result
 }
 
 // logExecution logs the script execution to the database
-func (r *Runtime) logExecution(scriptID uint, event *Event, result *ExecutionResult) {
-	// Create context with event details
-	context := event.ToJSON()
+func (r *Runtime) logExecution(scriptID uint, message *Message, result *ExecutionResult) {
+	// Create context with message details
+	context := message.ToJSON()
 
 	// Only auto-log errors/failures (reduces noise for high-frequency scripts)
 	if !result.Success {
 		level := "error"
-		message := "Script execution failed"
+		msg := "Script execution failed"
 		if result.Error != nil {
-			message = result.Error.Error()
+			msg = result.Error.Error()
 		}
 
 		if err := r.db.CreateScriptLog(
 			scriptID,
-			event.Type,
+			message.Type,
 			level,
-			message,
+			msg,
 			context,
 			result.ExecutionTimeMs,
 		); err != nil {
@@ -177,7 +177,7 @@ func (r *Runtime) logExecution(scriptID uint, event *Event, result *ExecutionRes
 	for _, logEntry := range result.Logs {
 		if err := r.db.CreateScriptLog(
 			scriptID,
-			event.Type,
+			message.Type,
 			logEntry.Level,
 			logEntry.Message,
 			context,

@@ -102,7 +102,7 @@ func TestScriptHookOnPublish(t *testing.T) {
 
 	// Create script that logs publish events
 	script, _ := db.CreateScript("log-publish", "", `
-		log.info("Published to " + event.topic + ": " + event.payload);
+		log.info("Published to " + msg.topic + ": " + msg.payload);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 100, Enabled: true},
 	})
@@ -153,7 +153,7 @@ func TestScriptHookOnConnect(t *testing.T) {
 
 	// Create script that logs connect events
 	script, _ := db.CreateScript("log-connect", "", `
-		log.info("Client connected: " + event.clientId + " (" + event.username + ")");
+		log.info("Client connected: " + msg.clientId + " (" + msg.username + ")");
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{TriggerType: "on_connect", TopicFilter: "", Priority: 100, Enabled: true},
 	})
@@ -199,11 +199,11 @@ func TestScriptHookOnDisconnect(t *testing.T) {
 
 	// Create script that logs disconnect events
 	script, _ := db.CreateScript("log-disconnect", "", `
-		var msg = "Client disconnected: " + event.clientId;
-		if (event.error) {
-			msg += " (error: " + event.error + ")";
+		var message = "Client disconnected: " + msg.clientId;
+		if (msg.error) {
+			message += " (error: " + msg.error + ")";
 		}
-		log.info(msg);
+		log.info(message);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{TriggerType: "on_disconnect", TopicFilter: "", Priority: 100, Enabled: true},
 	})
@@ -239,7 +239,7 @@ func TestScriptHookOnSubscribe(t *testing.T) {
 
 	// Create script that sets state on subscribe (more reliable for async test)
 	script, err := db.CreateScript("log-subscribe", "", `
-		state.set("subscribed_topic", event.topic);
+		state.set("subscribed_topic", msg.topic);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{TriggerType: "on_subscribe", TopicFilter: "test/#", Priority: 100, Enabled: true},
 	})

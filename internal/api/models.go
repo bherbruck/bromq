@@ -195,5 +195,5 @@ type UpdateScriptRequest struct {
 type TestScriptRequest struct {
 	ScriptContent string                 `json:"script_content"`
 	TriggerType   string                 `json:"trigger_type"`
-	EventData     map[string]interface{} `json:"event_data"` // Mock event data
+	EventData     map[string]interface{} `json:"event_data"` // Mock message data (kept as event_data for backward compatibility)
 }

@@ -54,12 +54,12 @@ func TestPreventSelfTriggering(t *testing.T) {
 	script, _ := db.CreateScript("infinite-loop-script", "", `
 		// This would cause infinite loop without prevention
 		state.set("execution_count", (state.get("execution_count") || 0) + 1);
-		mqtt.publish(event.topic, event.payload, 0, false);
+		mqtt.publish(msg.topic, msg.payload, 0, false);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 100, Enabled: true},
 	})
 
-	event := &internalscript.Event{
+	message := &internalscript.Message{
 		Type:     "publish",
 		Topic:    "test/loop",
 		Payload:  "trigger",
@@ -67,7 +67,7 @@ func TestPreventSelfTriggering(t *testing.T) {
 	}
 
 	// Execute the script
-	engine.ExecuteForTrigger("on_publish", "test/loop", event)
+	engine.ExecuteForTrigger("on_publish", "test/loop", message)
 
 	// Give enough time for potential loop iterations
 	time.Sleep(500 * time.Millisecond)
@@ -112,20 +112,20 @@ func TestAllowScriptChaining(t *testing.T) {
 	// Script B: listens to topic B (should trigger)
 	_, _ = db.CreateScript("script-b", "", `
 		global.set("script_b_ran", true);
-		global.set("script_b_payload", event.payload);
+		global.set("script_b_payload", msg.payload);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{TriggerType: "on_publish", TopicFilter: "topic/b", Priority: 100, Enabled: true},
 	})
 
 	// Trigger Script A
-	event := &internalscript.Event{
+	message := &internalscript.Message{
 		Type:     "publish",
 		Topic:    "topic/a",
 		Payload:  "trigger",
 		ClientID: "external-client",
 	}
 
-	engine.ExecuteForTrigger("on_publish", "topic/a", event)
+	engine.ExecuteForTrigger("on_publish", "topic/a", message)
 
 	// Give time for both scripts to execute (Script A runs, publishes, then Script B should run)
 	time.Sleep(1000 * time.Millisecond)
