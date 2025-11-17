@@ -10,67 +10,67 @@ import (
 
 // Config represents the MQTT server provisioning configuration
 type Config struct {
-	Users    []MQTTUserConfig `yaml:"users"`
-	ACLRules []ACLRuleConfig  `yaml:"acl_rules"`
-	Bridges  []BridgeConfig   `yaml:"bridges"`
-	Scripts  []ScriptConfig   `yaml:"scripts"`
+	Users    []MQTTUserConfig `yaml:"users" json:"users,omitempty" jsonschema:"title=MQTT Users,description=MQTT authentication credentials for devices (not dashboard users)"`
+	ACLRules []ACLRuleConfig  `yaml:"acl_rules" json:"acl_rules,omitempty" jsonschema:"title=ACL Rules,description=Access control rules for MQTT topic permissions"`
+	Bridges  []BridgeConfig   `yaml:"bridges" json:"bridges,omitempty" jsonschema:"title=MQTT Bridges,description=Bridge connections to remote MQTT brokers for message forwarding"`
+	Scripts  []ScriptConfig   `yaml:"scripts" json:"scripts,omitempty" jsonschema:"title=JavaScript Scripts,description=Custom JavaScript scripts that execute on MQTT events"`
 }
 
 // MQTTUserConfig represents an MQTT user in the config file
 type MQTTUserConfig struct {
-	Username    string                 `yaml:"username"`
-	Password    string                 `yaml:"password"`
-	Description string                 `yaml:"description,omitempty"`
-	Metadata    map[string]interface{} `yaml:"metadata,omitempty"`
+	Username    string                 `yaml:"username" json:"username" jsonschema:"required,title=Username,description=MQTT username for device authentication. Supports env vars: ${VAR} or ${VAR:-default},minLength=1,example=sensor_user"`
+	Password    string                 `yaml:"password" json:"password" jsonschema:"required,title=Password,description=MQTT password. Supports env vars: ${PASSWORD} or ${PASSWORD:-default},minLength=1,example=${SENSOR_PASSWORD}"`
+	Description string                 `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"title=Description,description=Human-readable description of this MQTT user,example=Temperature and humidity sensors"`
+	Metadata    map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"title=Metadata,description=Custom metadata key-value pairs (any valid JSON)"`
 }
 
 // ACLRuleConfig represents an ACL rule in the config file
 type ACLRuleConfig struct {
-	Username string `yaml:"username"`
-	Topic    string `yaml:"topic"`
-	Permission   string `yaml:"permission"`
+	Username   string `yaml:"username" json:"username" jsonschema:"required,title=Username,description=MQTT username this rule applies to (must exist in users list),minLength=1,example=sensor_user"`
+	Topic      string `yaml:"topic" json:"topic" jsonschema:"required,title=Topic Pattern,description=MQTT topic pattern with wildcards (+/#) and runtime placeholders (${username}/${clientid}),minLength=1,example=sensors/${username}/#"`
+	Permission string `yaml:"permission" json:"permission" jsonschema:"required,title=Permission,description=Access permission for this topic pattern,enum=pub,enum=sub,enum=pubsub"`
 }
 
 // BridgeConfig represents an MQTT bridge in the config file
 type BridgeConfig struct {
-	Name              string                 `yaml:"name"`
-	Host              string                 `yaml:"host"`
-	Port              int                    `yaml:"port,omitempty"`
-	Username          string                 `yaml:"username,omitempty"`
-	Password          string                 `yaml:"password,omitempty"`
-	ClientID          string                 `yaml:"client_id,omitempty"`
-	CleanSession      bool                   `yaml:"clean_session,omitempty"`
-	KeepAlive         int                    `yaml:"keep_alive,omitempty"`
-	ConnectionTimeout int                    `yaml:"connection_timeout,omitempty"`
-	Metadata          map[string]interface{} `yaml:"metadata,omitempty"`
-	Topics            []BridgeTopicConfig    `yaml:"topics"`
+	Name              string                 `yaml:"name" json:"name" jsonschema:"required,title=Bridge Name,description=Unique name for this bridge connection,minLength=1,example=cloud-bridge"`
+	Host              string                 `yaml:"host" json:"host" jsonschema:"required,title=Remote Host,description=Remote MQTT broker hostname or IP. Supports env vars: ${HOST:-default},minLength=1,example=${CLOUD_MQTT_HOST:-mqtt.example.com}"`
+	Port              int                    `yaml:"port,omitempty" json:"port,omitempty" jsonschema:"title=Remote Port,description=Remote MQTT broker port,default=1883,minimum=1,maximum=65535,example=1883"`
+	Username          string                 `yaml:"username,omitempty" json:"username,omitempty" jsonschema:"title=Username,description=Username for remote broker authentication. Supports env vars,example=${CLOUD_USER}"`
+	Password          string                 `yaml:"password,omitempty" json:"password,omitempty" jsonschema:"title=Password,description=Password for remote broker authentication. Supports env vars,example=${CLOUD_PASSWORD}"`
+	ClientID          string                 `yaml:"client_id,omitempty" json:"client_id,omitempty" jsonschema:"title=Client ID,description=MQTT client ID for bridge connection,example=edge-broker-001"`
+	CleanSession      bool                   `yaml:"clean_session,omitempty" json:"clean_session,omitempty" jsonschema:"title=Clean Session,description=Start with clean session (true) or resume previous session (false),default=true"`
+	KeepAlive         int                    `yaml:"keep_alive,omitempty" json:"keep_alive,omitempty" jsonschema:"title=Keep Alive,description=Keep alive interval in seconds,default=60,minimum=1,example=60"`
+	ConnectionTimeout int                    `yaml:"connection_timeout,omitempty" json:"connection_timeout,omitempty" jsonschema:"title=Connection Timeout,description=Connection timeout in seconds,default=30,minimum=1,example=30"`
+	Metadata          map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"title=Metadata,description=Custom metadata key-value pairs"`
+	Topics            []BridgeTopicConfig    `yaml:"topics" json:"topics" jsonschema:"required,title=Topic Mappings,description=Topic mappings for message forwarding,minItems=1"`
 }
 
 // BridgeTopicConfig represents a topic mapping in a bridge configuration
 type BridgeTopicConfig struct {
-	Local     string `yaml:"local"`
-	Remote    string `yaml:"remote"`
-	Direction string `yaml:"direction"`
-	QoS       int    `yaml:"qos,omitempty"`
+	Local     string `yaml:"local" json:"local" jsonschema:"required,title=Local Topic,description=Local topic pattern to match messages,minLength=1,example=sensors/#"`
+	Remote    string `yaml:"remote" json:"remote" jsonschema:"required,title=Remote Topic,description=Remote topic pattern for forwarding,minLength=1,example=edge/sensors/#"`
+	Direction string `yaml:"direction" json:"direction" jsonschema:"required,title=Direction,description=Message forwarding direction,enum=in,enum=out,enum=both,example=out"`
+	QoS       int    `yaml:"qos,omitempty" json:"qos,omitempty" jsonschema:"title=QoS,description=MQTT Quality of Service level,default=0,minimum=0,maximum=2,example=1"`
 }
 
 // ScriptConfig represents a script in the config file
 type ScriptConfig struct {
-	Name        string                 `yaml:"name"`
-	Description string                 `yaml:"description,omitempty"`
-	Enabled     bool                   `yaml:"enabled"`
-	File        string                 `yaml:"file,omitempty"`    // Path to script file
-	Content     string                 `yaml:"content,omitempty"` // Inline script
-	Metadata    map[string]interface{} `yaml:"metadata,omitempty"`
-	Triggers    []ScriptTriggerConfig  `yaml:"triggers"`
+	Name        string                 `yaml:"name" json:"name" jsonschema:"required,title=Script Name,description=Unique name for this script,minLength=1,example=message-logger"`
+	Description string                 `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"title=Description,description=Human-readable description,example=Log all published messages"`
+	Enabled     bool                   `yaml:"enabled" json:"enabled" jsonschema:"title=Enabled,description=Whether this script is active,default=true"`
+	File        string                 `yaml:"file,omitempty" json:"file,omitempty" jsonschema:"title=Script File,description=Path to JavaScript file. Supports env vars. Mutually exclusive with content,example=./scripts/logger.js"`
+	Content     string                 `yaml:"content,omitempty" json:"content,omitempty" jsonschema:"title=Script Content,description=Inline JavaScript code. Supports env vars (${API_KEY}) and $$ escaping for JS templates ($${var}). Mutually exclusive with file,example=log.info('Message:', msg.topic);"`
+	Metadata    map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"title=Metadata,description=Custom metadata key-value pairs accessible in script"`
+	Triggers    []ScriptTriggerConfig  `yaml:"triggers" json:"triggers" jsonschema:"required,title=Triggers,description=When this script should execute,minItems=1"`
 }
 
 // ScriptTriggerConfig represents a trigger for a script
 type ScriptTriggerConfig struct {
-	Type     string `yaml:"type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
-	Topic    string `yaml:"topic,omitempty"`
-	Priority int    `yaml:"priority,omitempty"` // Default: 100
-	Enabled  bool   `yaml:"enabled"`
+	Type     string `yaml:"type" json:"type" jsonschema:"required,title=Trigger Type,description=MQTT event type that triggers this script,enum=on_publish,enum=on_connect,enum=on_disconnect,enum=on_subscribe,example=on_publish"`
+	Topic    string `yaml:"topic,omitempty" json:"topic,omitempty" jsonschema:"title=Topic Filter,description=MQTT topic pattern to filter events (empty = all topics). Supports wildcards (+/#),example=#"`
+	Priority int    `yaml:"priority,omitempty" json:"priority,omitempty" jsonschema:"title=Priority,description=Execution order (lower = earlier). Default: 100,default=100,minimum=0,example=50"`
+	Enabled  bool   `yaml:"enabled" json:"enabled" jsonschema:"title=Enabled,description=Whether this trigger is active,default=true"`
 }
 
 // reservedPlaceholders lists variable names that should never be expanded as env vars

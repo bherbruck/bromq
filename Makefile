@@ -1,4 +1,4 @@
-.PHONY: help install run stop dev-up dev-down prod-up prod-down logs clean test test-web test-all backend frontend
+.PHONY: help install run stop dev-up dev-down prod-up prod-down logs clean test test-web test-all backend frontend schema
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -26,7 +26,7 @@ bin/bromq: $(shell find . -name '*.go' -not -path './web/*') go.mod go.sum web/d
 	@echo "Building Go binary..."
 	@mkdir -p bin
 	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
-	go build -ldflags="-X main.version=$$VERSION" -o $@ .
+	go build -ldflags="-X main.version=$$VERSION" -o $@ ./cmd/server
 
 # Convenience targets
 build: bin/bromq ## Build the complete application
@@ -92,3 +92,9 @@ test-all: web/node_modules ## Run all tests (Go + frontend)
 frontend: web/dist ## Build frontend only
 
 backend: bin/bromq ## Build backend only
+
+schema: ## Generate JSON Schema for config files
+	@echo "Generating JSON Schema..."
+	@mkdir -p schema
+	@go run cmd/schema-gen/main.go > schema/bromq-config.schema.json
+	@echo "Schema generated: schema/bromq-config.schema.json"

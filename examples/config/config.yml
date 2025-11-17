@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../schema/bromq-config.schema.json
 # BroMQ Configuration File
 #
 # This file is used to provision MQTT users and ACL rules.

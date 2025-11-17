@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../schema/bromq-config.schema.json
 # Minimal BroMQ Configuration Example
 # For testing and simple deployments
 

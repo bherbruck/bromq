@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bromq.dev/schema/config/v1/schema.json",
+  "$ref": "#/$defs/Config",
+  "$defs": {
+    "ACLRuleConfig": {
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Username",
+          "description": "MQTT username this rule applies to (must exist in users list)",
+          "examples": [
+            "sensor_user"
+          ]
+        },
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Topic Pattern",
+          "description": "MQTT topic pattern with wildcards (+/#) and runtime placeholders (${username}/${clientid})",
+          "examples": [
+            "sensors/${username}/#"
+          ]
+        },
+        "permission": {
+          "type": "string",
+          "enum": [
+            "pub",
+            "sub",
+            "pubsub"
+          ],
+          "title": "Permission",
+          "description": "Access permission for this topic pattern"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "username",
+        "topic",
+        "permission"
+      ]
+    },
+    "BridgeConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Bridge Name",
+          "description": "Unique name for this bridge connection",
+          "examples": [
+            "cloud-bridge"
+          ]
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Remote Host",
+          "description": "Remote MQTT broker hostname or IP. Supports env vars: ${HOST:-default}",
+          "examples": [
+            "${CLOUD_MQTT_HOST:-mqtt.example.com}"
+          ]
+        },
+        "port": {
+          "type": "integer",
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Remote Port",
+          "description": "Remote MQTT broker port",
+          "default": 1883,
+          "examples": [
+            1883
+          ]
+        },
+        "username": {
+          "type": "string",
+          "title": "Username",
+          "description": "Username for remote broker authentication. Supports env vars",
+          "examples": [
+            "${CLOUD_USER}"
+          ]
+        },
+        "password": {
+          "type": "string",
+          "title": "Password",
+          "description": "Password for remote broker authentication. Supports env vars",
+          "examples": [
+            "${CLOUD_PASSWORD}"
+          ]
+        },
+        "client_id": {
+          "type": "string",
+          "title": "Client ID",
+          "description": "MQTT client ID for bridge connection",
+          "examples": [
+            "edge-broker-001"
+          ]
+        },
+        "clean_session": {
+          "type": "boolean",
+          "title": "Clean Session",
+          "description": "Start with clean session (true) or resume previous session (false)",
+          "default": true
+        },
+        "keep_alive": {
+          "type": "integer",
+          "minimum": 1,
+          "title": "Keep Alive",
+          "description": "Keep alive interval in seconds",
+          "default": 60,
+          "examples": [
+            60
+          ]
+        },
+        "connection_timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "title": "Connection Timeout",
+          "description": "Connection timeout in seconds",
+          "default": 30,
+          "examples": [
+            30
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "title": "Metadata",
+          "description": "Custom metadata key-value pairs"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/$defs/BridgeTopicConfig"
+          },
+          "type": "array",
+          "minItems": 1,
+          "title": "Topic Mappings",
+          "description": "Topic mappings for message forwarding"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "host",
+        "topics"
+      ]
+    },
+    "BridgeTopicConfig": {
+      "properties": {
+        "local": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Local Topic",
+          "description": "Local topic pattern to match messages",
+          "examples": [
+            "sensors/#"
+          ]
+        },
+        "remote": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Remote Topic",
+          "description": "Remote topic pattern for forwarding",
+          "examples": [
+            "edge/sensors/#"
+          ]
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "in",
+            "out",
+            "both"
+          ],
+          "title": "Direction",
+          "description": "Message forwarding direction",
+          "examples": [
+            "out"
+          ]
+        },
+        "qos": {
+          "type": "integer",
+          "maximum": 2,
+          "minimum": 0,
+          "title": "QoS",
+          "description": "MQTT Quality of Service level",
+          "default": 0,
+          "examples": [
+            1
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "local",
+        "remote",
+        "direction"
+      ]
+    },
+    "Config": {
+      "properties": {
+        "users": {
+          "items": {
+            "$ref": "#/$defs/MQTTUserConfig"
+          },
+          "type": "array",
+          "title": "MQTT Users",
+          "description": "MQTT authentication credentials for devices (not dashboard users)"
+        },
+        "acl_rules": {
+          "items": {
+            "$ref": "#/$defs/ACLRuleConfig"
+          },
+          "type": "array",
+          "title": "ACL Rules",
+          "description": "Access control rules for MQTT topic permissions"
+        },
+        "bridges": {
+          "items": {
+            "$ref": "#/$defs/BridgeConfig"
+          },
+          "type": "array",
+          "title": "MQTT Bridges",
+          "description": "Bridge connections to remote MQTT brokers for message forwarding"
+        },
+        "scripts": {
+          "items": {
+            "$ref": "#/$defs/ScriptConfig"
+          },
+          "type": "array",
+          "title": "JavaScript Scripts",
+          "description": "Custom JavaScript scripts that execute on MQTT events"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MQTTUserConfig": {
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Username",
+          "description": "MQTT username for device authentication. Supports env vars: ${VAR} or ${VAR:-default}",
+          "examples": [
+            "sensor_user"
+          ]
+        },
+        "password": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Password",
+          "description": "MQTT password. Supports env vars: ${PASSWORD} or ${PASSWORD:-default}",
+          "examples": [
+            "${SENSOR_PASSWORD}"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "description": "Human-readable description of this MQTT user",
+          "examples": [
+            "Temperature and humidity sensors"
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "title": "Metadata",
+          "description": "Custom metadata key-value pairs (any valid JSON)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "username",
+        "password"
+      ]
+    },
+    "ScriptConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "title": "Script Name",
+          "description": "Unique name for this script",
+          "examples": [
+            "message-logger"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "title": "Description",
+          "description": "Human-readable description",
+          "examples": [
+            "Log all published messages"
+          ]
+        },
+        "enabled": {
+          "type": "boolean",
+          "title": "Enabled",
+          "description": "Whether this script is active",
+          "default": true
+        },
+        "file": {
+          "type": "string",
+          "title": "Script File",
+          "description": "Path to JavaScript file. Supports env vars. Mutually exclusive with content",
+          "examples": [
+            "./scripts/logger.js"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "title": "Script Content",
+          "description": "Inline JavaScript code. Supports env vars (${API_KEY}) and $$ escaping for JS templates ($${var}). Mutually exclusive with file",
+          "examples": [
+            "log.info('Message:'"
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "title": "Metadata",
+          "description": "Custom metadata key-value pairs accessible in script"
+        },
+        "triggers": {
+          "items": {
+            "$ref": "#/$defs/ScriptTriggerConfig"
+          },
+          "type": "array",
+          "minItems": 1,
+          "title": "Triggers",
+          "description": "When this script should execute"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "triggers"
+      ]
+    },
+    "ScriptTriggerConfig": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "on_publish",
+            "on_connect",
+            "on_disconnect",
+            "on_subscribe"
+          ],
+          "title": "Trigger Type",
+          "description": "MQTT event type that triggers this script",
+          "examples": [
+            "on_publish"
+          ]
+        },
+        "topic": {
+          "type": "string",
+          "title": "Topic Filter",
+          "description": "MQTT topic pattern to filter events (empty = all topics). Supports wildcards (+/#)",
+          "examples": [
+            "#"
+          ]
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "title": "Priority",
+          "description": "Execution order (lower = earlier). Default: 100",
+          "default": 100,
+          "examples": [
+            50
+          ]
+        },
+        "enabled": {
+          "type": "boolean",
+          "title": "Enabled",
+          "description": "Whether this trigger is active",
+          "default": true
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type"
+      ]
+    }
+  },
+  "title": "BroMQ Configuration",
+  "description": "Configuration file for BroMQ MQTT broker with automatic provisioning support",
+  "examples": [
+    {
+      "acl_rules": [
+        {
+          "permission": "pubsub",
+          "topic": "sensors/${username}/#",
+          "username": "sensor_user"
+        }
+      ],
+      "bridges": [
+        {
+          "host": "${CLOUD_MQTT_HOST:-mqtt.example.com}",
+          "name": "cloud-bridge",
+          "password": "${CLOUD_PASSWORD}",
+          "port": 1883,
+          "topics": [
+            {
+              "direction": "out",
+              "local": "sensors/#",
+              "qos": 1,
+              "remote": "edge/sensors/#"
+            }
+          ],
+          "username": "${CLOUD_USER}"
+        }
+      ],
+      "scripts": [
+        {
+          "enabled": true,
+          "file": "./scripts/logger.js",
+          "name": "logger",
+          "triggers": [
+            {
+              "topic": "#",
+              "type": "on_publish"
+            }
+          ]
+        }
+      ],
+      "users": [
+        {
+          "description": "IoT sensor devices",
+          "password": "${SENSOR_PASSWORD}",
+          "username": "sensor_user"
+        }
+      ]
+    }
+  ]
+}
