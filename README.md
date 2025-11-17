@@ -112,29 +112,29 @@ users:
 
 acl_rules:
   # Multi-tenant isolation with reserved dynamic placeholders
-  - mqtt_username: sensors
-    topic_pattern: "devices/${username}/#" # Each user isolated
+  - username: sensors
+    topic: "devices/${username}/#" # Each user isolated
     permission: pubsub
 
-  - mqtt_username: cameras
-    topic_pattern: "video/${clientid}/stream" # Per-device topics
+  - username: cameras
+    topic: "video/${clientid}/stream" # Per-device topics
     permission: pub
 
-  - mqtt_username: admin
-    topic_pattern: "#" # Full access
+  - username: admin
+    topic: "#" # Full access
     permission: pubsub
 
 bridges:
   - name: cloud-bridge
-    remote_host: mqtt.example.com
-    remote_port: 8883
+    host: mqtt.example.com
+    port: 8883
     topics:
-      - local_pattern: "data/#"
-        remote_pattern: "edge/site-1/data/#"
+      - local: "data/#"
+        remote: "edge/site-1/data/#"
         direction: out
 
-      - local_pattern: "commands/#"
-        remote_pattern: "edge/site-1/commands/#"
+      - local: "commands/#"
+        remote: "edge/site-1/commands/#"
         direction: in
 ```
 
