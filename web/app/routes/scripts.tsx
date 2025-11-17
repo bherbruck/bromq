@@ -127,11 +127,11 @@ export default function ScriptsPage() {
     createMutation.mutate({
       name,
       description,
-      script_content: SCRIPT_EXAMPLE_TEMPLATES[template],
+      content: SCRIPT_EXAMPLE_TEMPLATES[template],
       enabled,
       triggers: [
         {
-          trigger_type: 'on_publish',
+          type: 'on_publish',
           topic_filter: '#',
           priority: 100,
           enabled: true,
@@ -167,7 +167,7 @@ export default function ScriptsPage() {
         <div className="flex flex-wrap gap-1">
           {row.original.triggers.map((trigger, idx) => (
             <Badge key={idx} variant="secondary" className="text-xs">
-              {trigger.trigger_type}
+              {trigger.type}
               {trigger.topic_filter && `: ${trigger.topic_filter}`}
             </Badge>
           ))}

@@ -59,8 +59,8 @@ func TestCacheACLRules(t *testing.T) {
 
 	// Test cache set and hit
 	testRules := []ACLRule{
-		{ID: 1, MQTTUserID: 1, TopicPattern: "test/#", Permission: "pubsub"},
-		{ID: 2, MQTTUserID: 1, TopicPattern: "data/+", Permission: "pub"},
+		{ID: 1, MQTTUserID: 1, Topic: "test/#", Permission: "pubsub"},
+		{ID: 2, MQTTUserID: 1, Topic: "data/+", Permission: "pub"},
 	}
 	cache.SetACLRules(1, testRules)
 
@@ -121,7 +121,7 @@ func TestCacheTTLACLRules(t *testing.T) {
 
 	// Add ACL rules to cache
 	testRules := []ACLRule{
-		{ID: 1, MQTTUserID: 1, TopicPattern: "test/#", Permission: "pubsub"},
+		{ID: 1, MQTTUserID: 1, Topic: "test/#", Permission: "pubsub"},
 	}
 	cache.SetACLRules(1, testRules)
 
@@ -161,7 +161,7 @@ func TestCacheBackgroundCleanup(t *testing.T) {
 		cache.SetMQTTUser(user.Username, user)
 
 		rules := []ACLRule{
-			{ID: uint(i), MQTTUserID: uint(i), TopicPattern: "test/#", Permission: "pubsub"},
+			{ID: uint(i), MQTTUserID: uint(i), Topic: "test/#", Permission: "pubsub"},
 		}
 		cache.SetACLRules(uint(i), rules)
 	}
@@ -203,7 +203,7 @@ func TestCacheConcurrentAccess(t *testing.T) {
 			cache.SetMQTTUser(user.Username, user)
 
 			rules := []ACLRule{
-				{ID: uint(id), MQTTUserID: uint(id), TopicPattern: "test/#", Permission: "pubsub"},
+				{ID: uint(id), MQTTUserID: uint(id), Topic: "test/#", Permission: "pubsub"},
 			}
 			cache.SetACLRules(uint(id), rules)
 			done <- true

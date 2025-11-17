@@ -11,7 +11,7 @@ import (
 func (db *DB) CreateScriptLog(scriptID uint, triggerType, level, message string, context datatypes.JSON, executionTimeMs int) error {
 	log := &ScriptLog{
 		ScriptID:        scriptID,
-		TriggerType:     triggerType,
+		Type:            triggerType,
 		Level:           level,
 		Message:         message,
 		Context:         context,

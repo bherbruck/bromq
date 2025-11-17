@@ -109,7 +109,7 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, message *
 		_ = vm.Set("msg", msgMap)
 
 		// Compile and run script
-		program, err := goja.Compile(script.Name, script.ScriptContent, false)
+		program, err := goja.Compile(script.Name, script.Content, false)
 		if err != nil {
 			execErr = fmt.Errorf("compilation error: %w", err)
 			return

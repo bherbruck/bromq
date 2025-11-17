@@ -15,7 +15,7 @@ func TestScriptAPIMqttPublish(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "mqtt-publish-test",
-		ScriptContent: `
+		Content: `
 			mqtt.publish("output/topic", "hello world", 1, false);
 			log.info("Published message");
 		`,
@@ -47,7 +47,7 @@ func TestScriptAPIMqttPublishInvalidQoS(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "invalid-qos",
-		ScriptContent: `
+		Content: `
 			mqtt.publish("output/topic", "hello", 3, false); // Invalid QoS
 		`,
 	}
@@ -74,7 +74,7 @@ func TestScriptAPIStateSetGet(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "state-test",
-		ScriptContent: `
+		Content: `
 			// Set values
 			state.set("counter", 42);
 			state.set("name", "test");
@@ -115,7 +115,7 @@ func TestScriptAPIStateWithTTL(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "state-ttl-test",
-		ScriptContent: `
+		Content: `
 			// Set value with 1 second TTL
 			state.set("temp", "value", {ttl: 1});
 
@@ -148,7 +148,7 @@ func TestScriptAPIStateWithTTL(t *testing.T) {
 	script2 := &storage.Script{
 		ID:   1,
 		Name: "state-ttl-check",
-		ScriptContent: `
+		Content: `
 			var val = state.get("temp");
 			if (val !== undefined) {
 				throw new Error("Value should have expired");
@@ -170,7 +170,7 @@ func TestScriptAPIStateDelete(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "state-delete-test",
-		ScriptContent: `
+		Content: `
 			state.set("toDelete", "value");
 
 			var val1 = state.get("toDelete");
@@ -207,7 +207,7 @@ func TestScriptAPIStateKeys(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "state-keys-test",
-		ScriptContent: `
+		Content: `
 			state.set("key1", "value1");
 			state.set("key2", "value2");
 			state.set("key3", "value3");
@@ -242,7 +242,7 @@ func TestScriptAPIGlobalState(t *testing.T) {
 	script1 := &storage.Script{
 		ID:   1,
 		Name: "global-set",
-		ScriptContent: `
+		Content: `
 			global.set("shared_counter", 100);
 			log.info("Set global counter");
 		`,
@@ -265,7 +265,7 @@ func TestScriptAPIGlobalState(t *testing.T) {
 	script2 := &storage.Script{
 		ID:   2,
 		Name: "global-get",
-		ScriptContent: `
+		Content: `
 			var counter = global.get("shared_counter");
 			if (counter !== 100) throw new Error("Global state not shared: " + counter);
 			log.info("Read global counter: " + counter);
@@ -286,7 +286,7 @@ func TestScriptAPIStateIsolation(t *testing.T) {
 	script1 := &storage.Script{
 		ID:   1,
 		Name: "script1",
-		ScriptContent: `
+		Content: `
 			state.set("data", "script1_data");
 			log.info("Script 1 set data");
 		`,
@@ -309,7 +309,7 @@ func TestScriptAPIStateIsolation(t *testing.T) {
 	script2 := &storage.Script{
 		ID:   2,
 		Name: "script2",
-		ScriptContent: `
+		Content: `
 			var data = state.get("data");
 			if (data !== undefined) {
 				throw new Error("Script 2 should not see script 1's state");
@@ -331,7 +331,7 @@ func TestScriptAPIComplexDataTypes(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "complex-types",
-		ScriptContent: `
+		Content: `
 			// Test arrays
 			state.set("array", [1, 2, 3, "four", {five: 5}]);
 			var arr = state.get("array");

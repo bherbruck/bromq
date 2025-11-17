@@ -56,7 +56,7 @@ func TestPreventSelfTriggering(t *testing.T) {
 		state.set("execution_count", (state.get("execution_count") || 0) + 1);
 		mqtt.publish(msg.topic, msg.payload, 0, false);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "test/#", Priority: 100, Enabled: true},
 	})
 
 	message := &internalscript.Message{
@@ -106,7 +106,7 @@ func TestAllowScriptChaining(t *testing.T) {
 		global.set("script_a_ran", true);
 		mqtt.publish("topic/b", "from_a", 0, false);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "topic/a", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "topic/a", Priority: 100, Enabled: true},
 	})
 
 	// Script B: listens to topic B (should trigger)
@@ -114,7 +114,7 @@ func TestAllowScriptChaining(t *testing.T) {
 		global.set("script_b_ran", true);
 		global.set("script_b_payload", msg.payload);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "topic/b", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "topic/b", Priority: 100, Enabled: true},
 	})
 
 	// Trigger Script A

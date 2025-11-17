@@ -1,4 +1,4 @@
-.PHONY: help install run stop dev-up dev-down prod-up prod-down logs clean test test-web test-all backend frontend
+.PHONY: help install run stop clean test test-web test-all schema
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -26,7 +26,7 @@ bin/bromq: $(shell find . -name '*.go' -not -path './web/*') go.mod go.sum web/d
 	@echo "Building Go binary..."
 	@mkdir -p bin
 	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
-	go build -ldflags="-X main.version=$$VERSION" -o $@ .
+	go build -ldflags="-X main.version=$$VERSION" -o $@ ./cmd/server
 
 # Convenience targets
 build: bin/bromq ## Build the complete application
@@ -37,39 +37,6 @@ run: bin/bromq stop ## Run the server locally
 stop: ## Stop any running bromq processes
 	@echo "Stopping bromq processes..."
 	@-killall bromq 2>/dev/null || echo "No bromq processes found"
-
-dev-up: ## Start development environment (hot reload)
-	docker compose -f compose.dev.yml up -d
-	@echo ""
-	@echo "Development servers starting..."
-	@echo "  Backend:  http://localhost:8080"
-	@echo "  Frontend: http://localhost:5173"
-	@echo ""
-	@echo "View logs: make logs"
-
-dev-down: ## Stop development environment
-	docker compose -f compose.dev.yml down
-
-prod-up: ## Start production environment
-	docker compose up -d --build
-	@echo ""
-	@echo "Production server starting..."
-	@echo "  MQTT TCP:       localhost:1883"
-	@echo "  MQTT WebSocket: localhost:8883"
-	@echo "  Web UI:         http://localhost:8080"
-	@echo ""
-	@echo "Default credentials: admin / admin"
-	@echo "View logs: make logs"
-
-prod-down: ## Stop production environment
-	docker compose down
-
-logs: ## Tail logs (add SERVICE=name to filter)
-	@if [ -n "$(SERVICE)" ]; then \
-		docker compose logs -f $(SERVICE); \
-	else \
-		docker compose logs -f; \
-	fi
 
 clean: ## Clean build artifacts and volumes
 	rm -rf bin/ web/dist/ web/node_modules/
@@ -89,6 +56,8 @@ test-all: web/node_modules ## Run all tests (Go + frontend)
 	@echo "Running frontend tests..."
 	cd web && npm test
 
-frontend: web/dist ## Build frontend only
-
-backend: bin/bromq ## Build backend only
+schema: ## Generate JSON Schema for config files
+	@echo "Generating JSON Schema..."
+	@mkdir -p schema
+	@go run cmd/schema-gen/main.go > schema/bromq-config.schema.json
+	@echo "Schema generated: schema/bromq-config.schema.json"

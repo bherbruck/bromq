@@ -11,7 +11,7 @@ services:
       - "8883:8883" # MQTT WebSocket
       - "8080:8080" # HTTP API & Web UI
     volumes:
-      - mqtt-data:/app/data
+      - bromq-data:/app/data
     environment:
       # Admin credentials (ONLY used on first run)
       # Uncomment and set these for production deployments
@@ -29,5 +29,5 @@ services:
       start_period: 40s
 
 volumes:
-  mqtt-data:
+  bromq-data:
     driver: local

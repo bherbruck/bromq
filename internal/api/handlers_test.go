@@ -211,10 +211,10 @@ func TestListACL(t *testing.T) {
 	foundRule1 := false
 	foundRule2 := false
 	for _, rule := range response.Data {
-		if rule.ID == rule1.ID && rule.TopicPattern == "sensor/#" {
+		if rule.ID == rule1.ID && rule.Topic == "sensor/#" {
 			foundRule1 = true
 		}
-		if rule.ID == rule2.ID && rule.TopicPattern == "device/+/status" {
+		if rule.ID == rule2.ID && rule.Topic == "device/+/status" {
 			foundRule2 = true
 		}
 	}
@@ -274,7 +274,7 @@ func TestCreateACL(t *testing.T) {
 			name: "create valid ACL rule",
 			request: CreateACLRequest{
 				MQTTUserID:   int(mqttUser.ID),
-				TopicPattern: "sensor/temperature",
+				Topic: "sensor/temperature",
 				Permission:   "pubsub",
 			},
 			wantStatusCode: http.StatusCreated,
@@ -283,7 +283,7 @@ func TestCreateACL(t *testing.T) {
 			name: "create pub-only rule",
 			request: CreateACLRequest{
 				MQTTUserID:   int(mqttUser.ID),
-				TopicPattern: "device/status",
+				Topic: "device/status",
 				Permission:   "pub",
 			},
 			wantStatusCode: http.StatusCreated,
@@ -292,7 +292,7 @@ func TestCreateACL(t *testing.T) {
 			name: "create sub-only rule",
 			request: CreateACLRequest{
 				MQTTUserID:   int(mqttUser.ID),
-				TopicPattern: "command/#",
+				Topic: "command/#",
 				Permission:   "sub",
 			},
 			wantStatusCode: http.StatusCreated,
@@ -301,7 +301,7 @@ func TestCreateACL(t *testing.T) {
 			name: "create with wildcard topic",
 			request: CreateACLRequest{
 				MQTTUserID:   int(mqttUser.ID),
-				TopicPattern: "sensor/+/temp",
+				Topic: "sensor/+/temp",
 				Permission:   "pubsub",
 			},
 			wantStatusCode: http.StatusCreated,
@@ -328,8 +328,8 @@ func TestCreateACL(t *testing.T) {
 					t.Fatalf("Failed to decode response: %v", err)
 				}
 
-				if rule.TopicPattern != tt.request.TopicPattern {
-					t.Errorf("CreateACL() topic = %v, want %v", rule.TopicPattern, tt.request.TopicPattern)
+				if rule.Topic != tt.request.Topic {
+					t.Errorf("CreateACL() topic = %v, want %v", rule.Topic, tt.request.Topic)
 				}
 
 				if rule.Permission != tt.request.Permission {
@@ -616,7 +616,7 @@ func TestHandlerCRUD_ACL_Integration(t *testing.T) {
 	// 2. Create ACL rule
 	createReq := CreateACLRequest{
 		MQTTUserID:   int(mqttUser.ID),
-		TopicPattern: "sensor/#",
+		Topic: "sensor/#",
 		Permission:   "pubsub",
 	}
 	body, _ := json.Marshal(createReq)

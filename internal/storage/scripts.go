@@ -17,12 +17,12 @@ func (db *DB) CreateScript(name, description, scriptContent string, enabled bool
 	}
 
 	script := &Script{
-		Name:          name,
-		Description:   description,
-		ScriptContent: scriptContent,
-		Enabled:       enabled,
-		Metadata:      metadata,
-		Triggers:      triggers,
+		Name:        name,
+		Description: description,
+		Content:     scriptContent,
+		Enabled:     enabled,
+		Metadata:    metadata,
+		Triggers:    triggers,
 	}
 
 	// Create script
@@ -113,10 +113,10 @@ func (db *DB) UpdateScript(id uint, name, description, scriptContent string, ena
 	return db.Transaction(func(tx *gorm.DB) error {
 		// Update script fields
 		updates := map[string]interface{}{
-			"name":           name,
-			"description":    description,
-			"script_content": scriptContent,
-			"enabled":        enabled,
+			"name":        name,
+			"description": description,
+			"content":     scriptContent,
+			"enabled":     enabled,
 		}
 
 		if metadata != nil {
@@ -183,10 +183,10 @@ func (db *DB) GetEnabledScriptsForTrigger(triggerType, topic string) ([]Script, 
 	var scripts []Script
 
 	// Build query: script must be enabled, trigger must be enabled and match type
-	query := db.Preload("Triggers", "trigger_type = ? AND enabled = ?", triggerType, true).
+	query := db.Preload("Triggers", "type = ? AND enabled = ?", triggerType, true).
 		Joins("JOIN script_triggers ON script_triggers.script_id = scripts.id").
 		Where("scripts.enabled = ?", true).
-		Where("script_triggers.trigger_type = ?", triggerType).
+		Where("script_triggers.type = ?", triggerType).
 		Where("script_triggers.enabled = ?", true).
 		Distinct()
 
@@ -199,9 +199,9 @@ func (db *DB) GetEnabledScriptsForTrigger(triggerType, topic string) ([]Script, 
 		filtered := make([]Script, 0)
 		for _, script := range scripts {
 			for _, trigger := range script.Triggers {
-				if trigger.TriggerType == triggerType && trigger.Enabled {
+				if trigger.Type == triggerType && trigger.Enabled {
 					// Empty topic filter matches all topics
-					if trigger.TopicFilter == "" || matchTopic(trigger.TopicFilter, topic) {
+					if trigger.Topic == "" || matchTopic(trigger.Topic, topic) {
 						filtered = append(filtered, script)
 						break // Only add script once even if multiple triggers match
 					}
@@ -234,7 +234,7 @@ func sortScriptsByPriority(scripts []Script, triggerType string) []Script {
 		// Find minimum priority among matching triggers
 		minPriority := 999999
 		for _, trigger := range script.Triggers {
-			if trigger.TriggerType == triggerType && trigger.Enabled {
+			if trigger.Type == triggerType && trigger.Enabled {
 				if trigger.Priority < minPriority {
 					minPriority = trigger.Priority
 				}
@@ -266,7 +266,7 @@ func (db *DB) CreateProvisionedScript(name, description, scriptContent string, e
 	script := &Script{
 		Name:                  name,
 		Description:           description,
-		ScriptContent:         scriptContent,
+		Content:               scriptContent,
 		Enabled:               enabled,
 		ProvisionedFromConfig: true,
 		Metadata:              metadata,

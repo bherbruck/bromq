@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../schema/bromq-config.schema.json
 # Minimal BroMQ Configuration Example
 # For testing and simple deployments
 
@@ -7,19 +8,19 @@ users:
     description: "Test device"
 
 acl_rules:
-  - mqtt_username: test_device
-    topic_pattern: "test/${username}/#"
+  - username: test_device
+    topic: "test/${username}/#"
     permission: pubsub
 
 # Optional: Bridge to remote broker
 # bridges:
 #   - name: simple-bridge
-#     remote_host: mqtt.example.com
-#     remote_port: 1883
-#     remote_username: bridge_user
-#     remote_password: ${BRIDGE_PASSWORD}
+#     host: mqtt.example.com
+#     port: 1883
+#     username: bridge_user
+#     password: ${BRIDGE_PASSWORD}
 #     topics:
-#       - local_pattern: "data/#"
-#         remote_pattern: "remote/data/#"
+#       - local: "data/#"
+#         remote: "remote/data/#"
 #         direction: out
 #         qos: 0

@@ -9,27 +9,27 @@ import (
 
 // CreateBridge creates a new MQTT bridge with its topic mappings
 func (db *DB) CreateBridge(
-	name, remoteHost string,
-	remotePort int,
-	remoteUsername, remotePassword string,
+	name, host string,
+	port int,
+	username, password string,
 	clientID string,
 	cleanSession bool,
 	keepAlive, connectionTimeout int,
 	metadata datatypes.JSON,
 	topics []BridgeTopic,
 ) (*Bridge, error) {
-	if name == "" || remoteHost == "" {
-		return nil, fmt.Errorf("name and remote_host are required")
+	if name == "" || host == "" {
+		return nil, fmt.Errorf("name and host are required")
 	}
 
-	if remotePort <= 0 || remotePort > 65535 {
-		return nil, fmt.Errorf("invalid remote_port: %d", remotePort)
+	if port <= 0 || port > 65535 {
+		return nil, fmt.Errorf("invalid port: %d", port)
 	}
 
 	// Validate topics
 	for _, topic := range topics {
-		if topic.LocalPattern == "" || topic.RemotePattern == "" {
-			return nil, fmt.Errorf("local_pattern and remote_pattern are required for all topics")
+		if topic.Local == "" || topic.Remote == "" {
+			return nil, fmt.Errorf("local and remote are required for all topics")
 		}
 		if topic.Direction != "in" && topic.Direction != "out" && topic.Direction != "both" {
 			return nil, fmt.Errorf("invalid direction: %s (must be 'in', 'out', or 'both')", topic.Direction)
@@ -38,10 +38,10 @@ func (db *DB) CreateBridge(
 
 	bridge := &Bridge{
 		Name:              name,
-		RemoteHost:        remoteHost,
-		RemotePort:        remotePort,
-		RemoteUsername:    remoteUsername,
-		RemotePassword:    remotePassword, // Stored in plain text for outbound connections
+		Host:              host,
+		Port:              port,
+		Username:          username,
+		Password:          password, // Stored in plain text for outbound connections
 		ClientID:          clientID,
 		CleanSession:      cleanSession,
 		KeepAlive:         keepAlive,
@@ -91,9 +91,9 @@ func (db *DB) ListBridgesPaginated(page, pageSize int, search, sortBy, sortOrder
 
 	query := db.Model(&Bridge{})
 
-	// Apply search filter (search by name or remote_host)
+	// Apply search filter (search by name or host)
 	if search != "" {
-		query = query.Where("name LIKE ? OR remote_host LIKE ?",
+		query = query.Where("name LIKE ? OR host LIKE ?",
 			"%"+search+"%", "%"+search+"%")
 	}
 
@@ -128,9 +128,9 @@ func (db *DB) ListBridgesPaginated(page, pageSize int, search, sortBy, sortOrder
 // Provisioned bridges cannot be updated via API (use config file instead)
 func (db *DB) UpdateBridge(
 	id uint,
-	name, remoteHost string,
-	remotePort int,
-	remoteUsername, remotePassword string,
+	name, host string,
+	port int,
+	username, password string,
 	clientID string,
 	cleanSession bool,
 	keepAlive, connectionTimeout int,
@@ -147,36 +147,36 @@ func (db *DB) UpdateBridge(
 		return nil, fmt.Errorf("cannot modify bridge '%s': it is provisioned from config file", bridge.Name)
 	}
 
-	return db.updateBridgeInternal(id, name, remoteHost, remotePort, remoteUsername,
-		remotePassword, clientID, cleanSession, keepAlive, connectionTimeout, metadata)
+	return db.updateBridgeInternal(id, name, host, port, username,
+		password, clientID, cleanSession, keepAlive, connectionTimeout, metadata)
 }
 
 // updateBridgeInternal performs the actual update without provisioning checks
 // Used internally by both UpdateBridge (API) and provisioning
 func (db *DB) updateBridgeInternal(
 	id uint,
-	name, remoteHost string,
-	remotePort int,
-	remoteUsername, remotePassword string,
+	name, host string,
+	port int,
+	username, password string,
 	clientID string,
 	cleanSession bool,
 	keepAlive, connectionTimeout int,
 	metadata datatypes.JSON,
 ) (*Bridge, error) {
-	if name == "" || remoteHost == "" {
-		return nil, fmt.Errorf("name and remote_host are required")
+	if name == "" || host == "" {
+		return nil, fmt.Errorf("name and host are required")
 	}
 
-	if remotePort <= 0 || remotePort > 65535 {
-		return nil, fmt.Errorf("invalid remote_port: %d", remotePort)
+	if port <= 0 || port > 65535 {
+		return nil, fmt.Errorf("invalid port: %d", port)
 	}
 
 	updates := map[string]interface{}{
 		"name":               name,
-		"remote_host":        remoteHost,
-		"remote_port":        remotePort,
-		"remote_username":    remoteUsername,
-		"remote_password":    remotePassword,
+		"host":               host,
+		"port":               port,
+		"username":           username,
+		"password":           password,
 		"client_id":          clientID,
 		"clean_session":      cleanSession,
 		"keep_alive":         keepAlive,
@@ -205,8 +205,8 @@ func (db *DB) UpdateBridgeTopics(id uint, topics []BridgeTopic) error {
 
 	// Validate topics
 	for _, topic := range topics {
-		if topic.LocalPattern == "" || topic.RemotePattern == "" {
-			return fmt.Errorf("local_pattern and remote_pattern are required for all topics")
+		if topic.Local == "" || topic.Remote == "" {
+			return fmt.Errorf("local and remote are required for all topics")
 		}
 		if topic.Direction != "in" && topic.Direction != "out" && topic.Direction != "both" {
 			return fmt.Errorf("invalid direction: %s (must be 'in', 'out', or 'both')", topic.Direction)
