@@ -134,7 +134,11 @@ bromq/
 ### Provisioning (Config-as-Code)
 
 - YAML config file syncs to database on startup (Grafana-style)
-- Env var interpolation: `${VAR_NAME}`
+- **Env var interpolation (Docker Compose style):**
+  - `${VAR}` - Expand environment variable
+  - `${VAR:-default}` - With default value if unset/empty
+  - `${username}`, `${clientid}` - Reserved placeholders (NOT expanded)
+  - `$${...}` - Escaped, becomes literal `${...}` (for JavaScript templates)
 - Supports: users, ACL rules, bridges, scripts
 - Provisioned items marked with `provisioned_from_config=true`
 - **Cannot modify/delete via API** (returns 409 Conflict)

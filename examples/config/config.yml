@@ -4,10 +4,20 @@
 # The configuration is synced to the database on every startup.
 # This file is the source of truth for provisioned items (like Grafana provisioning).
 #
-# Environment variable interpolation is supported: ${VAR_NAME} or $VAR_NAME
-# Reserved placeholders are preserved: ${username} and ${clientid}
-#   - ${username} is replaced at runtime with the authenticated MQTT username
-#   - ${clientid} is replaced at runtime with the MQTT client ID
+# Environment Variable Interpolation (Docker Compose style):
+#   ${VAR}           - Expand env var (empty string if unset)
+#   ${VAR:-default}  - Expand env var with default value
+#   ${username}      - Reserved ACL placeholder (NOT expanded)
+#   ${clientid}      - Reserved ACL placeholder (NOT expanded)
+#   $${...}          - Escaped, becomes literal ${...} (for JavaScript templates)
+#
+# Examples:
+#   password: ${DB_PASSWORD}                    # Required env var
+#   host: ${MQTT_HOST:-mqtt.example.com}       # With default
+#   topic: "user/${username}/data"              # ACL placeholder (preserved)
+#   content: |
+#     const key = "${API_KEY}";                  # Env var in script
+#     const topic = `device/$${id}/status`;      # JS template (escaped with $$)
 #
 # Usage:
 #   ./bromq -config config.yml
@@ -115,12 +125,12 @@ acl_rules:
 # MQTT Bridges (connect to remote MQTT brokers)
 # Bridges forward messages between this broker and remote brokers
 bridges:
-  # Example: Forward sensor data to cloud broker
+  # Example: Forward sensor data to cloud broker (with default values)
   - name: cloud-bridge
-    host: ${CLOUD_MQTT_HOST}
+    host: ${CLOUD_MQTT_HOST:-mqtt.cloud.example.com}  # Default if env var not set
     port: 1883
-    username: ${CLOUD_MQTT_USER}
-    password: ${CLOUD_MQTT_PASSWORD}
+    username: ${CLOUD_MQTT_USER:-cloud_user}          # Default username
+    password: ${CLOUD_MQTT_PASSWORD}                  # Required (no default)
     client_id: edge-broker-001
     clean_session: true
     keep_alive: 60
@@ -277,5 +287,35 @@ scripts:
     triggers:
       - type: on_publish
         topic: "system/#"
+        priority: 50
+        enabled: true
+
+  # Example 8: Script with env vars and template literal escaping
+  - name: api-forwarder
+    description: "Demonstrates env vars in scripts and $$ escaping for JS templates"
+    enabled: false
+    content: |
+      // Environment variables are expanded at config load time
+      const API_KEY = "${API_KEY:-default-key}";        // With default value
+      const ENDPOINT = "${API_ENDPOINT}";                // Required env var
+
+      // JavaScript template literals use $$ to escape
+      const topicTemplate = `device/$${msg.clientId}/data`;  // Becomes: device/${msg.clientId}/data
+
+      // Build message with env-injected credentials
+      const payload = JSON.stringify({
+        apiKey: API_KEY,
+        endpoint: ENDPOINT,
+        clientId: msg.clientId,
+        data: msg.payload
+      });
+
+      // Publish to dynamically constructed topic
+      const topic = topicTemplate.replace('$${msg.clientId}', msg.clientId);
+      mqtt.publish(topic, payload, 1, false);
+      log.info('Forwarded to API:', ENDPOINT);
+    triggers:
+      - type: on_publish
+        topic: "sensors/#"
         priority: 50
         enabled: true

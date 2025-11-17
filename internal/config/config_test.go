@@ -610,8 +610,8 @@ scripts:
   - name: test-template-literals
     enabled: true
     content: |
-      const msg = "Hello ${world}";
-      const topic = 'devices/${deviceId}/status';
+      const msg = "Hello $${world}";
+      const topic = 'devices/$${deviceId}/status';
       mqtt.publish(topic, msg);
     triggers:
       - type: on_publish
@@ -630,16 +630,225 @@ scripts:
 		t.Fatalf("failed to load config: %v", err)
 	}
 
-	// Verify JavaScript template literals are preserved
+	// Verify JavaScript template literals are preserved (after $$ unescaping)
 	if len(cfg.Scripts) != 1 {
 		t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
 	}
 
 	script := cfg.Scripts[0].Content
 	if !strings.Contains(script, "${world}") {
-		t.Errorf("JavaScript template literal ${world} was incorrectly expanded, got: %s", script)
+		t.Errorf("Expected ${world} after $$ unescaping, got: %s", script)
 	}
 	if !strings.Contains(script, "${deviceId}") {
-		t.Errorf("JavaScript template literal ${deviceId} was incorrectly expanded, got: %s", script)
+		t.Errorf("Expected ${deviceId} after $$ unescaping, got: %s", script)
+	}
+}
+
+func TestDefaultValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		envVars  map[string]string
+		config   string
+		expected string // Expected value after expansion
+	}{
+		{
+			name:    "default used when env var not set",
+			envVars: map[string]string{},
+			config: `users:
+  - username: test
+    password: ${MISSING_VAR:-default_password}
+`,
+			expected: "default_password",
+		},
+		{
+			name:    "env var used when set (ignores default)",
+			envVars: map[string]string{"PRESENT_VAR": "actual_value"},
+			config: `users:
+  - username: test
+    password: ${PRESENT_VAR:-default_password}
+`,
+			expected: "actual_value",
+		},
+		{
+			name:    "empty env var uses default",
+			envVars: map[string]string{"EMPTY_VAR": ""},
+			config: `users:
+  - username: test
+    password: ${EMPTY_VAR:-default_password}
+`,
+			expected: "default_password",
+		},
+		{
+			name:    "default with special characters",
+			envVars: map[string]string{},
+			config: `users:
+  - username: test
+    password: ${MISSING:-p@ss:w0rd!}
+`,
+			expected: "p@ss:w0rd!",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set env vars
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+				defer os.Unsetenv(k)
+			}
+
+			// Write config
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			if err := os.WriteFile(configPath, []byte(tt.config), 0644); err != nil {
+				t.Fatalf("failed to write config: %v", err)
+			}
+
+			// Load and verify
+			cfg, err := Load(configPath)
+			if err != nil {
+				t.Fatalf("failed to load config: %v", err)
+			}
+
+			if cfg.Users[0].Password != tt.expected {
+				t.Errorf("expected password '%s', got '%s'", tt.expected, cfg.Users[0].Password)
+			}
+		})
+	}
+}
+
+func TestDollarEscaping(t *testing.T) {
+	configYAML := `
+users:
+  - username: testuser
+    password: testpass
+
+scripts:
+  - name: test-escaping
+    enabled: true
+    content: |
+      const literal = "$${notExpanded}";
+      const template = 'topic/$${clientId}/data';
+      log.info("Using $$LITERAL_DOLLAR signs");
+    triggers:
+      - type: on_publish
+        topic: "test/#"
+        enabled: true
+`
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	if err := os.WriteFile(configPath, []byte(configYAML), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	script := cfg.Scripts[0].Content
+
+	// $$ should become $ after processing
+	if !strings.Contains(script, "${notExpanded}") {
+		t.Errorf("Expected ${notExpanded} after $$ unescaping, got: %s", script)
+	}
+	if !strings.Contains(script, "${clientId}") {
+		t.Errorf("Expected ${clientId} after $$ unescaping, got: %s", script)
+	}
+	if !strings.Contains(script, "$LITERAL_DOLLAR") {
+		t.Errorf("Expected $LITERAL_DOLLAR after $$ unescaping, got: %s", script)
+	}
+}
+
+func TestEnvVarsInScripts(t *testing.T) {
+	os.Setenv("API_KEY", "secret123")
+	os.Setenv("ENDPOINT", "https://api.example.com")
+	defer os.Unsetenv("API_KEY")
+	defer os.Unsetenv("ENDPOINT")
+
+	configYAML := `
+users:
+  - username: testuser
+    password: testpass
+
+scripts:
+  - name: test-env-vars
+    enabled: true
+    content: |
+      const apiKey = "${API_KEY}";
+      const endpoint = "${ENDPOINT}";
+      const topic = 'device/$${deviceId}/status';
+      log.info(apiKey, endpoint, topic);
+    triggers:
+      - type: on_publish
+        topic: "test/#"
+        enabled: true
+`
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	if err := os.WriteFile(configPath, []byte(configYAML), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	script := cfg.Scripts[0].Content
+
+	// Env vars should be expanded
+	if !strings.Contains(script, "secret123") {
+		t.Errorf("Expected API_KEY to be expanded to 'secret123', got: %s", script)
+	}
+	if !strings.Contains(script, "https://api.example.com") {
+		t.Errorf("Expected ENDPOINT to be expanded, got: %s", script)
+	}
+
+	// Template literal should be unescaped
+	if !strings.Contains(script, "${deviceId}") {
+		t.Errorf("Expected ${deviceId} after $$ unescaping, got: %s", script)
+	}
+}
+
+func TestReservedPlaceholdersStillWork(t *testing.T) {
+	os.Setenv("username", "SHOULD_NOT_EXPAND")  // Set conflicting env var
+	os.Setenv("clientid", "SHOULD_NOT_EXPAND")
+	defer os.Unsetenv("username")
+	defer os.Unsetenv("clientid")
+
+	configYAML := `
+users:
+  - username: testuser
+    password: testpass
+
+acl_rules:
+  - username: testuser
+    topic: "user/${username}/data"
+    permission: pub
+  - username: testuser
+    topic: "device/${clientid}/#"
+    permission: sub
+`
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	if err := os.WriteFile(configPath, []byte(configYAML), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	// Reserved placeholders should NOT be expanded even if env vars exist
+	if cfg.ACLRules[0].Topic != "user/${username}/data" {
+		t.Errorf("Expected ${username} to be preserved, got: %s", cfg.ACLRules[0].Topic)
+	}
+	if cfg.ACLRules[1].Topic != "device/${clientid}/#" {
+		t.Errorf("Expected ${clientid} to be preserved, got: %s", cfg.ACLRules[1].Topic)
 	}
 }

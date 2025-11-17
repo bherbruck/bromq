@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -74,27 +73,71 @@ type ScriptTriggerConfig struct {
 	Enabled  bool   `yaml:"enabled"`
 }
 
-// protectScriptVariables protects ${...} in content blocks from env var expansion
-func protectScriptVariables(content string) string {
-	// Match content: followed by | or > and capture the indented block
-	// This regex finds content blocks and protects ${...} inside them
-	re := regexp.MustCompile(`(?m)(content:\s*[|>][-+]?\s*\n)((?:[ \t]+.+\n)*)`)
-
-	return re.ReplaceAllStringFunc(content, func(match string) string {
-		// Replace ${ with marker only in script content
-		return strings.ReplaceAll(match, "${", "__SCRIPT_VAR_OPEN__")
-	})
+// reservedPlaceholders lists variable names that should never be expanded as env vars
+// These are runtime placeholders used in ACL rules and other MQTT contexts
+var reservedPlaceholders = []string{
+	"username", // ACL placeholder - replaced at runtime with MQTT username
+	"clientid", // ACL placeholder - replaced at runtime with MQTT client ID
+	// Add more reserved placeholders here as needed
 }
 
-// restoreScriptVariables restores protected ${...} markers back to original form
-func restoreScriptVariables(content string) string {
-	return strings.ReplaceAll(content, "__SCRIPT_VAR_OPEN__", "${")
+// isReservedPlaceholder checks if a variable name is a reserved placeholder
+func isReservedPlaceholder(name string) bool {
+	for _, reserved := range reservedPlaceholders {
+		if name == reserved {
+			return true
+		}
+	}
+	return false
+}
+
+// customMapper is used by os.Expand to handle environment variable expansion
+// Supports:
+// - ${username} and ${clientid} - preserved as ACL/MQTT placeholders
+// - ${VAR:-default} - env var with default value (Docker Compose style)
+// - ${VAR} - standard env var expansion
+func customMapper(name string) string {
+	// Preserve reserved runtime placeholders - never expand these
+	if isReservedPlaceholder(name) {
+		return "${" + name + "}"
+	}
+
+	// Handle default value syntax: ${VAR:-default}
+	if strings.Contains(name, ":-") {
+		parts := strings.SplitN(name, ":-", 2)
+		if len(parts) == 2 {
+			varName := strings.TrimSpace(parts[0])
+			defaultVal := parts[1] // Don't trim - preserve whitespace in default
+
+			// Return env var if set and non-empty, otherwise use default
+			if val := os.Getenv(varName); val != "" {
+				return val
+			}
+			return defaultVal
+		}
+	}
+
+	// Standard env var expansion
+	return os.Getenv(name)
+}
+
+// escapeDollarSigns protects $$ (double dollar) from expansion
+// $$ becomes a temporary marker that will be restored to $ after expansion
+func escapeDollarSigns(content string) string {
+	return strings.ReplaceAll(content, "$$", "__ESCAPED_DOLLAR__")
+}
+
+// restoreDollarSigns converts markers back to literal $
+func restoreDollarSigns(content string) string {
+	return strings.ReplaceAll(content, "__ESCAPED_DOLLAR__", "$")
 }
 
 // Load reads and parses a YAML config file with environment variable interpolation
-// Environment variables in ${VAR} format are expanded EXCEPT:
-// - ${username} and ${clientid} (ACL placeholders)
-// - Any ${...} inside content blocks (JavaScript template literals)
+// Supports Docker Compose-style syntax:
+// - ${VAR} - expand environment variable (empty string if unset)
+// - ${VAR:-default} - expand env var with default value if unset/empty
+// - ${username} and ${clientid} - preserved as ACL/MQTT runtime placeholders
+// - $${...} - escaped, becomes literal ${...} (for JavaScript template literals)
 func Load(path string) (*Config, error) {
 	// Read the file
 	data, err := os.ReadFile(path)
@@ -102,26 +145,18 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Protect script content and reserved placeholders before env var expansion
 	content := string(data)
 
-	// Protect ACL placeholders
-	content = strings.ReplaceAll(content, "${username}", "__RESERVED_USERNAME__")
-	content = strings.ReplaceAll(content, "${clientid}", "__RESERVED_CLIENTID__")
+	// Step 1: Protect $$ (escaped dollar signs) from expansion
+	// $$ → __ESCAPED_DOLLAR__ → (after expansion) → $
+	content = escapeDollarSigns(content)
 
-	// Protect script content from env var expansion
-	// Pattern: content: | or content: >
-	// We need to protect everything between content: and the next top-level key
-	// Simple approach: protect ${ inside script blocks by escaping them
-	protectedContent := protectScriptVariables(content)
+	// Step 2: Expand environment variables using custom mapper
+	// Mapper handles: ${username}, ${clientid}, ${VAR:-default}, ${VAR}
+	expanded := os.Expand(content, customMapper)
 
-	// Expand environment variables (will not touch protected markers)
-	expanded := os.ExpandEnv(protectedContent)
-
-	// Restore protected script variables and ACL placeholders
-	expanded = restoreScriptVariables(expanded)
-	expanded = strings.ReplaceAll(expanded, "__RESERVED_USERNAME__", "${username}")
-	expanded = strings.ReplaceAll(expanded, "__RESERVED_CLIENTID__", "${clientid}")
+	// Step 3: Restore escaped dollar signs
+	expanded = restoreDollarSigns(expanded)
 
 	// Parse YAML
 	var cfg Config
