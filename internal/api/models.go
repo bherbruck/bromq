@@ -76,34 +76,34 @@ type UpdateMQTTClientMetadataRequest struct {
 
 // CreateACLRequest represents a request to create an ACL rule
 type CreateACLRequest struct {
-	MQTTUserID   int    `json:"mqtt_user_id"`
-	TopicPattern string `json:"topic_pattern"`
-	Permission   string `json:"permission"`
+	MQTTUserID int    `json:"mqtt_user_id"`
+	Topic      string `json:"topic"`
+	Permission string `json:"permission"`
 }
 
 // UpdateACLRequest represents a request to update an ACL rule
 type UpdateACLRequest struct {
-	TopicPattern string `json:"topic_pattern"`
-	Permission   string `json:"permission"`
+	Topic      string `json:"topic"`
+	Permission string `json:"permission"`
 }
 
 // === Bridge Requests ===
 
 // BridgeTopicRequest represents a topic mapping for a bridge
 type BridgeTopicRequest struct {
-	LocalPattern  string `json:"local_pattern"`
-	RemotePattern string `json:"remote_pattern"`
-	Direction     string `json:"direction"` // "in", "out", or "both"
-	QoS           byte   `json:"qos"`
+	Local     string `json:"local"`
+	Remote    string `json:"remote"`
+	Direction string `json:"direction"` // "in", "out", or "both"
+	QoS       byte   `json:"qos"`
 }
 
 // CreateBridgeRequest represents a request to create a bridge
 type CreateBridgeRequest struct {
 	Name              string                 `json:"name"`
-	RemoteHost        string                 `json:"remote_host"`
-	RemotePort        int                    `json:"remote_port"`
-	RemoteUsername    string                 `json:"remote_username,omitempty"`
-	RemotePassword    string                 `json:"remote_password,omitempty"`
+	Host              string                 `json:"host"`
+	Port              int                    `json:"port"`
+	Username          string                 `json:"username,omitempty"`
+	Password          string                 `json:"password,omitempty"`
 	ClientID          string                 `json:"client_id,omitempty"`
 	CleanSession      bool                   `json:"clean_session"`
 	KeepAlive         int                    `json:"keep_alive"`
@@ -115,10 +115,10 @@ type CreateBridgeRequest struct {
 // UpdateBridgeRequest represents a request to update a bridge
 type UpdateBridgeRequest struct {
 	Name              string                 `json:"name"`
-	RemoteHost        string                 `json:"remote_host"`
-	RemotePort        int                    `json:"remote_port"`
-	RemoteUsername    string                 `json:"remote_username,omitempty"`
-	RemotePassword    string                 `json:"remote_password,omitempty"`
+	Host              string                 `json:"host"`
+	Port              int                    `json:"port"`
+	Username          string                 `json:"username,omitempty"`
+	Password          string                 `json:"password,omitempty"`
 	ClientID          string                 `json:"client_id,omitempty"`
 	CleanSession      bool                   `json:"clean_session"`
 	KeepAlive         int                    `json:"keep_alive"`
@@ -165,35 +165,35 @@ type SuccessResponse struct {
 
 // ScriptTriggerRequest represents a trigger for a script
 type ScriptTriggerRequest struct {
-	TriggerType string `json:"trigger_type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
-	TopicFilter string `json:"topic_filter"` // MQTT topic pattern (empty for non-topic events)
-	Priority    int    `json:"priority"`     // Execution order (lower = earlier)
-	Enabled     bool   `json:"enabled"`
+	Type     string `json:"type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
+	Topic    string `json:"topic"` // MQTT topic pattern (empty for non-topic events)
+	Priority int    `json:"priority"` // Execution order (lower = earlier)
+	Enabled  bool   `json:"enabled"`
 }
 
 // CreateScriptRequest represents a request to create a script
 type CreateScriptRequest struct {
-	Name          string                 `json:"name"`
-	Description   string                 `json:"description"`
-	ScriptContent string                 `json:"script_content"`
-	Enabled       bool                   `json:"enabled"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
-	Triggers      []ScriptTriggerRequest `json:"triggers"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Content     string                 `json:"content"`
+	Enabled     bool                   `json:"enabled"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Triggers    []ScriptTriggerRequest `json:"triggers"`
 }
 
 // UpdateScriptRequest represents a request to update a script
 type UpdateScriptRequest struct {
-	Name          string                 `json:"name"`
-	Description   string                 `json:"description"`
-	ScriptContent string                 `json:"script_content"`
-	Enabled       bool                   `json:"enabled"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
-	Triggers      []ScriptTriggerRequest `json:"triggers"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Content     string                 `json:"content"`
+	Enabled     bool                   `json:"enabled"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Triggers    []ScriptTriggerRequest `json:"triggers"`
 }
 
 // TestScriptRequest represents a request to test a script
 type TestScriptRequest struct {
-	ScriptContent string                 `json:"script_content"`
-	TriggerType   string                 `json:"trigger_type"`
-	EventData     map[string]interface{} `json:"event_data"` // Mock message data (kept as event_data for backward compatibility)
+	Content     string                 `json:"content"`
+	Type        string                 `json:"type"`
+	EventData   map[string]interface{} `json:"event_data"` // Mock message data (kept as event_data for backward compatibility)
 }

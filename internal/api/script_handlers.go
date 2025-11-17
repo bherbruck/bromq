@@ -77,7 +77,7 @@ func (h *Handler) CreateScript(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"script name is required"}`, http.StatusBadRequest)
 		return
 	}
-	if req.ScriptContent == "" {
+	if req.Content == "" {
 		http.Error(w, `{"error":"script content is required"}`, http.StatusBadRequest)
 		return
 	}
@@ -97,14 +97,14 @@ func (h *Handler) CreateScript(w http.ResponseWriter, r *http.Request) {
 	triggers := make([]storage.ScriptTrigger, len(req.Triggers))
 	for i, t := range req.Triggers {
 		triggers[i] = storage.ScriptTrigger{
-			TriggerType: t.TriggerType,
-			TopicFilter: t.TopicFilter,
+			Type: t.Type,
+			Topic: t.Topic,
 			Priority:    t.Priority,
 			Enabled:     t.Enabled,
 		}
 	}
 
-	script, err := h.db.CreateScript(req.Name, req.Description, req.ScriptContent, req.Enabled, metadata, triggers)
+	script, err := h.db.CreateScript(req.Name, req.Description, req.Content, req.Enabled, metadata, triggers)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to create script: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -157,14 +157,14 @@ func (h *Handler) UpdateScript(w http.ResponseWriter, r *http.Request) {
 	triggers := make([]storage.ScriptTrigger, len(req.Triggers))
 	for i, t := range req.Triggers {
 		triggers[i] = storage.ScriptTrigger{
-			TriggerType: t.TriggerType,
-			TopicFilter: t.TopicFilter,
+			Type: t.Type,
+			Topic: t.Topic,
 			Priority:    t.Priority,
 			Enabled:     t.Enabled,
 		}
 	}
 
-	if err := h.db.UpdateScript(uint(id), req.Name, req.Description, req.ScriptContent, req.Enabled, metadata, triggers); err != nil {
+	if err := h.db.UpdateScript(uint(id), req.Name, req.Description, req.Content, req.Enabled, metadata, triggers); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to update script: %s"}`, err), http.StatusInternalServerError)
 		return
 	}
@@ -249,17 +249,17 @@ func (h *Handler) TestScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate required fields
-	if req.ScriptContent == "" {
+	if req.Content == "" {
 		http.Error(w, `{"error":"script content is required"}`, http.StatusBadRequest)
 		return
 	}
-	if req.TriggerType == "" {
+	if req.Type == "" {
 		http.Error(w, `{"error":"trigger type is required"}`, http.StatusBadRequest)
 		return
 	}
 
 	// Test the script
-	result := h.engine.TestScript(req.ScriptContent, req.TriggerType, req.EventData)
+	result := h.engine.TestScript(req.Content, req.Type, req.EventData)
 
 	response := map[string]interface{}{
 		"success":           result.Success,

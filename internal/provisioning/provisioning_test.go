@@ -34,8 +34,8 @@ func TestProvision_NewUsers(t *testing.T) {
 		},
 		ACLRules: []config.ACLRuleConfig{
 			{
-				MQTTUsername: "test_user",
-				TopicPattern: "test/#",
+				Username: "test_user",
+				Topic: "test/#",
 				Permission:   "pubsub",
 			},
 		},
@@ -69,8 +69,8 @@ func TestProvision_NewUsers(t *testing.T) {
 	if len(rules) != 1 {
 		t.Fatalf("expected 1 ACL rule, got %d", len(rules))
 	}
-	if rules[0].TopicPattern != "test/#" {
-		t.Errorf("expected topic pattern 'test/#', got '%s'", rules[0].TopicPattern)
+	if rules[0].Topic != "test/#" {
+		t.Errorf("expected topic pattern 'test/#', got '%s'", rules[0].Topic)
 	}
 	if !rules[0].ProvisionedFromConfig {
 		t.Error("expected ACL rule to be marked as provisioned")
@@ -92,8 +92,8 @@ func TestProvision_UpdateExistingUser(t *testing.T) {
 		},
 		ACLRules: []config.ACLRuleConfig{
 			{
-				MQTTUsername: "test_user",
-				TopicPattern: "test/#",
+				Username: "test_user",
+				Topic: "test/#",
 				Permission:   "pub",
 			},
 		},
@@ -118,8 +118,8 @@ func TestProvision_UpdateExistingUser(t *testing.T) {
 		},
 		ACLRules: []config.ACLRuleConfig{
 			{
-				MQTTUsername: "test_user",
-				TopicPattern: "updated/#",
+				Username: "test_user",
+				Topic: "updated/#",
 				Permission:   "pubsub",
 			},
 		},
@@ -157,8 +157,8 @@ func TestProvision_UpdateExistingUser(t *testing.T) {
 	if len(rules) != 1 {
 		t.Fatalf("expected 1 ACL rule, got %d", len(rules))
 	}
-	if rules[0].TopicPattern != "updated/#" {
-		t.Errorf("expected topic pattern 'updated/#', got '%s'", rules[0].TopicPattern)
+	if rules[0].Topic != "updated/#" {
+		t.Errorf("expected topic pattern 'updated/#', got '%s'", rules[0].Topic)
 	}
 	if rules[0].Permission != "pubsub" {
 		t.Errorf("expected permission 'pubsub', got '%s'", rules[0].Permission)
@@ -236,8 +236,8 @@ func TestProvision_ManualUsersNotTouched(t *testing.T) {
 		},
 		ACLRules: []config.ACLRuleConfig{
 			{
-				MQTTUsername: "provisioned_user",
-				TopicPattern: "provisioned/#",
+				Username: "provisioned_user",
+				Topic: "provisioned/#",
 				Permission:   "pub",
 			},
 		},
@@ -278,9 +278,9 @@ func TestProvision_MultipleACLRules(t *testing.T) {
 			{Username: "user1", Password: "pass1"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "user1", TopicPattern: "sensors/#", Permission: "pub"},
-			{MQTTUsername: "user1", TopicPattern: "commands/#", Permission: "sub"},
-			{MQTTUsername: "user1", TopicPattern: "status/+", Permission: "pubsub"},
+			{Username: "user1", Topic: "sensors/#", Permission: "pub"},
+			{Username: "user1", Topic: "commands/#", Permission: "sub"},
+			{Username: "user1", Topic: "status/+", Permission: "pubsub"},
 		},
 	}
 
@@ -366,7 +366,7 @@ func TestProvision_Idempotent(t *testing.T) {
 			{Username: "test", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test", TopicPattern: "test/#", Permission: "pubsub"},
+			{Username: "test", Topic: "test/#", Permission: "pubsub"},
 		},
 	}
 
@@ -407,8 +407,8 @@ func TestProvision_RemoveAllACLRules(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "test/#", Permission: "pub"},
-			{MQTTUsername: "test_user", TopicPattern: "data/#", Permission: "sub"},
+			{Username: "test_user", Topic: "test/#", Permission: "pub"},
+			{Username: "test_user", Topic: "data/#", Permission: "sub"},
 		},
 	}
 
@@ -446,7 +446,7 @@ func TestProvision_RemoveAllACLRules(t *testing.T) {
 	if len(rules) != 0 {
 		t.Errorf("expected 0 ACL rules after removing all from config, got %d", len(rules))
 		for i, rule := range rules {
-			t.Logf("  Rule %d: %s (%s)", i, rule.TopicPattern, rule.Permission)
+			t.Logf("  Rule %d: %s (%s)", i, rule.Topic, rule.Permission)
 		}
 	}
 
@@ -469,8 +469,8 @@ func TestProvision_ACLRuleIDsPreservedWhenUnchanged(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "test/#", Permission: "pub"},
-			{MQTTUsername: "test_user", TopicPattern: "data/#", Permission: "sub"},
+			{Username: "test_user", Topic: "test/#", Permission: "pub"},
+			{Username: "test_user", Topic: "data/#", Permission: "sub"},
 		},
 	}
 
@@ -520,7 +520,7 @@ func TestProvision_AddNewACLRule(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "test/#", Permission: "pub"},
+			{Username: "test_user", Topic: "test/#", Permission: "pub"},
 		},
 	}
 
@@ -541,8 +541,8 @@ func TestProvision_AddNewACLRule(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "test/#", Permission: "pub"},
-			{MQTTUsername: "test_user", TopicPattern: "data/#", Permission: "sub"}, // NEW
+			{Username: "test_user", Topic: "test/#", Permission: "pub"},
+			{Username: "test_user", Topic: "data/#", Permission: "sub"}, // NEW
 		},
 	}
 
@@ -560,13 +560,13 @@ func TestProvision_AddNewACLRule(t *testing.T) {
 	foundOld := false
 	foundNew := false
 	for _, rule := range rules2 {
-		if rule.TopicPattern == "test/#" && rule.Permission == "pub" {
+		if rule.Topic == "test/#" && rule.Permission == "pub" {
 			foundOld = true
 			if rule.ID != oldRuleID {
 				t.Errorf("Old rule ID changed from %d to %d (should be preserved)", oldRuleID, rule.ID)
 			}
 		}
-		if rule.TopicPattern == "data/#" && rule.Permission == "sub" {
+		if rule.Topic == "data/#" && rule.Permission == "sub" {
 			foundNew = true
 		}
 	}
@@ -589,8 +589,8 @@ func TestProvision_RemoveOneACLRule(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "test/#", Permission: "pub"},
-			{MQTTUsername: "test_user", TopicPattern: "data/#", Permission: "sub"},
+			{Username: "test_user", Topic: "test/#", Permission: "pub"},
+			{Username: "test_user", Topic: "data/#", Permission: "sub"},
 		},
 	}
 
@@ -607,7 +607,7 @@ func TestProvision_RemoveOneACLRule(t *testing.T) {
 	// Find the rule we're keeping
 	var keepRuleID uint
 	for _, rule := range rules1 {
-		if rule.TopicPattern == "test/#" {
+		if rule.Topic == "test/#" {
 			keepRuleID = rule.ID
 		}
 	}
@@ -618,7 +618,7 @@ func TestProvision_RemoveOneACLRule(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "test/#", Permission: "pub"}, // Keep this one
+			{Username: "test_user", Topic: "test/#", Permission: "pub"}, // Keep this one
 			// data/# removed
 		},
 	}
@@ -634,8 +634,8 @@ func TestProvision_RemoveOneACLRule(t *testing.T) {
 	}
 
 	// Verify it's the right rule and ID is preserved
-	if rules2[0].TopicPattern != "test/#" {
-		t.Errorf("Wrong rule kept: %s", rules2[0].TopicPattern)
+	if rules2[0].Topic != "test/#" {
+		t.Errorf("Wrong rule kept: %s", rules2[0].Topic)
 	}
 	if rules2[0].ID != keepRuleID {
 		t.Errorf("Rule ID changed from %d to %d (should be preserved)", keepRuleID, rules2[0].ID)
@@ -652,9 +652,9 @@ func TestProvision_MixedACLChanges(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "test/#", Permission: "pub"},
-			{MQTTUsername: "test_user", TopicPattern: "data/#", Permission: "sub"},
-			{MQTTUsername: "test_user", TopicPattern: "temp/#", Permission: "pubsub"},
+			{Username: "test_user", Topic: "test/#", Permission: "pub"},
+			{Username: "test_user", Topic: "data/#", Permission: "sub"},
+			{Username: "test_user", Topic: "temp/#", Permission: "pubsub"},
 		},
 	}
 
@@ -671,7 +671,7 @@ func TestProvision_MixedACLChanges(t *testing.T) {
 	// Find ID of rule we're keeping
 	var keepRuleID uint
 	for _, rule := range rules1 {
-		if rule.TopicPattern == "data/#" {
+		if rule.Topic == "data/#" {
 			keepRuleID = rule.ID
 		}
 	}
@@ -682,8 +682,8 @@ func TestProvision_MixedACLChanges(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "data/#", Permission: "sub"},   // KEEP
-			{MQTTUsername: "test_user", TopicPattern: "new/#", Permission: "pubsub"}, // ADD
+			{Username: "test_user", Topic: "data/#", Permission: "sub"},   // KEEP
+			{Username: "test_user", Topic: "new/#", Permission: "pubsub"}, // ADD
 			// test/# REMOVED
 			// temp/# REMOVED
 		},
@@ -703,13 +703,13 @@ func TestProvision_MixedACLChanges(t *testing.T) {
 	foundKept := false
 	foundNew := false
 	for _, rule := range rules2 {
-		if rule.TopicPattern == "data/#" {
+		if rule.Topic == "data/#" {
 			foundKept = true
 			if rule.ID != keepRuleID {
 				t.Errorf("Kept rule ID changed from %d to %d", keepRuleID, rule.ID)
 			}
 		}
-		if rule.TopicPattern == "new/#" {
+		if rule.Topic == "new/#" {
 			foundNew = true
 		}
 	}
@@ -736,7 +736,7 @@ func TestProvision_ManualACLRulesNotTouched(t *testing.T) {
 			{Username: "test_user", Password: "pass123"},
 		},
 		ACLRules: []config.ACLRuleConfig{
-			{MQTTUsername: "test_user", TopicPattern: "provisioned/#", Permission: "sub"},
+			{Username: "test_user", Topic: "provisioned/#", Permission: "sub"},
 		},
 	}
 
@@ -753,7 +753,7 @@ func TestProvision_ManualACLRulesNotTouched(t *testing.T) {
 	// Verify manual rule still exists with same ID
 	foundManual := false
 	for _, rule := range rules {
-		if rule.TopicPattern == "manual/#" {
+		if rule.Topic == "manual/#" {
 			foundManual = true
 			if rule.ID != manualRule.ID {
 				t.Error("Manual rule ID changed")

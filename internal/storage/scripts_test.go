@@ -22,8 +22,8 @@ func TestScriptCRUD(t *testing.T) {
 		datatypes.JSON(metadataJSON),
 		[]ScriptTrigger{
 			{
-				TriggerType: "on_publish",
-				TopicFilter: "test/#",
+				Type: "on_publish",
+				Topic: "test/#",
 				Priority:    100,
 				Enabled:     true,
 			},
@@ -117,8 +117,8 @@ func TestGetEnabledScriptsForTrigger(t *testing.T) {
 			datatypes.JSON([]byte("{}")),
 			[]ScriptTrigger{
 				{
-					TriggerType: s.triggerType,
-					TopicFilter: s.topicFilter,
+					Type: s.triggerType,
+					Topic: s.topicFilter,
 					Priority:    s.priority,
 					Enabled:     true, // Trigger is always enabled, script.enabled controls visibility
 				},
@@ -200,8 +200,8 @@ func TestScriptTriggerManagement(t *testing.T) {
 		datatypes.JSON([]byte("{}")),
 		[]ScriptTrigger{
 			{
-				TriggerType: "on_publish",
-				TopicFilter: "test/#",
+				Type: "on_publish",
+				Topic: "test/#",
 				Priority:    100,
 				Enabled:     true,
 			},
@@ -214,14 +214,14 @@ func TestScriptTriggerManagement(t *testing.T) {
 	// Test updating triggers via UpdateScript
 	newTriggers := []ScriptTrigger{
 		{
-			TriggerType: "on_publish",
-			TopicFilter: "sensors/#",
+			Type: "on_publish",
+			Topic: "sensors/#",
 			Priority:    50,
 			Enabled:     true,
 		},
 		{
-			TriggerType: "on_connect",
-			TopicFilter: "",
+			Type: "on_connect",
+			Topic: "",
 			Priority:    10,
 			Enabled:     true,
 		},
@@ -251,8 +251,8 @@ func TestProvisionedScriptProtection(t *testing.T) {
 		datatypes.JSON([]byte("{}")),
 		[]ScriptTrigger{
 			{
-				TriggerType: "on_publish",
-				TopicFilter: "#",
+				Type: "on_publish",
+				Topic: "#",
 				Priority:    100,
 				Enabled:     true,
 			},

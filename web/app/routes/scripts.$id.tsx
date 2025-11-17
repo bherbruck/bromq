@@ -83,11 +83,11 @@ export default function ScriptDetailPage() {
     if (script) {
       setName(script.name)
       setDescription(script.description || '')
-      setScriptContent(script.script_content)
+      setScriptContent(script.content)
       setEnabled(script.enabled)
       setTriggers(
         script.triggers.map((t) => ({
-          trigger_type: t.trigger_type,
+          type: t.type,
           topic_filter: t.topic_filter,
           priority: t.priority,
           enabled: t.enabled,
@@ -146,8 +146,8 @@ export default function ScriptDetailPage() {
   const testMutation = useMutation({
     mutationFn: () =>
       api.testScript({
-        script_content: scriptContent,
-        trigger_type: testTriggerType,
+        content: scriptContent,
+        type: testTriggerType,
         event_data: {
           topic: testTopic,
           payload: testPayload,
@@ -187,7 +187,7 @@ export default function ScriptDetailPage() {
     updateMutation.mutate({
       name,
       description,
-      script_content: scriptContent,
+      content: scriptContent,
       enabled,
       triggers,
     })
@@ -197,11 +197,11 @@ export default function ScriptDetailPage() {
     if (script) {
       setName(script.name)
       setDescription(script.description || '')
-      setScriptContent(script.script_content)
+      setScriptContent(script.content)
       setEnabled(script.enabled)
       setTriggers(
         script.triggers.map((t) => ({
-          trigger_type: t.trigger_type,
+          type: t.type,
           topic_filter: t.topic_filter,
           priority: t.priority,
           enabled: t.enabled,
@@ -215,7 +215,7 @@ export default function ScriptDetailPage() {
   const addTrigger = () => {
     setTriggers([
       ...triggers,
-      { trigger_type: 'on_publish', topic_filter: '', priority: 100, enabled: true },
+      { type: 'on_publish', topic_filter: '', priority: 100, enabled: true },
     ])
     markUnsaved()
   }
@@ -447,8 +447,8 @@ export default function ScriptDetailPage() {
                       <FieldLabel>Trigger Type</FieldLabel>
                       {canEdit ? (
                         <Select
-                          value={trigger.trigger_type}
-                          onValueChange={(value) => updateTrigger(index, { trigger_type: value as any })}
+                          value={trigger.type}
+                          onValueChange={(value) => updateTrigger(index, { type: value as any })}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -461,7 +461,7 @@ export default function ScriptDetailPage() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Badge variant="secondary">{trigger.trigger_type}</Badge>
+                        <Badge variant="secondary">{trigger.type}</Badge>
                       )}
                     </Field>
 
@@ -477,7 +477,7 @@ export default function ScriptDetailPage() {
                     </Field>
                   </div>
 
-                  {(trigger.trigger_type === 'on_publish' || trigger.trigger_type === 'on_subscribe') && (
+                  {(trigger.type === 'on_publish' || trigger.type === 'on_subscribe') && (
                     <Field>
                       <FieldLabel>Topic Filter</FieldLabel>
                       <Input
@@ -587,7 +587,7 @@ export default function ScriptDetailPage() {
                               {log.level.toUpperCase()}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
-                              {log.trigger_type}
+                              {log.type}
                             </Badge>
                             {log.execution_time_ms > 0 && (
                               <span className="text-xs text-muted-foreground">

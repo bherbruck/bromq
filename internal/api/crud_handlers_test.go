@@ -1085,7 +1085,7 @@ func TestBlockProvisionedACLRuleUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body, _ := json.Marshal(UpdateACLRequest{
-				TopicPattern: "updated/topic/#",
+				Topic: "updated/topic/#",
 				Permission:   "pub",
 			})
 			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/acl/%d", tt.ruleID), bytes.NewReader(body))

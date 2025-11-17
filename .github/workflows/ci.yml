@@ -63,7 +63,7 @@ jobs:
         run: |
           mkdir -p bin
           VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
-          go build -ldflags="-X main.version=$VERSION" -o bin/bromq .
+          go build -ldflags="-X main.version=$VERSION" -o bin/bromq ./cmd/server
 
       - name: Upload build artifact
         if: success()

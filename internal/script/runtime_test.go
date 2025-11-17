@@ -161,7 +161,7 @@ func TestRuntimeExecuteTimeout(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "timeout-script",
-		ScriptContent: `
+		Content: `
 			var start = Date.now();
 			while (Date.now() - start < 500) {
 				// Infinite loop that should timeout
@@ -195,7 +195,7 @@ func TestRuntimeExecuteWithPanic(t *testing.T) {
 	script := &storage.Script{
 		ID:            1,
 		Name:          "panic-script",
-		ScriptContent: `var x = undefined.property;`, // This will cause a panic
+		Content: `var x = undefined.property;`, // This will cause a panic
 	}
 
 	message := &Message{
@@ -224,7 +224,7 @@ func TestRuntimeExecuteWithEventData(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "event-test",
-		ScriptContent: `
+		Content: `
 			if (msg.type !== "publish") throw new Error("Wrong type");
 			if (msg.topic !== "test/topic") throw new Error("Wrong topic");
 			if (msg.payload !== "hello") throw new Error("Wrong payload");
@@ -261,7 +261,7 @@ func TestRuntimeLogLevels(t *testing.T) {
 	script := &storage.Script{
 		ID:   1,
 		Name: "log-levels",
-		ScriptContent: `
+		Content: `
 			log.debug("Debug message");
 			log.info("Info message");
 			log.warn("Warn message");
@@ -303,7 +303,7 @@ func TestRuntimeCompilationError(t *testing.T) {
 	script := &storage.Script{
 		ID:            1,
 		Name:          "syntax-error",
-		ScriptContent: `var x = ;`, // Invalid syntax
+		Content: `var x = ;`, // Invalid syntax
 	}
 
 	message := &Message{

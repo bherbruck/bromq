@@ -73,8 +73,8 @@ func TestCreateACLRule(t *testing.T) {
 				t.Errorf("CreateACLRule() userID = %v, want %v", rule.MQTTUserID, tt.userID)
 			}
 
-			if rule.TopicPattern != tt.topicPattern {
-				t.Errorf("CreateACLRule() topicPattern = %v, want %v", rule.TopicPattern, tt.topicPattern)
+			if rule.Topic != tt.topicPattern {
+				t.Errorf("CreateACLRule() topicPattern = %v, want %v", rule.Topic, tt.topicPattern)
 			}
 
 			if rule.Permission != tt.permission {
@@ -791,7 +791,7 @@ func TestCreateProvisionedACLRule(t *testing.T) {
 
 			found := false
 			for _, rule := range rules {
-				if rule.TopicPattern == tt.topicPattern && rule.Permission == tt.permission {
+				if rule.Topic == tt.topicPattern && rule.Permission == tt.permission {
 					found = true
 					if !rule.ProvisionedFromConfig {
 						t.Error("rule should be marked as provisioned")
@@ -843,8 +843,8 @@ func TestDeleteProvisionedACLRules(t *testing.T) {
 	}
 
 	// Verify the remaining rule is the manual one
-	if rules[0].TopicPattern != "manual/1/#" {
-		t.Errorf("expected manual rule to remain, got '%s'", rules[0].TopicPattern)
+	if rules[0].Topic != "manual/1/#" {
+		t.Errorf("expected manual rule to remain, got '%s'", rules[0].Topic)
 	}
 	if rules[0].ProvisionedFromConfig {
 		t.Error("remaining rule should not be marked as provisioned")

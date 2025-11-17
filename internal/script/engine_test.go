@@ -20,20 +20,20 @@ func TestEngineExecuteForTrigger(t *testing.T) {
 	script1, _ := db.CreateScript("script-1", "", `
 		state.set("executed", true);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "test/#", Priority: 100, Enabled: true},
 	})
 
 	_, _ = db.CreateScript("script-2", "", `
 		global.set("script2_ran", true);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "test/topic", Priority: 50, Enabled: true},
+		{Type: "on_publish", Topic: "test/topic", Priority: 50, Enabled: true},
 	})
 
 	// Create disabled script (should not execute)
 	script3, _ := db.CreateScript("script-disabled", "", `
 		state.set("should_not_run", true);
 	`, false, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 10, Enabled: true},
+		{Type: "on_publish", Topic: "test/#", Priority: 10, Enabled: true},
 	})
 
 	message := &Message{
@@ -77,7 +77,7 @@ func TestEngineExecuteForTriggerNoMatch(t *testing.T) {
 
 	// Create script that won't match
 	script, _ := db.CreateScript("no-match", "", `log.info("Should not run");`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "other/#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "other/#", Priority: 100, Enabled: true},
 	})
 
 	message := &Message{
@@ -109,7 +109,7 @@ func TestEngineExecuteForTriggerConnect(t *testing.T) {
 
 	// Create script for connect event
 	script, _ := db.CreateScript("on-connect", "", `log.info("Client connected: " + msg.clientId);`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_connect", TopicFilter: "", Priority: 100, Enabled: true},
+		{Type: "on_connect", Topic: "", Priority: 100, Enabled: true},
 	})
 
 	message := &Message{
@@ -211,7 +211,7 @@ func TestEngineShutdown(t *testing.T) {
 
 	// Create and execute a script that sets state
 	script, _ := db.CreateScript("state-script", "", `state.set("key", "value");`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "#", Priority: 100, Enabled: true},
 	})
 
 	message := &Message{
@@ -255,7 +255,7 @@ func TestEngineShutdownDuringExecution(t *testing.T) {
 		}
 		log.info("Completed");
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "#", Priority: 100, Enabled: true},
 	})
 
 	message := &Message{

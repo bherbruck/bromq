@@ -38,7 +38,7 @@ export interface MQTTClient {
 export interface ACLRule {
   id: number
   mqtt_user_id: number
-  topic_pattern: string
+  topic: string
   permission: 'pub' | 'sub' | 'pubsub'
   provisioned_from_config: boolean
 }
@@ -114,8 +114,8 @@ export interface UpdateBridgeRequest {
 export interface ScriptTrigger {
   id: number
   script_id: number
-  trigger_type: 'on_publish' | 'on_connect' | 'on_disconnect' | 'on_subscribe'
-  topic_filter?: string
+  type: 'on_publish' | 'on_connect' | 'on_disconnect' | 'on_subscribe'
+  topic?: string
   priority: number
   enabled: boolean
   created_at: string
@@ -125,7 +125,7 @@ export interface Script {
   id: number
   name: string
   description?: string
-  script_content: string
+  content: string
   enabled: boolean
   provisioned_from_config: boolean
   metadata?: Record<string, any>
@@ -137,15 +137,15 @@ export interface Script {
 export interface CreateScriptRequest {
   name: string
   description?: string
-  script_content: string
+  content: string
   enabled: boolean
   metadata?: Record<string, any>
   triggers: CreateScriptTriggerRequest[]
 }
 
 export interface CreateScriptTriggerRequest {
-  trigger_type: 'on_publish' | 'on_connect' | 'on_disconnect' | 'on_subscribe'
-  topic_filter?: string
+  type: 'on_publish' | 'on_connect' | 'on_disconnect' | 'on_subscribe'
+  topic?: string
   priority: number
   enabled: boolean
 }
@@ -153,7 +153,7 @@ export interface CreateScriptTriggerRequest {
 export interface UpdateScriptRequest {
   name: string
   description?: string
-  script_content: string
+  content: string
   enabled: boolean
   metadata?: Record<string, any>
   triggers: CreateScriptTriggerRequest[]
@@ -171,7 +171,7 @@ export interface ScriptLog {
 }
 
 export interface TestScriptRequest {
-  script_content: string
+  content: string
   trigger_type: string
   event_data: Record<string, any>
 }
@@ -450,23 +450,23 @@ class APIClient {
 
   async createACLRule(
     mqtt_user_id: number,
-    topic_pattern: string,
+    topic: string,
     permission: 'pub' | 'sub' | 'pubsub'
   ): Promise<ACLRule> {
     return this.request<ACLRule>('/acl', {
       method: 'POST',
-      body: JSON.stringify({ mqtt_user_id, topic_pattern, permission }),
+      body: JSON.stringify({ mqtt_user_id, topic, permission }),
     })
   }
 
   async updateACLRule(
     id: number,
-    topic_pattern: string,
+    topic: string,
     permission: 'pub' | 'sub' | 'pubsub'
   ): Promise<ACLRule> {
     return this.request<ACLRule>(`/acl/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ topic_pattern, permission }),
+      body: JSON.stringify({ topic, permission }),
     })
   }
 

@@ -8,7 +8,7 @@ import (
 // ListACLRules returns all ACL rules
 func (db *DB) ListACLRules() ([]ACLRule, error) {
 	var rules []ACLRule
-	err := db.Order("mqtt_user_id, topic_pattern").Find(&rules).Error
+	err := db.Order("mqtt_user_id, topic").Find(&rules).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ACL rules: %w", err)
 	}
@@ -22,9 +22,9 @@ func (db *DB) ListACLRulesPaginated(page, pageSize int, search, sortBy, sortOrde
 
 	query := db.Model(&ACLRule{})
 
-	// Apply search filter (search in topic_pattern)
+	// Apply search filter (search in topic)
 	if search != "" {
-		query = query.Where("topic_pattern LIKE ?", "%"+search+"%")
+		query = query.Where("topic LIKE ?", "%"+search+"%")
 	}
 
 	// Get total count
@@ -39,7 +39,7 @@ func (db *DB) ListACLRulesPaginated(page, pageSize int, search, sortBy, sortOrde
 	if sortOrder == "" || (sortOrder != "asc" && sortOrder != "desc") {
 		sortOrder = "asc"
 	}
-	query = query.Order(fmt.Sprintf("%s %s, topic_pattern", sortBy, sortOrder))
+	query = query.Order(fmt.Sprintf("%s %s, topic", sortBy, sortOrder))
 
 	// Apply pagination
 	offset := (page - 1) * pageSize
@@ -62,7 +62,7 @@ func (db *DB) GetACLRulesByMQTTUserID(mqttUserID int) ([]ACLRule, error) {
 
 	// Cache miss - query database
 	var rules []ACLRule
-	err := db.Where("mqtt_user_id = ?", mqttUserID).Order("topic_pattern").Find(&rules).Error
+	err := db.Where("mqtt_user_id = ?", mqttUserID).Order("topic").Find(&rules).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ACL rules: %w", err)
 	}
@@ -91,9 +91,9 @@ func (db *DB) CreateACLRule(mqttUserID int, topicPattern, permission string) (*A
 
 	// Create rule
 	rule := ACLRule{
-		MQTTUserID:   uint(mqttUserID),
-		TopicPattern: topicPattern,
-		Permission:   permission,
+		MQTTUserID: uint(mqttUserID),
+		Topic:      topicPattern,
+		Permission: permission,
 	}
 
 	if err := db.Create(&rule).Error; err != nil {
@@ -120,7 +120,7 @@ func (db *DB) UpdateACLRule(id int, topicPattern, permission string) (*ACLRule, 
 	}
 
 	// Update fields
-	rule.TopicPattern = topicPattern
+	rule.Topic = topicPattern
 	rule.Permission = permission
 
 	if err := db.Save(&rule).Error; err != nil {
@@ -192,7 +192,7 @@ func (db *DB) CheckACL(username, clientID, topic, action string) (bool, error) {
 	// Check if any rule matches the topic
 	for _, rule := range rules {
 		// Replace placeholders in the pattern before matching
-		expandedPattern := replacePlaceholders(rule.TopicPattern, username, clientID)
+		expandedPattern := replacePlaceholders(rule.Topic, username, clientID)
 
 		if matchTopic(expandedPattern, topic) {
 			// Check if permission matches action
@@ -277,9 +277,9 @@ func (db *DB) CreateProvisionedACLRule(mqttUserID uint, topicPattern, permission
 
 	// Create rule marked as provisioned
 	rule := ACLRule{
-		MQTTUserID:           mqttUserID,
-		TopicPattern:         topicPattern,
-		Permission:           permission,
+		MQTTUserID:            mqttUserID,
+		Topic:                 topicPattern,
+		Permission:            permission,
 		ProvisionedFromConfig: true,
 	}
 

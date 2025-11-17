@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -11,91 +10,134 @@ import (
 
 // Config represents the MQTT server provisioning configuration
 type Config struct {
-	Users    []MQTTUserConfig `yaml:"users"`
-	ACLRules []ACLRuleConfig  `yaml:"acl_rules"`
-	Bridges  []BridgeConfig   `yaml:"bridges"`
-	Scripts  []ScriptConfig   `yaml:"scripts"`
+	Users    []MQTTUserConfig `yaml:"users" json:"users,omitempty" jsonschema:"title=MQTT Users,description=MQTT authentication credentials for devices (not dashboard users)"`
+	ACLRules []ACLRuleConfig  `yaml:"acl_rules" json:"acl_rules,omitempty" jsonschema:"title=ACL Rules,description=Access control rules for MQTT topic permissions"`
+	Bridges  []BridgeConfig   `yaml:"bridges" json:"bridges,omitempty" jsonschema:"title=MQTT Bridges,description=Bridge connections to remote MQTT brokers for message forwarding"`
+	Scripts  []ScriptConfig   `yaml:"scripts" json:"scripts,omitempty" jsonschema:"title=JavaScript Scripts,description=Custom JavaScript scripts that execute on MQTT events"`
 }
 
 // MQTTUserConfig represents an MQTT user in the config file
 type MQTTUserConfig struct {
-	Username    string                 `yaml:"username"`
-	Password    string                 `yaml:"password"`
-	Description string                 `yaml:"description,omitempty"`
-	Metadata    map[string]interface{} `yaml:"metadata,omitempty"`
+	Username    string                 `yaml:"username" json:"username" jsonschema:"required,title=Username,description=MQTT username for device authentication. Supports env vars: ${VAR} or ${VAR:-default},minLength=1,example=sensor_user"`
+	Password    string                 `yaml:"password" json:"password" jsonschema:"required,title=Password,description=MQTT password. Supports env vars: ${PASSWORD} or ${PASSWORD:-default},minLength=1,example=${SENSOR_PASSWORD}"`
+	Description string                 `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"title=Description,description=Human-readable description of this MQTT user,example=Temperature and humidity sensors"`
+	Metadata    map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"title=Metadata,description=Custom metadata key-value pairs (any valid JSON)"`
 }
 
 // ACLRuleConfig represents an ACL rule in the config file
 type ACLRuleConfig struct {
-	MQTTUsername string `yaml:"mqtt_username"`
-	TopicPattern string `yaml:"topic_pattern"`
-	Permission   string `yaml:"permission"`
+	Username   string `yaml:"username" json:"username" jsonschema:"required,title=Username,description=MQTT username this rule applies to (must exist in users list),minLength=1,example=sensor_user"`
+	Topic      string `yaml:"topic" json:"topic" jsonschema:"required,title=Topic Pattern,description=MQTT topic pattern with wildcards (+/#) and runtime placeholders (${username}/${clientid}),minLength=1,example=sensors/${username}/#"`
+	Permission string `yaml:"permission" json:"permission" jsonschema:"required,title=Permission,description=Access permission for this topic pattern,enum=pub,enum=sub,enum=pubsub"`
 }
 
 // BridgeConfig represents an MQTT bridge in the config file
 type BridgeConfig struct {
-	Name              string                 `yaml:"name"`
-	RemoteHost        string                 `yaml:"remote_host"`
-	RemotePort        int                    `yaml:"remote_port,omitempty"`
-	RemoteUsername    string                 `yaml:"remote_username,omitempty"`
-	RemotePassword    string                 `yaml:"remote_password,omitempty"`
-	ClientID          string                 `yaml:"client_id,omitempty"`
-	CleanSession      bool                   `yaml:"clean_session,omitempty"`
-	KeepAlive         int                    `yaml:"keep_alive,omitempty"`
-	ConnectionTimeout int                    `yaml:"connection_timeout,omitempty"`
-	Metadata          map[string]interface{} `yaml:"metadata,omitempty"`
-	Topics            []BridgeTopicConfig    `yaml:"topics"`
+	Name              string                 `yaml:"name" json:"name" jsonschema:"required,title=Bridge Name,description=Unique name for this bridge connection,minLength=1,example=cloud-bridge"`
+	Host              string                 `yaml:"host" json:"host" jsonschema:"required,title=Remote Host,description=Remote MQTT broker hostname or IP. Supports env vars: ${HOST:-default},minLength=1,example=${CLOUD_MQTT_HOST:-mqtt.example.com}"`
+	Port              int                    `yaml:"port,omitempty" json:"port,omitempty" jsonschema:"title=Remote Port,description=Remote MQTT broker port,default=1883,minimum=1,maximum=65535,example=1883"`
+	Username          string                 `yaml:"username,omitempty" json:"username,omitempty" jsonschema:"title=Username,description=Username for remote broker authentication. Supports env vars,example=${CLOUD_USER}"`
+	Password          string                 `yaml:"password,omitempty" json:"password,omitempty" jsonschema:"title=Password,description=Password for remote broker authentication. Supports env vars,example=${CLOUD_PASSWORD}"`
+	ClientID          string                 `yaml:"client_id,omitempty" json:"client_id,omitempty" jsonschema:"title=Client ID,description=MQTT client ID for bridge connection,example=edge-broker-001"`
+	CleanSession      bool                   `yaml:"clean_session,omitempty" json:"clean_session,omitempty" jsonschema:"title=Clean Session,description=Start with clean session (true) or resume previous session (false),default=true"`
+	KeepAlive         int                    `yaml:"keep_alive,omitempty" json:"keep_alive,omitempty" jsonschema:"title=Keep Alive,description=Keep alive interval in seconds,default=60,minimum=1,example=60"`
+	ConnectionTimeout int                    `yaml:"connection_timeout,omitempty" json:"connection_timeout,omitempty" jsonschema:"title=Connection Timeout,description=Connection timeout in seconds,default=30,minimum=1,example=30"`
+	Metadata          map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"title=Metadata,description=Custom metadata key-value pairs"`
+	Topics            []BridgeTopicConfig    `yaml:"topics" json:"topics" jsonschema:"required,title=Topic Mappings,description=Topic mappings for message forwarding,minItems=1"`
 }
 
 // BridgeTopicConfig represents a topic mapping in a bridge configuration
 type BridgeTopicConfig struct {
-	LocalPattern  string `yaml:"local_pattern"`
-	RemotePattern string `yaml:"remote_pattern"`
-	Direction     string `yaml:"direction"`
-	QoS           int    `yaml:"qos,omitempty"`
+	Local     string `yaml:"local" json:"local" jsonschema:"required,title=Local Topic,description=Local topic pattern to match messages,minLength=1,example=sensors/#"`
+	Remote    string `yaml:"remote" json:"remote" jsonschema:"required,title=Remote Topic,description=Remote topic pattern for forwarding,minLength=1,example=edge/sensors/#"`
+	Direction string `yaml:"direction" json:"direction" jsonschema:"required,title=Direction,description=Message forwarding direction,enum=in,enum=out,enum=both,example=out"`
+	QoS       int    `yaml:"qos,omitempty" json:"qos,omitempty" jsonschema:"title=QoS,description=MQTT Quality of Service level,default=0,minimum=0,maximum=2,example=1"`
 }
 
 // ScriptConfig represents a script in the config file
 type ScriptConfig struct {
-	Name           string                 `yaml:"name"`
-	Description    string                 `yaml:"description,omitempty"`
-	Enabled        bool                   `yaml:"enabled"`
-	ScriptFile     string                 `yaml:"script_file,omitempty"`     // Path to script file
-	ScriptContent  string                 `yaml:"script_content,omitempty"`  // Inline script
-	ScriptLanguage string                 `yaml:"script_language,omitempty"` // Currently only 'javascript' supported
-	Metadata       map[string]interface{} `yaml:"metadata,omitempty"`
-	Triggers       []ScriptTriggerConfig  `yaml:"triggers"`
+	Name        string                 `yaml:"name" json:"name" jsonschema:"required,title=Script Name,description=Unique name for this script,minLength=1,example=message-logger"`
+	Description string                 `yaml:"description,omitempty" json:"description,omitempty" jsonschema:"title=Description,description=Human-readable description,example=Log all published messages"`
+	Enabled     bool                   `yaml:"enabled" json:"enabled" jsonschema:"title=Enabled,description=Whether this script is active,default=true"`
+	File        string                 `yaml:"file,omitempty" json:"file,omitempty" jsonschema:"title=Script File,description=Path to JavaScript file. Supports env vars. Mutually exclusive with content,example=./scripts/logger.js"`
+	Content     string                 `yaml:"content,omitempty" json:"content,omitempty" jsonschema:"title=Script Content,description=Inline JavaScript code. Supports env vars (${API_KEY}) and $$ escaping for JS templates ($${var}). Mutually exclusive with file,example=log.info('Message:', msg.topic);"`
+	Metadata    map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty" jsonschema:"title=Metadata,description=Custom metadata key-value pairs accessible in script"`
+	Triggers    []ScriptTriggerConfig  `yaml:"triggers" json:"triggers" jsonschema:"required,title=Triggers,description=When this script should execute,minItems=1"`
 }
 
 // ScriptTriggerConfig represents a trigger for a script
 type ScriptTriggerConfig struct {
-	TriggerType string `yaml:"trigger_type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
-	TopicFilter string `yaml:"topic_filter,omitempty"`
-	Priority    int    `yaml:"priority,omitempty"` // Default: 100
-	Enabled     bool   `yaml:"enabled"`
+	Type     string `yaml:"type" json:"type" jsonschema:"required,title=Trigger Type,description=MQTT event type that triggers this script,enum=on_publish,enum=on_connect,enum=on_disconnect,enum=on_subscribe,example=on_publish"`
+	Topic    string `yaml:"topic,omitempty" json:"topic,omitempty" jsonschema:"title=Topic Filter,description=MQTT topic pattern to filter events (empty = all topics). Supports wildcards (+/#),example=#"`
+	Priority int    `yaml:"priority,omitempty" json:"priority,omitempty" jsonschema:"title=Priority,description=Execution order (lower = earlier). Default: 100,default=100,minimum=0,example=50"`
+	Enabled  bool   `yaml:"enabled" json:"enabled" jsonschema:"title=Enabled,description=Whether this trigger is active,default=true"`
 }
 
-// protectScriptVariables protects ${...} in script_content blocks from env var expansion
-func protectScriptVariables(content string) string {
-	// Match script_content: followed by | or > and capture the indented block
-	// This regex finds script_content blocks and protects ${...} inside them
-	re := regexp.MustCompile(`(?m)(script_content:\s*[|>][-+]?\s*\n)((?:[ \t]+.+\n)*)`)
-
-	return re.ReplaceAllStringFunc(content, func(match string) string {
-		// Replace ${ with marker only in script content
-		return strings.ReplaceAll(match, "${", "__SCRIPT_VAR_OPEN__")
-	})
+// reservedPlaceholders lists variable names that should never be expanded as env vars
+// These are runtime placeholders used in ACL rules and other MQTT contexts
+var reservedPlaceholders = []string{
+	"username", // ACL placeholder - replaced at runtime with MQTT username
+	"clientid", // ACL placeholder - replaced at runtime with MQTT client ID
+	// Add more reserved placeholders here as needed
 }
 
-// restoreScriptVariables restores protected ${...} markers back to original form
-func restoreScriptVariables(content string) string {
-	return strings.ReplaceAll(content, "__SCRIPT_VAR_OPEN__", "${")
+// isReservedPlaceholder checks if a variable name is a reserved placeholder
+func isReservedPlaceholder(name string) bool {
+	for _, reserved := range reservedPlaceholders {
+		if name == reserved {
+			return true
+		}
+	}
+	return false
+}
+
+// customMapper is used by os.Expand to handle environment variable expansion
+// Supports:
+// - ${username} and ${clientid} - preserved as ACL/MQTT placeholders
+// - ${VAR:-default} - env var with default value (Docker Compose style)
+// - ${VAR} - standard env var expansion
+func customMapper(name string) string {
+	// Preserve reserved runtime placeholders - never expand these
+	if isReservedPlaceholder(name) {
+		return "${" + name + "}"
+	}
+
+	// Handle default value syntax: ${VAR:-default}
+	if strings.Contains(name, ":-") {
+		parts := strings.SplitN(name, ":-", 2)
+		if len(parts) == 2 {
+			varName := strings.TrimSpace(parts[0])
+			defaultVal := parts[1] // Don't trim - preserve whitespace in default
+
+			// Return env var if set and non-empty, otherwise use default
+			if val := os.Getenv(varName); val != "" {
+				return val
+			}
+			return defaultVal
+		}
+	}
+
+	// Standard env var expansion
+	return os.Getenv(name)
+}
+
+// escapeDollarSigns protects $$ (double dollar) from expansion
+// $$ becomes a temporary marker that will be restored to $ after expansion
+func escapeDollarSigns(content string) string {
+	return strings.ReplaceAll(content, "$$", "__ESCAPED_DOLLAR__")
+}
+
+// restoreDollarSigns converts markers back to literal $
+func restoreDollarSigns(content string) string {
+	return strings.ReplaceAll(content, "__ESCAPED_DOLLAR__", "$")
 }
 
 // Load reads and parses a YAML config file with environment variable interpolation
-// Environment variables in ${VAR} format are expanded EXCEPT:
-// - ${username} and ${clientid} (ACL placeholders)
-// - Any ${...} inside script_content blocks (JavaScript template literals)
+// Supports Docker Compose-style syntax:
+// - ${VAR} - expand environment variable (empty string if unset)
+// - ${VAR:-default} - expand env var with default value if unset/empty
+// - ${username} and ${clientid} - preserved as ACL/MQTT runtime placeholders
+// - $${...} - escaped, becomes literal ${...} (for JavaScript template literals)
 func Load(path string) (*Config, error) {
 	// Read the file
 	data, err := os.ReadFile(path)
@@ -103,26 +145,18 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Protect script content and reserved placeholders before env var expansion
 	content := string(data)
 
-	// Protect ACL placeholders
-	content = strings.ReplaceAll(content, "${username}", "__RESERVED_USERNAME__")
-	content = strings.ReplaceAll(content, "${clientid}", "__RESERVED_CLIENTID__")
+	// Step 1: Protect $$ (escaped dollar signs) from expansion
+	// $$ → __ESCAPED_DOLLAR__ → (after expansion) → $
+	content = escapeDollarSigns(content)
 
-	// Protect script content from env var expansion
-	// Pattern: script_content: | or script_content: >
-	// We need to protect everything between script_content: and the next top-level key
-	// Simple approach: protect ${ inside script blocks by escaping them
-	protectedContent := protectScriptVariables(content)
+	// Step 2: Expand environment variables using custom mapper
+	// Mapper handles: ${username}, ${clientid}, ${VAR:-default}, ${VAR}
+	expanded := os.Expand(content, customMapper)
 
-	// Expand environment variables (will not touch protected markers)
-	expanded := os.ExpandEnv(protectedContent)
-
-	// Restore protected script variables and ACL placeholders
-	expanded = restoreScriptVariables(expanded)
-	expanded = strings.ReplaceAll(expanded, "__RESERVED_USERNAME__", "${username}")
-	expanded = strings.ReplaceAll(expanded, "__RESERVED_CLIENTID__", "${clientid}")
+	// Step 3: Restore escaped dollar signs
+	expanded = restoreDollarSigns(expanded)
 
 	// Parse YAML
 	var cfg Config
@@ -162,24 +196,24 @@ func (c *Config) Validate() error {
 	}
 
 	for _, rule := range c.ACLRules {
-		if rule.MQTTUsername == "" {
-			return fmt.Errorf("ACL rule missing mqtt_username")
+		if rule.Username == "" {
+			return fmt.Errorf("ACL rule missing username")
 		}
-		if rule.TopicPattern == "" {
-			return fmt.Errorf("ACL rule for user '%s' missing topic_pattern", rule.MQTTUsername)
+		if rule.Topic == "" {
+			return fmt.Errorf("ACL rule for user '%s' missing topic", rule.Username)
 		}
 		if rule.Permission == "" {
-			return fmt.Errorf("ACL rule for user '%s' missing permission", rule.MQTTUsername)
+			return fmt.Errorf("ACL rule for user '%s' missing permission", rule.Username)
 		}
 
 		// Check if username exists
-		if !validUsernames[rule.MQTTUsername] {
-			return fmt.Errorf("ACL rule references unknown user: %s", rule.MQTTUsername)
+		if !validUsernames[rule.Username] {
+			return fmt.Errorf("ACL rule references unknown user: %s", rule.Username)
 		}
 
 		// Validate permission
 		if rule.Permission != "pub" && rule.Permission != "sub" && rule.Permission != "pubsub" {
-			return fmt.Errorf("ACL rule for user '%s' has invalid permission: %s (must be pub, sub, or pubsub)", rule.MQTTUsername, rule.Permission)
+			return fmt.Errorf("ACL rule for user '%s' has invalid permission: %s (must be pub, sub, or pubsub)", rule.Username, rule.Permission)
 		}
 	}
 
@@ -189,8 +223,8 @@ func (c *Config) Validate() error {
 		if bridge.Name == "" {
 			return fmt.Errorf("bridge missing name")
 		}
-		if bridge.RemoteHost == "" {
-			return fmt.Errorf("bridge '%s' missing remote_host", bridge.Name)
+		if bridge.Host == "" {
+			return fmt.Errorf("bridge '%s' missing host", bridge.Name)
 		}
 		if bridgeNames[bridge.Name] {
 			return fmt.Errorf("duplicate bridge name: %s", bridge.Name)
@@ -198,11 +232,11 @@ func (c *Config) Validate() error {
 		bridgeNames[bridge.Name] = true
 
 		// Set defaults
-		if bridge.RemotePort == 0 {
-			bridge.RemotePort = 1883
+		if bridge.Port == 0 {
+			bridge.Port = 1883
 		}
-		if bridge.RemotePort < 1 || bridge.RemotePort > 65535 {
-			return fmt.Errorf("bridge '%s' has invalid remote_port: %d", bridge.Name, bridge.RemotePort)
+		if bridge.Port < 1 || bridge.Port > 65535 {
+			return fmt.Errorf("bridge '%s' has invalid port: %d", bridge.Name, bridge.Port)
 		}
 
 		// Validate topics
@@ -210,11 +244,11 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("bridge '%s' has no topics configured", bridge.Name)
 		}
 		for _, topic := range bridge.Topics {
-			if topic.LocalPattern == "" {
-				return fmt.Errorf("bridge '%s' has topic with empty local_pattern", bridge.Name)
+			if topic.Local == "" {
+				return fmt.Errorf("bridge '%s' has topic with empty local", bridge.Name)
 			}
-			if topic.RemotePattern == "" {
-				return fmt.Errorf("bridge '%s' has topic with empty remote_pattern", bridge.Name)
+			if topic.Remote == "" {
+				return fmt.Errorf("bridge '%s' has topic with empty remote", bridge.Name)
 			}
 			if topic.Direction != "in" && topic.Direction != "out" && topic.Direction != "both" {
 				return fmt.Errorf("bridge '%s' has invalid direction '%s' (must be in, out, or both)", bridge.Name, topic.Direction)
@@ -236,14 +270,14 @@ func (c *Config) Validate() error {
 		}
 		scriptNames[script.Name] = true
 
-		// Must have either script_file or script_content, but not both
-		hasFile := script.ScriptFile != ""
-		hasContent := script.ScriptContent != ""
+		// Must have either file or content, but not both
+		hasFile := script.File != ""
+		hasContent := script.Content != ""
 		if !hasFile && !hasContent {
-			return fmt.Errorf("script '%s' must have either script_file or script_content", script.Name)
+			return fmt.Errorf("script '%s' must have either file or content", script.Name)
 		}
 		if hasFile && hasContent {
-			return fmt.Errorf("script '%s' cannot have both script_file and script_content", script.Name)
+			return fmt.Errorf("script '%s' cannot have both file and content", script.Name)
 		}
 
 		// Validate triggers
@@ -251,20 +285,20 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("script '%s' has no triggers configured", script.Name)
 		}
 		for i, trigger := range script.Triggers {
-			if trigger.TriggerType == "" {
-				return fmt.Errorf("script '%s' trigger %d missing trigger_type", script.Name, i+1)
+			if trigger.Type == "" {
+				return fmt.Errorf("script '%s' trigger %d missing type", script.Name, i+1)
 			}
 			// Validate trigger type
 			validTriggers := []string{"on_publish", "on_connect", "on_disconnect", "on_subscribe"}
 			valid := false
 			for _, vt := range validTriggers {
-				if trigger.TriggerType == vt {
+				if trigger.Type == vt {
 					valid = true
 					break
 				}
 			}
 			if !valid {
-				return fmt.Errorf("script '%s' has invalid trigger_type '%s' (must be one of: on_publish, on_connect, on_disconnect, on_subscribe)", script.Name, trigger.TriggerType)
+				return fmt.Errorf("script '%s' has invalid type '%s' (must be one of: on_publish, on_connect, on_disconnect, on_subscribe)", script.Name, trigger.Type)
 			}
 
 			// Set default priority

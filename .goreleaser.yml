@@ -5,10 +5,11 @@ project_name: bromq
 before:
   hooks:
     - go mod tidy
+    - go run cmd/schema-gen/main.go > schema/bromq-config.schema.json
 
 builds:
   - id: bromq
-    main: .
+    main: ./cmd/server
     binary: bromq
     env:
       - CGO_ENABLED=0
@@ -43,6 +44,8 @@ archives:
     files:
       - LICENSE
       - README.md
+      - schema/bromq-config.schema.json
+      - examples/config/*.yml
 
 checksum:
   name_template: "checksums.txt"

@@ -282,10 +282,10 @@ func (e *Engine) executeScript(script *storage.Script, message *Message) {
 func (e *Engine) TestScript(scriptContent string, triggerType string, messageData map[string]interface{}) *ExecutionResult {
 	// Create mock script
 	script := &storage.Script{
-		ID:            0, // Test script has no ID
-		Name:          "test-script",
-		ScriptContent: scriptContent,
-		Enabled:       true,
+		ID:      0, // Test script has no ID
+		Name:    "test-script",
+		Content: scriptContent,
+		Enabled: true,
 	}
 
 	// Build message from provided data

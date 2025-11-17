@@ -68,13 +68,13 @@ func (MQTTClient) TableName() string {
 // ACLRule represents an access control rule for MQTT topics
 // Rules are associated with MQTTUser (credentials), not individual clients
 type ACLRule struct {
-	ID                   uint      `gorm:"primaryKey" json:"id"`
-	MQTTUserID           uint      `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"mqtt_user_id"`
-	TopicPattern         string    `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"topic_pattern"`
-	Permission           string    `gorm:"not null;check:permission IN ('pub', 'sub', 'pubsub')" json:"permission"`
-	ProvisionedFromConfig bool     `gorm:"default:false" json:"provisioned_from_config"` // Managed by config file
-	CreatedAt            time.Time `json:"created_at"`
-	MQTTUser             MQTTUser  `gorm:"foreignKey:MQTTUserID;constraint:OnDelete:CASCADE" json:"-"`
+	ID                    uint      `gorm:"primaryKey" json:"id"`
+	MQTTUserID            uint      `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"mqtt_user_id"`
+	Topic                 string    `gorm:"uniqueIndex:idx_acl_user_topic;not null" json:"topic"`
+	Permission            string    `gorm:"not null;check:permission IN ('pub', 'sub', 'pubsub')" json:"permission"`
+	ProvisionedFromConfig bool      `gorm:"default:false" json:"provisioned_from_config"` // Managed by config file
+	CreatedAt             time.Time `json:"created_at"`
+	MQTTUser              MQTTUser  `gorm:"foreignKey:MQTTUserID;constraint:OnDelete:CASCADE" json:"-"`
 }
 
 // TableName specifies the table name for ACLRule model
@@ -119,13 +119,13 @@ func (c *MQTTClient) BeforeCreate(tx *gorm.DB) error {
 type Bridge struct {
 	ID                    uint           `gorm:"primaryKey" json:"id"`
 	Name                  string         `gorm:"uniqueIndex;not null" json:"name"`
-	RemoteHost            string         `gorm:"not null" json:"remote_host"`
-	RemotePort            int            `gorm:"not null;default:1883" json:"remote_port"`
-	RemoteUsername        string         `gorm:"default:''" json:"remote_username"`
-	RemotePassword        string         `gorm:"default:''" json:"-"` // Plain text, needed for outbound connections
+	Host                  string         `gorm:"not null" json:"host"`
+	Port                  int            `gorm:"not null;default:1883" json:"port"`
+	Username              string         `gorm:"default:''" json:"username"`
+	Password              string         `gorm:"default:''" json:"-"` // Plain text, needed for outbound connections
 	ClientID              string         `gorm:"default:''" json:"client_id"`
 	CleanSession          bool           `gorm:"default:true" json:"clean_session"`
-	KeepAlive             int            `gorm:"default:60" json:"keep_alive"`       // seconds
+	KeepAlive             int            `gorm:"default:60" json:"keep_alive"`         // seconds
 	ConnectionTimeout     int            `gorm:"default:30" json:"connection_timeout"` // seconds
 	ProvisionedFromConfig bool           `gorm:"default:false" json:"provisioned_from_config"`
 	Metadata              datatypes.JSON `gorm:"type:jsonb" json:"metadata,omitempty"`
@@ -141,13 +141,13 @@ func (Bridge) TableName() string {
 
 // BridgeTopic represents a topic mapping for an MQTT bridge
 type BridgeTopic struct {
-	ID            uint      `gorm:"primaryKey" json:"id"`
-	BridgeID      uint      `gorm:"not null;index" json:"bridge_id"`
-	LocalPattern  string    `gorm:"not null" json:"local_pattern"`
-	RemotePattern string    `gorm:"not null" json:"remote_pattern"`
-	Direction     string    `gorm:"not null;default:'out';check:direction IN ('in', 'out', 'both')" json:"direction"`
-	QoS           byte      `gorm:"column:qos;not null;default:0" json:"qos"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	BridgeID  uint      `gorm:"not null;index" json:"bridge_id"`
+	Local     string    `gorm:"not null" json:"local"`
+	Remote    string    `gorm:"not null" json:"remote"`
+	Direction string    `gorm:"not null;default:'out';check:direction IN ('in', 'out', 'both')" json:"direction"`
+	QoS       byte      `gorm:"column:qos;not null;default:0" json:"qos"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // TableName specifies the table name for BridgeTopic model
@@ -160,7 +160,7 @@ type Script struct {
 	ID                    uint            `gorm:"primaryKey" json:"id"`
 	Name                  string          `gorm:"uniqueIndex;not null" json:"name"`
 	Description           string          `gorm:"type:text" json:"description"`
-	ScriptContent         string          `gorm:"type:text;not null" json:"script_content"`
+	Content               string          `gorm:"type:text;not null" json:"content"`
 	Enabled               bool            `gorm:"default:true" json:"enabled"`
 	TimeoutSeconds        *int            `gorm:"default:null" json:"timeout_seconds,omitempty"` // Script execution timeout in seconds (null = use default)
 	ProvisionedFromConfig bool            `gorm:"default:false" json:"provisioned_from_config"`
@@ -177,13 +177,13 @@ func (Script) TableName() string {
 
 // ScriptTrigger defines when a script should execute
 type ScriptTrigger struct {
-	ID          uint      `gorm:"primaryKey" json:"id"`
-	ScriptID    uint      `gorm:"not null;index:idx_script_trigger" json:"script_id"`
-	TriggerType string    `gorm:"not null;index:idx_script_trigger;check:trigger_type IN ('on_publish', 'on_connect', 'on_disconnect', 'on_subscribe')" json:"trigger_type"`
-	TopicFilter string    `gorm:"default:''" json:"topic_filter"` // MQTT topic pattern (empty for non-topic events)
-	Priority    int       `gorm:"default:100" json:"priority"`    // Execution order (lower = earlier)
-	Enabled     bool      `gorm:"default:true" json:"enabled"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	ScriptID  uint      `gorm:"not null;index:idx_script_trigger" json:"script_id"`
+	Type      string    `gorm:"not null;index:idx_script_trigger;check:type IN ('on_publish', 'on_connect', 'on_disconnect', 'on_subscribe')" json:"type"`
+	Topic     string    `gorm:"default:''" json:"topic"` // MQTT topic pattern (empty for non-topic events)
+	Priority  int       `gorm:"default:100" json:"priority"` // Execution order (lower = earlier)
+	Enabled   bool      `gorm:"default:true" json:"enabled"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // TableName specifies the table name for ScriptTrigger model
@@ -195,7 +195,7 @@ func (ScriptTrigger) TableName() string {
 type ScriptLog struct {
 	ID              uint           `gorm:"primaryKey" json:"id"`
 	ScriptID        uint           `gorm:"not null;index:idx_script_log_timestamp" json:"script_id"`
-	TriggerType     string         `gorm:"not null" json:"trigger_type"`
+	Type            string         `gorm:"not null" json:"type"`
 	Level           string         `gorm:"not null;check:level IN ('debug', 'info', 'warn', 'error')" json:"level"`
 	Message         string         `gorm:"type:text" json:"message"`
 	Context         datatypes.JSON `gorm:"type:jsonb" json:"context,omitempty"` // Client ID, topic, etc.

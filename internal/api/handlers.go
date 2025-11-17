@@ -109,7 +109,7 @@ func (h *Handler) CreateACL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.db.CreateACLRule(req.MQTTUserID, req.TopicPattern, req.Permission)
+	rule, err := h.db.CreateACLRule(req.MQTTUserID, req.Topic, req.Permission)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to create ACL rule: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -147,7 +147,7 @@ func (h *Handler) UpdateACL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.db.UpdateACLRule(id, req.TopicPattern, req.Permission)
+	rule, err := h.db.UpdateACLRule(id, req.Topic, req.Permission)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to update ACL rule: %s"}`, err), http.StatusInternalServerError)
 		return

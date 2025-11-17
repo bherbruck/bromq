@@ -28,7 +28,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy only Go source files
-COPY main.go ./
+COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 COPY hooks/ ./hooks/
 
@@ -41,7 +41,7 @@ COPY --from=frontend /app/web/dist/client ./web/dist/client
 # Build the application with optimizations (pure Go, no CGO!)
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -X main.version=${VERSION}" \
-    -o bromq .
+    -o bromq ./cmd/server
 
 # Stage 3: Runtime image
 FROM alpine:latest

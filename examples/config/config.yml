@@ -1,13 +1,24 @@
+# yaml-language-server: $schema=../../schema/bromq-config.schema.json
 # BroMQ Configuration File
 #
 # This file is used to provision MQTT users and ACL rules.
 # The configuration is synced to the database on every startup.
 # This file is the source of truth for provisioned items (like Grafana provisioning).
 #
-# Environment variable interpolation is supported: ${VAR_NAME} or $VAR_NAME
-# Reserved placeholders are preserved: ${username} and ${clientid}
-#   - ${username} is replaced at runtime with the authenticated MQTT username
-#   - ${clientid} is replaced at runtime with the MQTT client ID
+# Environment Variable Interpolation (Docker Compose style):
+#   ${VAR}           - Expand env var (empty string if unset)
+#   ${VAR:-default}  - Expand env var with default value
+#   ${username}      - Reserved ACL placeholder (NOT expanded)
+#   ${clientid}      - Reserved ACL placeholder (NOT expanded)
+#   $${...}          - Escaped, becomes literal ${...} (for JavaScript templates)
+#
+# Examples:
+#   password: ${DB_PASSWORD}                    # Required env var
+#   host: ${MQTT_HOST:-mqtt.example.com}       # With default
+#   topic: "user/${username}/data"              # ACL placeholder (preserved)
+#   content: |
+#     const key = "${API_KEY}";                  # Env var in script
+#     const topic = `device/$${id}/status`;      # JS template (escaped with $$)
 #
 # Usage:
 #   ./bromq -config config.yml
@@ -48,79 +59,79 @@ users:
 acl_rules:
   # ===== Sensor User Rules =====
   # Sensors can publish/subscribe to their own namespace using ${username} placeholder
-  - mqtt_username: sensor_user
-    topic_pattern: "sensors/${username}/#"
+  - username: sensor_user
+    topic: "sensors/${username}/#"
     permission: pubsub
 
   # Sensors can publish telemetry using ${clientid} placeholder (per-device isolation)
-  - mqtt_username: sensor_user
-    topic_pattern: "telemetry/${clientid}/data"
+  - username: sensor_user
+    topic: "telemetry/${clientid}/data"
     permission: pub
 
   # Sensors can subscribe to commands for their specific device
-  - mqtt_username: sensor_user
-    topic_pattern: "commands/${clientid}/#"
+  - username: sensor_user
+    topic: "commands/${clientid}/#"
     permission: sub
 
   # Sensors can publish to shared data topics with wildcards
-  - mqtt_username: sensor_user
-    topic_pattern: "data/+/temperature"
+  - username: sensor_user
+    topic: "data/+/temperature"
     permission: pub
 
-  - mqtt_username: sensor_user
-    topic_pattern: "data/+/humidity"
+  - username: sensor_user
+    topic: "data/+/humidity"
     permission: pub
 
   # ===== Camera User Rules =====
   # Cameras can publish video streams
-  - mqtt_username: camera_user
-    topic_pattern: "video/${clientid}/stream"
+  - username: camera_user
+    topic: "video/${clientid}/stream"
     permission: pub
 
   # Cameras receive control commands
-  - mqtt_username: camera_user
-    topic_pattern: "camera/${clientid}/control"
+  - username: camera_user
+    topic: "camera/${clientid}/control"
     permission: sub
 
   # ===== Automation User Rules =====
   # Automation can read all sensor data
-  - mqtt_username: automation_user
-    topic_pattern: "sensors/#"
+  - username: automation_user
+    topic: "sensors/#"
     permission: sub
 
-  - mqtt_username: automation_user
-    topic_pattern: "data/#"
+  - username: automation_user
+    topic: "data/#"
     permission: sub
 
   # Automation can publish commands to all devices
-  - mqtt_username: automation_user
-    topic_pattern: "commands/#"
+  - username: automation_user
+    topic: "commands/#"
     permission: pub
 
   # Automation can access building systems
-  - mqtt_username: automation_user
-    topic_pattern: "building/hvac/#"
+  - username: automation_user
+    topic: "building/hvac/#"
     permission: pubsub
 
-  - mqtt_username: automation_user
-    topic_pattern: "building/lighting/#"
+  - username: automation_user
+    topic: "building/lighting/#"
     permission: pubsub
 
   # ===== Admin Device Rules =====
   # Admin devices have full access
-  - mqtt_username: admin_device
-    topic_pattern: "#"
+  - username: admin_device
+    topic: "#"
     permission: pubsub
 
 # MQTT Bridges (connect to remote MQTT brokers)
 # Bridges forward messages between this broker and remote brokers
 bridges:
-  # Example: Forward sensor data to cloud broker
+  # Example: Forward sensor data to cloud broker (with default values)
   - name: cloud-bridge
-    remote_host: ${CLOUD_MQTT_HOST}
-    remote_port: 1883
-    remote_username: ${CLOUD_MQTT_USER}
-    remote_password: ${CLOUD_MQTT_PASSWORD}
+    host: ${CLOUD_MQTT_HOST:-mqtt.cloud.example.com}  # Default if env var not set
+    port: 1883
+    username: ${CLOUD_MQTT_USER:-cloud_user}          # Default username
+    password: ${CLOUD_MQTT_PASSWORD}                  # Required (no default)
     client_id: edge-broker-001
     clean_session: true
     keep_alive: 60
@@ -130,23 +141,23 @@ bridges:
       location: "edge-to-cloud"
     topics:
       # Forward all sensor data to cloud with prefix
-      - local_pattern: "sensors/#"
-        remote_pattern: "edge/site-a/sensors/#"
+      - local: "sensors/#"
+        remote: "edge/site-a/sensors/#"
         direction: out
         qos: 1
 
       # Receive commands from cloud
-      - local_pattern: "commands/#"
-        remote_pattern: "cloud/commands/site-a/#"
+      - local: "commands/#"
+        remote: "cloud/commands/site-a/#"
         direction: in
         qos: 1
 
   # Example: Connect to partner/customer broker
   - name: partner-bridge
-    remote_host: mqtt.partner-company.com
-    remote_port: 8883
-    remote_username: integration_user
-    remote_password: ${PARTNER_MQTT_PASSWORD}
+    host: mqtt.partner-company.com
+    port: 8883
+    username: integration_user
+    password: ${PARTNER_MQTT_PASSWORD}
     client_id: integration-bridge
     clean_session: false
     keep_alive: 120
@@ -154,33 +165,33 @@ bridges:
       description: "Integration with partner systems"
     topics:
       # Share specific data both ways
-      - local_pattern: "shared/data/#"
-        remote_pattern: "shared/data/#"
+      - local: "shared/data/#"
+        remote: "shared/data/#"
         direction: both
         qos: 2
 
       # Receive alerts from partner
-      - local_pattern: "partner/alerts/#"
-        remote_pattern: "alerts/#"
+      - local: "partner/alerts/#"
+        remote: "alerts/#"
         direction: in
         qos: 1
 
   # Example: Backup/archive broker
   - name: archive-bridge
-    remote_host: ${ARCHIVE_MQTT_HOST}
-    remote_port: 1883
-    remote_username: archive_writer
-    remote_password: ${ARCHIVE_MQTT_PASSWORD}
+    host: ${ARCHIVE_MQTT_HOST}
+    port: 1883
+    username: archive_writer
+    password: ${ARCHIVE_MQTT_PASSWORD}
     topics:
       # Archive all telemetry data (one-way)
-      - local_pattern: "telemetry/#"
-        remote_pattern: "archive/telemetry/#"
+      - local: "telemetry/#"
+        remote: "archive/telemetry/#"
         direction: out
         qos: 0
 
       # Archive video metadata
-      - local_pattern: "video/+/metadata"
-        remote_pattern: "archive/video/+/metadata"
+      - local: "video/+/metadata"
+        remote: "archive/video/+/metadata"
         direction: out
         qos: 0
 
@@ -191,10 +202,10 @@ scripts:
   - name: message-logger
     description: "Log all published messages with metadata"
     enabled: true
-    script_file: ./examples/scripts/message-logger.js
+    file: ./examples/scripts/message-logger.js
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "#"
+      - type: on_publish
+        topic: "#"
         priority: 100
         enabled: true
 
@@ -202,13 +213,13 @@ scripts:
   - name: temperature-alert
     description: "Monitor temperature readings and send alerts"
     enabled: true
-    script_file: ./examples/scripts/temperature-alert.js
+    file: ./examples/scripts/temperature-alert.js
     metadata:
       threshold: 30
       alert_interval: 300
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "sensors/+/temperature"
+      - type: on_publish
+        topic: "sensors/+/temperature"
         priority: 50
         enabled: true
 
@@ -216,12 +227,12 @@ scripts:
   - name: connection-tracker
     description: "Track client connection durations"
     enabled: true
-    script_file: ./examples/scripts/connection-tracker.js
+    file: ./examples/scripts/connection-tracker.js
     triggers:
-      - trigger_type: on_connect
+      - type: on_connect
         priority: 10
         enabled: true
-      - trigger_type: on_disconnect
+      - type: on_disconnect
         priority: 10
         enabled: true
 
@@ -229,12 +240,12 @@ scripts:
   - name: rate-limiter
     description: "Prevent message flooding"
     enabled: true
-    script_file: ./examples/scripts/rate-limiter.js
+    file: ./examples/scripts/rate-limiter.js
     metadata:
       max_per_minute: 100
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "#"
+      - type: on_publish
+        topic: "#"
         priority: 5
         enabled: true
 
@@ -242,10 +253,10 @@ scripts:
   - name: message-router
     description: "Transform and republish messages"
     enabled: true
-    script_file: ./examples/scripts/message-router.js
+    file: ./examples/scripts/message-router.js
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "#"
+      - type: on_publish
+        topic: "#"
         priority: 75
         enabled: true
 
@@ -253,18 +264,18 @@ scripts:
   - name: stats-aggregator
     description: "Aggregate message statistics"
     enabled: true
-    script_file: .//examples/scripts/stats-aggregator.js
+    file: .//examples/scripts/stats-aggregator.js
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "#"
+      - type: on_publish
+        topic: "#"
         priority: 90
         enabled: true
 
-  # Example 7: Inline script (script_content instead of script_file)
+  # Example 7: Inline script (content instead of file)
   - name: simple-alert
     description: "Simple inline script example"
     enabled: false
-    script_content: |
+    content: |
       // Simple inline script
       if (msg.payload === 'ALERT') {
         log.warn('Alert received from', msg.clientId, 'on topic', msg.topic);
@@ -275,7 +286,37 @@ scripts:
         }), 1, false);
       }
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "system/#"
+      - type: on_publish
+        topic: "system/#"
+        priority: 50
+        enabled: true
+
+  # Example 8: Script with env vars and template literal escaping
+  - name: api-forwarder
+    description: "Demonstrates env vars in scripts and $$ escaping for JS templates"
+    enabled: false
+    content: |
+      // Environment variables are expanded at config load time
+      const API_KEY = "${API_KEY:-default-key}";        // With default value
+      const ENDPOINT = "${API_ENDPOINT}";                // Required env var
+
+      // JavaScript template literals use $$ to escape
+      const topicTemplate = `device/$${msg.clientId}/data`;  // Becomes: device/${msg.clientId}/data
+
+      // Build message with env-injected credentials
+      const payload = JSON.stringify({
+        apiKey: API_KEY,
+        endpoint: ENDPOINT,
+        clientId: msg.clientId,
+        data: msg.payload
+      });
+
+      // Publish to dynamically constructed topic
+      const topic = topicTemplate.replace('$${msg.clientId}', msg.clientId);
+      mqtt.publish(topic, payload, 1, false);
+      log.info('Forwarded to API:', ENDPOINT);
+    triggers:
+      - type: on_publish
+        topic: "sensors/#"
         priority: 50
         enabled: true
