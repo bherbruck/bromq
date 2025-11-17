@@ -1,4 +1,4 @@
-.PHONY: help install run stop clean test test-web test-all schema
+.PHONY: help install run stop clean test test-race test-coverage test-web test-all lint security-deps security-code security ci schema
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -46,6 +46,16 @@ clean: ## Clean build artifacts and volumes
 test: ## Run Go tests
 	go test ./...
 
+test-race: web/dist ## Run Go tests with race detection (like CI)
+	go test -race -v ./...
+
+test-coverage: web/dist ## Run Go tests with coverage report
+	go test -v -race -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out
+	@echo ""
+	@echo "View detailed coverage in browser:"
+	@echo "  go tool cover -html=coverage.out"
+
 test-web: web/node_modules ## Run frontend tests
 	cd web && npm test
 
@@ -55,6 +65,47 @@ test-all: web/node_modules ## Run all tests (Go + frontend)
 	@echo ""
 	@echo "Running frontend tests..."
 	cd web && npm test
+
+lint: web/dist ## Run golangci-lint (like CI)
+	@command -v golangci-lint >/dev/null 2>&1 || { \
+		echo "golangci-lint not installed. Install with:"; \
+		echo "  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		exit 1; \
+	}
+	golangci-lint run --timeout=5m
+
+security-deps: web/dist ## Run govulncheck (dependency vulnerability scan)
+	@command -v govulncheck >/dev/null 2>&1 || go install golang.org/x/vuln/cmd/govulncheck@latest
+	govulncheck ./...
+
+security-code: web/dist ## Run gosec (code security scan)
+	@command -v gosec >/dev/null 2>&1 || go install github.com/securego/gosec/v2/cmd/gosec@latest
+	gosec -exclude=G404 ./...
+
+security: web/dist ## Run all security scans (govulncheck + gosec, like CI)
+	@echo "==> Running dependency vulnerability scan (govulncheck)..."
+	$(MAKE) security-deps
+	@echo ""
+	@echo "==> Running code security scan (gosec)..."
+	$(MAKE) security-code
+
+ci: web/dist ## Run all CI checks locally (tests, lint, security)
+	@echo "==> Running Go vet..."
+	go vet ./...
+	@echo ""
+	@echo "==> Running tests with race detection..."
+	go test -race -v ./...
+	@echo ""
+	@echo "==> Running frontend tests..."
+	cd web && npm test
+	@echo ""
+	@echo "==> Running linter..."
+	$(MAKE) lint
+	@echo ""
+	@echo "==> Running security scans..."
+	$(MAKE) security
+	@echo ""
+	@echo "✅ All CI checks passed!"
 
 schema: ## Generate JSON Schema for config files
 	@echo "Generating JSON Schema..."
