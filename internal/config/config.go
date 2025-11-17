@@ -27,18 +27,18 @@ type MQTTUserConfig struct {
 
 // ACLRuleConfig represents an ACL rule in the config file
 type ACLRuleConfig struct {
-	MQTTUsername string `yaml:"mqtt_username"`
-	TopicPattern string `yaml:"topic_pattern"`
+	Username string `yaml:"username"`
+	Topic    string `yaml:"topic"`
 	Permission   string `yaml:"permission"`
 }
 
 // BridgeConfig represents an MQTT bridge in the config file
 type BridgeConfig struct {
 	Name              string                 `yaml:"name"`
-	RemoteHost        string                 `yaml:"remote_host"`
-	RemotePort        int                    `yaml:"remote_port,omitempty"`
-	RemoteUsername    string                 `yaml:"remote_username,omitempty"`
-	RemotePassword    string                 `yaml:"remote_password,omitempty"`
+	Host              string                 `yaml:"host"`
+	Port              int                    `yaml:"port,omitempty"`
+	Username          string                 `yaml:"username,omitempty"`
+	Password          string                 `yaml:"password,omitempty"`
 	ClientID          string                 `yaml:"client_id,omitempty"`
 	CleanSession      bool                   `yaml:"clean_session,omitempty"`
 	KeepAlive         int                    `yaml:"keep_alive,omitempty"`
@@ -49,37 +49,36 @@ type BridgeConfig struct {
 
 // BridgeTopicConfig represents a topic mapping in a bridge configuration
 type BridgeTopicConfig struct {
-	LocalPattern  string `yaml:"local_pattern"`
-	RemotePattern string `yaml:"remote_pattern"`
-	Direction     string `yaml:"direction"`
-	QoS           int    `yaml:"qos,omitempty"`
+	Local     string `yaml:"local"`
+	Remote    string `yaml:"remote"`
+	Direction string `yaml:"direction"`
+	QoS       int    `yaml:"qos,omitempty"`
 }
 
 // ScriptConfig represents a script in the config file
 type ScriptConfig struct {
-	Name           string                 `yaml:"name"`
-	Description    string                 `yaml:"description,omitempty"`
-	Enabled        bool                   `yaml:"enabled"`
-	ScriptFile     string                 `yaml:"script_file,omitempty"`     // Path to script file
-	ScriptContent  string                 `yaml:"script_content,omitempty"`  // Inline script
-	ScriptLanguage string                 `yaml:"script_language,omitempty"` // Currently only 'javascript' supported
-	Metadata       map[string]interface{} `yaml:"metadata,omitempty"`
-	Triggers       []ScriptTriggerConfig  `yaml:"triggers"`
+	Name        string                 `yaml:"name"`
+	Description string                 `yaml:"description,omitempty"`
+	Enabled     bool                   `yaml:"enabled"`
+	File        string                 `yaml:"file,omitempty"`    // Path to script file
+	Content     string                 `yaml:"content,omitempty"` // Inline script
+	Metadata    map[string]interface{} `yaml:"metadata,omitempty"`
+	Triggers    []ScriptTriggerConfig  `yaml:"triggers"`
 }
 
 // ScriptTriggerConfig represents a trigger for a script
 type ScriptTriggerConfig struct {
-	TriggerType string `yaml:"trigger_type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
-	TopicFilter string `yaml:"topic_filter,omitempty"`
-	Priority    int    `yaml:"priority,omitempty"` // Default: 100
-	Enabled     bool   `yaml:"enabled"`
+	Type     string `yaml:"type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
+	Topic    string `yaml:"topic,omitempty"`
+	Priority int    `yaml:"priority,omitempty"` // Default: 100
+	Enabled  bool   `yaml:"enabled"`
 }
 
-// protectScriptVariables protects ${...} in script_content blocks from env var expansion
+// protectScriptVariables protects ${...} in content blocks from env var expansion
 func protectScriptVariables(content string) string {
-	// Match script_content: followed by | or > and capture the indented block
-	// This regex finds script_content blocks and protects ${...} inside them
-	re := regexp.MustCompile(`(?m)(script_content:\s*[|>][-+]?\s*\n)((?:[ \t]+.+\n)*)`)
+	// Match content: followed by | or > and capture the indented block
+	// This regex finds content blocks and protects ${...} inside them
+	re := regexp.MustCompile(`(?m)(content:\s*[|>][-+]?\s*\n)((?:[ \t]+.+\n)*)`)
 
 	return re.ReplaceAllStringFunc(content, func(match string) string {
 		// Replace ${ with marker only in script content
@@ -95,7 +94,7 @@ func restoreScriptVariables(content string) string {
 // Load reads and parses a YAML config file with environment variable interpolation
 // Environment variables in ${VAR} format are expanded EXCEPT:
 // - ${username} and ${clientid} (ACL placeholders)
-// - Any ${...} inside script_content blocks (JavaScript template literals)
+// - Any ${...} inside content blocks (JavaScript template literals)
 func Load(path string) (*Config, error) {
 	// Read the file
 	data, err := os.ReadFile(path)
@@ -111,8 +110,8 @@ func Load(path string) (*Config, error) {
 	content = strings.ReplaceAll(content, "${clientid}", "__RESERVED_CLIENTID__")
 
 	// Protect script content from env var expansion
-	// Pattern: script_content: | or script_content: >
-	// We need to protect everything between script_content: and the next top-level key
+	// Pattern: content: | or content: >
+	// We need to protect everything between content: and the next top-level key
 	// Simple approach: protect ${ inside script blocks by escaping them
 	protectedContent := protectScriptVariables(content)
 
@@ -162,24 +161,24 @@ func (c *Config) Validate() error {
 	}
 
 	for _, rule := range c.ACLRules {
-		if rule.MQTTUsername == "" {
-			return fmt.Errorf("ACL rule missing mqtt_username")
+		if rule.Username == "" {
+			return fmt.Errorf("ACL rule missing username")
 		}
-		if rule.TopicPattern == "" {
-			return fmt.Errorf("ACL rule for user '%s' missing topic_pattern", rule.MQTTUsername)
+		if rule.Topic == "" {
+			return fmt.Errorf("ACL rule for user '%s' missing topic", rule.Username)
 		}
 		if rule.Permission == "" {
-			return fmt.Errorf("ACL rule for user '%s' missing permission", rule.MQTTUsername)
+			return fmt.Errorf("ACL rule for user '%s' missing permission", rule.Username)
 		}
 
 		// Check if username exists
-		if !validUsernames[rule.MQTTUsername] {
-			return fmt.Errorf("ACL rule references unknown user: %s", rule.MQTTUsername)
+		if !validUsernames[rule.Username] {
+			return fmt.Errorf("ACL rule references unknown user: %s", rule.Username)
 		}
 
 		// Validate permission
 		if rule.Permission != "pub" && rule.Permission != "sub" && rule.Permission != "pubsub" {
-			return fmt.Errorf("ACL rule for user '%s' has invalid permission: %s (must be pub, sub, or pubsub)", rule.MQTTUsername, rule.Permission)
+			return fmt.Errorf("ACL rule for user '%s' has invalid permission: %s (must be pub, sub, or pubsub)", rule.Username, rule.Permission)
 		}
 	}
 
@@ -189,8 +188,8 @@ func (c *Config) Validate() error {
 		if bridge.Name == "" {
 			return fmt.Errorf("bridge missing name")
 		}
-		if bridge.RemoteHost == "" {
-			return fmt.Errorf("bridge '%s' missing remote_host", bridge.Name)
+		if bridge.Host == "" {
+			return fmt.Errorf("bridge '%s' missing host", bridge.Name)
 		}
 		if bridgeNames[bridge.Name] {
 			return fmt.Errorf("duplicate bridge name: %s", bridge.Name)
@@ -198,11 +197,11 @@ func (c *Config) Validate() error {
 		bridgeNames[bridge.Name] = true
 
 		// Set defaults
-		if bridge.RemotePort == 0 {
-			bridge.RemotePort = 1883
+		if bridge.Port == 0 {
+			bridge.Port = 1883
 		}
-		if bridge.RemotePort < 1 || bridge.RemotePort > 65535 {
-			return fmt.Errorf("bridge '%s' has invalid remote_port: %d", bridge.Name, bridge.RemotePort)
+		if bridge.Port < 1 || bridge.Port > 65535 {
+			return fmt.Errorf("bridge '%s' has invalid port: %d", bridge.Name, bridge.Port)
 		}
 
 		// Validate topics
@@ -210,11 +209,11 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("bridge '%s' has no topics configured", bridge.Name)
 		}
 		for _, topic := range bridge.Topics {
-			if topic.LocalPattern == "" {
-				return fmt.Errorf("bridge '%s' has topic with empty local_pattern", bridge.Name)
+			if topic.Local == "" {
+				return fmt.Errorf("bridge '%s' has topic with empty local", bridge.Name)
 			}
-			if topic.RemotePattern == "" {
-				return fmt.Errorf("bridge '%s' has topic with empty remote_pattern", bridge.Name)
+			if topic.Remote == "" {
+				return fmt.Errorf("bridge '%s' has topic with empty remote", bridge.Name)
 			}
 			if topic.Direction != "in" && topic.Direction != "out" && topic.Direction != "both" {
 				return fmt.Errorf("bridge '%s' has invalid direction '%s' (must be in, out, or both)", bridge.Name, topic.Direction)
@@ -236,14 +235,14 @@ func (c *Config) Validate() error {
 		}
 		scriptNames[script.Name] = true
 
-		// Must have either script_file or script_content, but not both
-		hasFile := script.ScriptFile != ""
-		hasContent := script.ScriptContent != ""
+		// Must have either file or content, but not both
+		hasFile := script.File != ""
+		hasContent := script.Content != ""
 		if !hasFile && !hasContent {
-			return fmt.Errorf("script '%s' must have either script_file or script_content", script.Name)
+			return fmt.Errorf("script '%s' must have either file or content", script.Name)
 		}
 		if hasFile && hasContent {
-			return fmt.Errorf("script '%s' cannot have both script_file and script_content", script.Name)
+			return fmt.Errorf("script '%s' cannot have both file and content", script.Name)
 		}
 
 		// Validate triggers
@@ -251,20 +250,20 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("script '%s' has no triggers configured", script.Name)
 		}
 		for i, trigger := range script.Triggers {
-			if trigger.TriggerType == "" {
-				return fmt.Errorf("script '%s' trigger %d missing trigger_type", script.Name, i+1)
+			if trigger.Type == "" {
+				return fmt.Errorf("script '%s' trigger %d missing type", script.Name, i+1)
 			}
 			// Validate trigger type
 			validTriggers := []string{"on_publish", "on_connect", "on_disconnect", "on_subscribe"}
 			valid := false
 			for _, vt := range validTriggers {
-				if trigger.TriggerType == vt {
+				if trigger.Type == vt {
 					valid = true
 					break
 				}
 			}
 			if !valid {
-				return fmt.Errorf("script '%s' has invalid trigger_type '%s' (must be one of: on_publish, on_connect, on_disconnect, on_subscribe)", script.Name, trigger.TriggerType)
+				return fmt.Errorf("script '%s' has invalid type '%s' (must be one of: on_publish, on_connect, on_disconnect, on_subscribe)", script.Name, trigger.Type)
 			}
 
 			// Set default priority

@@ -134,9 +134,9 @@ func syncACLRules(db *storage.DB, userIDMap map[string]uint, configRules []confi
 	// Build map of config rules by user
 	configRulesByUser := make(map[uint][]config.ACLRuleConfig)
 	for _, ruleCfg := range configRules {
-		userID, ok := userIDMap[ruleCfg.MQTTUsername]
+		userID, ok := userIDMap[ruleCfg.Username]
 		if !ok {
-			return fmt.Errorf("ACL rule references unknown user: %s", ruleCfg.MQTTUsername)
+			return fmt.Errorf("ACL rule references unknown user: %s", ruleCfg.Username)
 		}
 		configRulesByUser[userID] = append(configRulesByUser[userID], ruleCfg)
 	}
@@ -160,24 +160,24 @@ func syncACLRules(db *storage.DB, userIDMap map[string]uint, configRules []confi
 		// Get config rules for this user (may be empty)
 		configRules := configRulesByUser[userID]
 
-		// Build map of existing rules: (topic_pattern, permission) -> rule
+		// Build map of existing rules: (topic, permission) -> rule
 		existingMap := make(map[string]storage.ACLRule)
 		for _, rule := range provisionedRules {
-			key := rule.TopicPattern + "|" + rule.Permission
+			key := rule.Topic + "|" + rule.Permission
 			existingMap[key] = rule
 		}
 
 		// Build set of config rules
 		configSet := make(map[string]config.ACLRuleConfig)
 		for _, ruleCfg := range configRules {
-			key := ruleCfg.TopicPattern + "|" + ruleCfg.Permission
+			key := ruleCfg.Topic + "|" + ruleCfg.Permission
 			configSet[key] = ruleCfg
 		}
 
 		// Find rules to delete (in DB but not in config)
 		for key, existingRule := range existingMap {
 			if _, inConfig := configSet[key]; !inConfig {
-				slog.Debug("Deleting removed ACL rule", "username", username, "topic", existingRule.TopicPattern, "permission", existingRule.Permission)
+				slog.Debug("Deleting removed ACL rule", "username", username, "topic", existingRule.Topic, "permission", existingRule.Permission)
 				if err := db.DeleteACLRule(int(existingRule.ID)); err != nil {
 					return fmt.Errorf("failed to delete ACL rule: %w", err)
 				}
@@ -187,8 +187,8 @@ func syncACLRules(db *storage.DB, userIDMap map[string]uint, configRules []confi
 		// Find rules to create (in config but not in DB)
 		for key, ruleCfg := range configSet {
 			if _, exists := existingMap[key]; !exists {
-				slog.Debug("Creating new ACL rule", "username", username, "topic", ruleCfg.TopicPattern, "permission", ruleCfg.Permission)
-				if err := db.CreateProvisionedACLRule(userID, ruleCfg.TopicPattern, ruleCfg.Permission); err != nil {
+				slog.Debug("Creating new ACL rule", "username", username, "topic", ruleCfg.Topic, "permission", ruleCfg.Permission)
+				if err := db.CreateProvisionedACLRule(userID, ruleCfg.Topic, ruleCfg.Permission); err != nil {
 					return fmt.Errorf("failed to create ACL rule: %w", err)
 				}
 			}
@@ -224,8 +224,8 @@ func cleanupOrphanedUsers(db *storage.DB, currentUserMap map[string]uint) error 
 // provisionBridge creates or updates a bridge with its topics
 func provisionBridge(db *storage.DB, bridgeCfg config.BridgeConfig) (uint, error) {
 	// Set defaults
-	if bridgeCfg.RemotePort == 0 {
-		bridgeCfg.RemotePort = 1883
+	if bridgeCfg.Port == 0 {
+		bridgeCfg.Port = 1883
 	}
 	if bridgeCfg.KeepAlive == 0 {
 		bridgeCfg.KeepAlive = 60
@@ -248,10 +248,10 @@ func provisionBridge(db *storage.DB, bridgeCfg config.BridgeConfig) (uint, error
 	topics := make([]storage.BridgeTopic, len(bridgeCfg.Topics))
 	for i, topicCfg := range bridgeCfg.Topics {
 		topics[i] = storage.BridgeTopic{
-			LocalPattern:  topicCfg.LocalPattern,
-			RemotePattern: topicCfg.RemotePattern,
-			Direction:     topicCfg.Direction,
-			QoS:           byte(topicCfg.QoS),
+			Local:     topicCfg.Local,
+			Remote:    topicCfg.Remote,
+			Direction: topicCfg.Direction,
+			QoS:       byte(topicCfg.QoS),
 		}
 	}
 
@@ -262,10 +262,10 @@ func provisionBridge(db *storage.DB, bridgeCfg config.BridgeConfig) (uint, error
 		// Update bridge configuration
 		updates := map[string]interface{}{
 			"name":                    bridgeCfg.Name,
-			"remote_host":             bridgeCfg.RemoteHost,
-			"remote_port":             bridgeCfg.RemotePort,
-			"remote_username":         bridgeCfg.RemoteUsername,
-			"remote_password":         bridgeCfg.RemotePassword,
+			"host":                    bridgeCfg.Host,
+			"port":                    bridgeCfg.Port,
+			"username":                bridgeCfg.Username,
+			"password":                bridgeCfg.Password,
 			"client_id":               bridgeCfg.ClientID,
 			"clean_session":           bridgeCfg.CleanSession,
 			"keep_alive":              bridgeCfg.KeepAlive,
@@ -296,10 +296,10 @@ func provisionBridge(db *storage.DB, bridgeCfg config.BridgeConfig) (uint, error
 	// Bridge doesn't exist - create new
 	bridge, err := db.CreateBridge(
 		bridgeCfg.Name,
-		bridgeCfg.RemoteHost,
-		bridgeCfg.RemotePort,
-		bridgeCfg.RemoteUsername,
-		bridgeCfg.RemotePassword,
+		bridgeCfg.Host,
+		bridgeCfg.Port,
+		bridgeCfg.Username,
+		bridgeCfg.Password,
 		bridgeCfg.ClientID,
 		bridgeCfg.CleanSession,
 		bridgeCfg.KeepAlive,
@@ -344,11 +344,11 @@ func cleanupOrphanedBridges(db *storage.DB, currentBridgeMap map[string]uint) er
 // provisionScript creates or updates a script
 func provisionScript(db *storage.DB, scriptCfg config.ScriptConfig) (uint, error) {
 	// Load script content from file if specified
-	scriptContent := scriptCfg.ScriptContent
-	if scriptCfg.ScriptFile != "" {
-		content, err := os.ReadFile(scriptCfg.ScriptFile)
+	scriptContent := scriptCfg.Content
+	if scriptCfg.File != "" {
+		content, err := os.ReadFile(scriptCfg.File)
 		if err != nil {
-			return 0, fmt.Errorf("failed to read script file '%s': %w", scriptCfg.ScriptFile, err)
+			return 0, fmt.Errorf("failed to read script file '%s': %w", scriptCfg.File, err)
 		}
 		scriptContent = string(content)
 	}
@@ -367,10 +367,10 @@ func provisionScript(db *storage.DB, scriptCfg config.ScriptConfig) (uint, error
 	triggers := make([]storage.ScriptTrigger, len(scriptCfg.Triggers))
 	for i, t := range scriptCfg.Triggers {
 		triggers[i] = storage.ScriptTrigger{
-			TriggerType: t.TriggerType,
-			TopicFilter: t.TopicFilter,
-			Priority:    t.Priority,
-			Enabled:     t.Enabled,
+			Type:     t.Type,
+			Topic:    t.Topic,
+			Priority: t.Priority,
+			Enabled:  t.Enabled,
 		}
 	}
 

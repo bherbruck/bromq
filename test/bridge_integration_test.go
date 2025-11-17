@@ -48,14 +48,14 @@ func TestBridgeIntegration(t *testing.T) {
 	// Create bridge configuration in database
 	bridgeTopics := []storage.BridgeTopic{
 		{
-			LocalPattern:  "local/#",
-			RemotePattern: "remote/#",
+			Local:  "local/#",
+			Remote: "remote/#",
 			Direction:     "out",
 			QoS:           0,
 		},
 		{
-			LocalPattern:  "inbound/#",
-			RemotePattern: "from-remote/#",
+			Local:  "inbound/#",
+			Remote: "from-remote/#",
 			Direction:     "in",
 			QoS:           0,
 		},

@@ -104,7 +104,7 @@ func TestScriptHookOnPublish(t *testing.T) {
 	script, _ := db.CreateScript("log-publish", "", `
 		log.info("Published to " + msg.topic + ": " + msg.payload);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "test/#", Priority: 100, Enabled: true},
 	})
 
 	// Create mock client
@@ -155,7 +155,7 @@ func TestScriptHookOnConnect(t *testing.T) {
 	script, _ := db.CreateScript("log-connect", "", `
 		log.info("Client connected: " + msg.clientId + " (" + msg.username + ")");
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_connect", TopicFilter: "", Priority: 100, Enabled: true},
+		{Type: "on_connect", Topic: "", Priority: 100, Enabled: true},
 	})
 
 	// Create mock client
@@ -205,7 +205,7 @@ func TestScriptHookOnDisconnect(t *testing.T) {
 		}
 		log.info(message);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_disconnect", TopicFilter: "", Priority: 100, Enabled: true},
+		{Type: "on_disconnect", Topic: "", Priority: 100, Enabled: true},
 	})
 
 	// Create mock client
@@ -241,7 +241,7 @@ func TestScriptHookOnSubscribe(t *testing.T) {
 	script, err := db.CreateScript("log-subscribe", "", `
 		state.set("subscribed_topic", msg.topic);
 	`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_subscribe", TopicFilter: "test/#", Priority: 100, Enabled: true},
+		{Type: "on_subscribe", Topic: "test/#", Priority: 100, Enabled: true},
 	})
 	if err != nil {
 		t.Fatalf("Failed to create script: %v", err)
@@ -290,15 +290,15 @@ func TestScriptHookMultipleScripts(t *testing.T) {
 
 	// Create multiple scripts that set state
 	script1, _ := db.CreateScript("script-1", "", `state.set("ran", true);`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "test/#", Priority: 100, Enabled: true},
 	})
 
 	script2, _ := db.CreateScript("script-2", "", `state.set("ran", true);`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 50, Enabled: true},
+		{Type: "on_publish", Topic: "test/#", Priority: 50, Enabled: true},
 	})
 
 	script3, _ := db.CreateScript("script-3", "", `state.set("ran", true);`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "test/#", Priority: 150, Enabled: true},
+		{Type: "on_publish", Topic: "test/#", Priority: 150, Enabled: true},
 	})
 
 	// Create mock client and packet
@@ -341,21 +341,21 @@ func TestScriptHookMultipleScripts(t *testing.T) {
 	}
 }
 
-func TestScriptHookTopicFiltering(t *testing.T) {
+func TestScriptHookTopicing(t *testing.T) {
 	db, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	// Create scripts with different topic filters that set state
 	scriptWildcard, _ := db.CreateScript("wildcard", "", `state.set("matched", true);`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "sensors/#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "sensors/#", Priority: 100, Enabled: true},
 	})
 
 	scriptSpecific, _ := db.CreateScript("specific", "", `state.set("matched", true);`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "sensors/+/temp", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "sensors/+/temp", Priority: 100, Enabled: true},
 	})
 
 	scriptNoMatch, _ := db.CreateScript("no-match", "", `state.set("matched", true);`, true, []byte("{}"), []storage.ScriptTrigger{
-		{TriggerType: "on_publish", TopicFilter: "other/#", Priority: 100, Enabled: true},
+		{Type: "on_publish", Topic: "other/#", Priority: 100, Enabled: true},
 	})
 
 	// Create mock client

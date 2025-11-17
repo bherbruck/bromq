@@ -77,18 +77,18 @@ func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"bridge name is required"}`, http.StatusBadRequest)
 		return
 	}
-	if req.RemoteHost == "" {
+	if req.Host == "" {
 		http.Error(w, `{"error":"remote host is required"}`, http.StatusBadRequest)
 		return
 	}
 
 	// Validate topics
 	for i, topic := range req.Topics {
-		if topic.LocalPattern == "" {
+		if topic.Local == "" {
 			http.Error(w, fmt.Sprintf(`{"error":"topic %d: local_pattern is required"}`, i), http.StatusBadRequest)
 			return
 		}
-		if topic.RemotePattern == "" {
+		if topic.Remote == "" {
 			http.Error(w, fmt.Sprintf(`{"error":"topic %d: remote_pattern is required"}`, i), http.StatusBadRequest)
 			return
 		}
@@ -117,8 +117,8 @@ func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 	topics := make([]storage.BridgeTopic, len(req.Topics))
 	for i, t := range req.Topics {
 		topics[i] = storage.BridgeTopic{
-			LocalPattern:  t.LocalPattern,
-			RemotePattern: t.RemotePattern,
+			Local:  t.Local,
+			Remote: t.Remote,
 			Direction:     t.Direction,
 			QoS:           t.QoS,
 		}
@@ -127,10 +127,10 @@ func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 	// Create bridge
 	bridge, err := h.db.CreateBridge(
 		req.Name,
-		req.RemoteHost,
-		req.RemotePort,
-		req.RemoteUsername,
-		req.RemotePassword,
+		req.Host,
+		req.Port,
+		req.Username,
+		req.Password,
 		req.ClientID,
 		req.CleanSession,
 		req.KeepAlive,
@@ -180,18 +180,18 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"bridge name is required"}`, http.StatusBadRequest)
 		return
 	}
-	if req.RemoteHost == "" {
+	if req.Host == "" {
 		http.Error(w, `{"error":"remote host is required"}`, http.StatusBadRequest)
 		return
 	}
 
 	// Validate topics
 	for i, topic := range req.Topics {
-		if topic.LocalPattern == "" {
+		if topic.Local == "" {
 			http.Error(w, fmt.Sprintf(`{"error":"topic %d: local_pattern is required"}`, i), http.StatusBadRequest)
 			return
 		}
-		if topic.RemotePattern == "" {
+		if topic.Remote == "" {
 			http.Error(w, fmt.Sprintf(`{"error":"topic %d: remote_pattern is required"}`, i), http.StatusBadRequest)
 			return
 		}
@@ -220,10 +220,10 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 	if _, err := h.db.UpdateBridge(
 		uint(id),
 		req.Name,
-		req.RemoteHost,
-		req.RemotePort,
-		req.RemoteUsername,
-		req.RemotePassword,
+		req.Host,
+		req.Port,
+		req.Username,
+		req.Password,
 		req.ClientID,
 		req.CleanSession,
 		req.KeepAlive,
@@ -239,8 +239,8 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 	for i, t := range req.Topics {
 		topics[i] = storage.BridgeTopic{
 			BridgeID:      uint(id),
-			LocalPattern:  t.LocalPattern,
-			RemotePattern: t.RemotePattern,
+			Local:  t.Local,
+			Remote: t.Remote,
 			Direction:     t.Direction,
 			QoS:           t.QoS,
 		}

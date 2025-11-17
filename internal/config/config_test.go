@@ -27,8 +27,8 @@ users:
       location: "warehouse"
 
 acl_rules:
-  - mqtt_username: test_user
-    topic_pattern: "test/#"
+  - username: test_user
+    topic: "test/#"
     permission: pubsub
 `,
 			envVars: map[string]string{
@@ -63,8 +63,8 @@ users:
       max_connections: 10
 
 acl_rules:
-  - mqtt_username: sensor
-    topic_pattern: "sensors/${username}/#"
+  - username: sensor
+    topic: "sensors/${username}/#"
     permission: pub
 `,
 			wantErr: false,
@@ -86,14 +86,14 @@ users:
     description: "Test with reserved placeholders"
 
 acl_rules:
-  - mqtt_username: testuser
-    topic_pattern: "user/${username}/data"
+  - username: testuser
+    topic: "user/${username}/data"
     permission: pub
-  - mqtt_username: testuser
-    topic_pattern: "device/${clientid}/status"
+  - username: testuser
+    topic: "device/${clientid}/status"
     permission: sub
-  - mqtt_username: testuser
-    topic_pattern: "users/${username}/devices/${clientid}/#"
+  - username: testuser
+    topic: "users/${username}/devices/${clientid}/#"
     permission: pubsub
 `,
 			envVars: map[string]string{
@@ -114,8 +114,8 @@ acl_rules:
 					"users/${username}/devices/${clientid}/#",
 				}
 				for i, expected := range expectedPatterns {
-					if cfg.ACLRules[i].TopicPattern != expected {
-						t.Errorf("rule %d: expected pattern '%s', got '%s'", i, expected, cfg.ACLRules[i].TopicPattern)
+					if cfg.ACLRules[i].Topic != expected {
+						t.Errorf("rule %d: expected pattern '%s', got '%s'", i, expected, cfg.ACLRules[i].Topic)
 					}
 				}
 			},
@@ -164,8 +164,8 @@ users:
     password: pass123
 
 acl_rules:
-  - mqtt_username: unknown_user
-    topic_pattern: "test/#"
+  - username: unknown_user
+    topic: "test/#"
     permission: pubsub
 `,
 			wantErr:     true,
@@ -179,8 +179,8 @@ users:
     password: pass123
 
 acl_rules:
-  - mqtt_username: test_user
-    topic_pattern: "test/#"
+  - username: test_user
+    topic: "test/#"
     permission: invalid
 `,
 			wantErr:     true,
@@ -194,11 +194,11 @@ users:
     password: pass123
 
 acl_rules:
-  - mqtt_username: test_user
+  - username: test_user
     permission: pubsub
 `,
 			wantErr:     true,
-			errContains: "missing topic_pattern",
+			errContains: "missing topic",
 		},
 		{
 			name: "multiple users and rules",
@@ -212,14 +212,14 @@ users:
     description: "User 2"
 
 acl_rules:
-  - mqtt_username: user1
-    topic_pattern: "user1/#"
+  - username: user1
+    topic: "user1/#"
     permission: pubsub
-  - mqtt_username: user1
-    topic_pattern: "shared/+"
+  - username: user1
+    topic: "shared/+"
     permission: sub
-  - mqtt_username: user2
-    topic_pattern: "user2/#"
+  - username: user2
+    topic: "user2/#"
     permission: pub
 `,
 			envVars: map[string]string{
@@ -264,10 +264,10 @@ scripts:
   - name: test-script
     description: "Test script"
     enabled: true
-    script_file: /path/to/script.js
+    file: /path/to/script.js
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "test/#"
+      - type: on_publish
+        topic: "test/#"
         priority: 100
         enabled: true
 `,
@@ -279,8 +279,8 @@ scripts:
 				if cfg.Scripts[0].Name != "test-script" {
 					t.Errorf("expected name 'test-script', got '%s'", cfg.Scripts[0].Name)
 				}
-				if cfg.Scripts[0].ScriptFile != "/path/to/script.js" {
-					t.Errorf("expected script_file '/path/to/script.js', got '%s'", cfg.Scripts[0].ScriptFile)
+				if cfg.Scripts[0].File != "/path/to/script.js" {
+					t.Errorf("expected script_file '/path/to/script.js', got '%s'", cfg.Scripts[0].File)
 				}
 				if len(cfg.Scripts[0].Triggers) != 1 {
 					t.Errorf("expected 1 trigger, got %d", len(cfg.Scripts[0].Triggers))
@@ -296,11 +296,11 @@ scripts:
   - name: inline-script
     description: "Inline script"
     enabled: true
-    script_content: |
+    content: |
       log.info("Hello from inline script");
       mqtt.publish("output/topic", "hello", 1, false);
     triggers:
-      - trigger_type: on_connect
+      - type: on_connect
         priority: 50
         enabled: true
 `,
@@ -309,10 +309,10 @@ scripts:
 				if len(cfg.Scripts) != 1 {
 					t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
 				}
-				if cfg.Scripts[0].ScriptContent == "" {
+				if cfg.Scripts[0].Content == "" {
 					t.Error("expected script_content to be set")
 				}
-				if cfg.Scripts[0].ScriptFile != "" {
+				if cfg.Scripts[0].File != "" {
 					t.Error("expected script_file to be empty")
 				}
 			},
@@ -325,16 +325,16 @@ acl_rules: []
 scripts:
   - name: invalid-script
     enabled: true
-    script_file: /path/to/script.js
-    script_content: "log.info('test');"
+    file: /path/to/script.js
+    content: "log.info('test');"
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "#"
+      - type: on_publish
+        topic: "#"
         priority: 100
         enabled: true
 `,
 			wantErr:     true,
-			errContains: "cannot have both script_file and script_content",
+			errContains: "cannot have both file and content",
 		},
 		{
 			name: "script with neither script_file nor script_content (invalid)",
@@ -345,13 +345,13 @@ scripts:
   - name: invalid-script
     enabled: true
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "#"
+      - type: on_publish
+        topic: "#"
         priority: 100
         enabled: true
 `,
 			wantErr:     true,
-			errContains: "must have either script_file or script_content",
+			errContains: "must have either file or content",
 		},
 		{
 			name: "script with invalid trigger type",
@@ -361,15 +361,15 @@ acl_rules: []
 scripts:
   - name: test-script
     enabled: true
-    script_content: "log.info('test');"
+    content: "log.info('test');"
     triggers:
-      - trigger_type: invalid_trigger
-        topic_filter: "#"
+      - type: invalid_trigger
+        topic: "#"
         priority: 100
         enabled: true
 `,
 			wantErr:     true,
-			errContains: "invalid trigger_type",
+			errContains: "invalid type",
 		},
 		{
 			name: "script with missing trigger type",
@@ -379,14 +379,14 @@ acl_rules: []
 scripts:
   - name: test-script
     enabled: true
-    script_content: "log.info('test');"
+    content: "log.info('test');"
     triggers:
-      - topic_filter: "#"
+      - topic: "#"
         priority: 100
         enabled: true
 `,
 			wantErr:     true,
-			errContains: "missing trigger_type",
+			errContains: "missing type",
 		},
 		{
 			name: "script with duplicate names",
@@ -396,18 +396,18 @@ acl_rules: []
 scripts:
   - name: same-name
     enabled: true
-    script_content: "log.info('1');"
+    content: "log.info('1');"
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "#"
+      - type: on_publish
+        topic: "#"
         priority: 100
         enabled: true
   - name: same-name
     enabled: true
-    script_content: "log.info('2');"
+    content: "log.info('2');"
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "#"
+      - type: on_publish
+        topic: "#"
         priority: 100
         enabled: true
 `,
@@ -423,13 +423,13 @@ scripts:
   - name: metadata-script
     description: "Script with metadata"
     enabled: true
-    script_content: "log.info('test');"
+    content: "log.info('test');"
     metadata:
       environment: "production"
       max_retries: 3
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "sensors/#"
+      - type: on_publish
+        topic: "sensors/#"
         priority: 75
         enabled: true
 `,
@@ -454,16 +454,16 @@ acl_rules: []
 scripts:
   - name: multi-trigger
     enabled: true
-    script_content: "log.info('test');"
+    content: "log.info('test');"
     triggers:
-      - trigger_type: on_connect
+      - type: on_connect
         priority: 10
         enabled: true
-      - trigger_type: on_disconnect
+      - type: on_disconnect
         priority: 10
         enabled: true
-      - trigger_type: on_publish
-        topic_filter: "status/#"
+      - type: on_publish
+        topic: "status/#"
         priority: 50
         enabled: true
 `,
@@ -540,7 +540,7 @@ func TestValidate(t *testing.T) {
 					{Username: "user1", Password: "pass1"},
 				},
 				ACLRules: []ACLRuleConfig{
-					{MQTTUsername: "user1", TopicPattern: "test/#", Permission: "pubsub"},
+					{Username: "user1", Topic: "test/#", Permission: "pubsub"},
 				},
 			},
 			wantErr: false,
@@ -552,9 +552,9 @@ func TestValidate(t *testing.T) {
 					{Username: "user1", Password: "pass1"},
 				},
 				ACLRules: []ACLRuleConfig{
-					{MQTTUsername: "user1", TopicPattern: "test/pub", Permission: "pub"},
-					{MQTTUsername: "user1", TopicPattern: "test/sub", Permission: "sub"},
-					{MQTTUsername: "user1", TopicPattern: "test/both", Permission: "pubsub"},
+					{Username: "user1", Topic: "test/pub", Permission: "pub"},
+					{Username: "user1", Topic: "test/sub", Permission: "sub"},
+					{Username: "user1", Topic: "test/both", Permission: "pubsub"},
 				},
 			},
 			wantErr: false,
@@ -609,13 +609,13 @@ users:
 scripts:
   - name: test-template-literals
     enabled: true
-    script_content: |
+    content: |
       const msg = "Hello ${world}";
       const topic = 'devices/${deviceId}/status';
       mqtt.publish(topic, msg);
     triggers:
-      - trigger_type: on_publish
-        topic_filter: "test/#"
+      - type: on_publish
+        topic: "test/#"
         enabled: true
 `
 
@@ -635,7 +635,7 @@ scripts:
 		t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
 	}
 
-	script := cfg.Scripts[0].ScriptContent
+	script := cfg.Scripts[0].Content
 	if !strings.Contains(script, "${world}") {
 		t.Errorf("JavaScript template literal ${world} was incorrectly expanded, got: %s", script)
 	}

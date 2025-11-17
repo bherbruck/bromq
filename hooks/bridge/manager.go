@@ -69,10 +69,10 @@ func (m *Manager) connectBridge(bridge *storage.Bridge) error {
 
 	// Create paho MQTT client options
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", bridge.RemoteHost, bridge.RemotePort))
+	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", bridge.Host, bridge.Port))
 	opts.SetClientID(bridge.ClientID)
-	opts.SetUsername(bridge.RemoteUsername)
-	opts.SetPassword(bridge.RemotePassword)
+	opts.SetUsername(bridge.Username)
+	opts.SetPassword(bridge.Password)
 	opts.SetCleanSession(bridge.CleanSession)
 	opts.SetKeepAlive(time.Duration(bridge.KeepAlive) * time.Second)
 	opts.SetConnectTimeout(time.Duration(bridge.ConnectionTimeout) * time.Second)
@@ -99,7 +99,7 @@ func (m *Manager) connectBridge(bridge *storage.Bridge) error {
 	m.bridges[bridge.ID] = bc
 
 	// Connect
-	slog.Info("Connecting bridge", "name", bridge.Name, "remote", fmt.Sprintf("%s:%d", bridge.RemoteHost, bridge.RemotePort))
+	slog.Info("Connecting bridge", "name", bridge.Name, "remote", fmt.Sprintf("%s:%d", bridge.Host, bridge.Port))
 	token := client.Connect()
 	if !token.WaitTimeout(time.Duration(bridge.ConnectionTimeout) * time.Second) {
 		return fmt.Errorf("connection timeout")
@@ -119,19 +119,19 @@ func (bc *BridgeConnection) onConnect(client mqtt.Client) {
 	for _, topic := range bc.bridge.Topics {
 		if topic.Direction == "in" || topic.Direction == "both" {
 			// Subscribe to remote pattern
-			token := client.Subscribe(topic.RemotePattern, topic.QoS, func(c mqtt.Client, msg mqtt.Message) {
+			token := client.Subscribe(topic.Remote, topic.QoS, func(c mqtt.Client, msg mqtt.Message) {
 				bc.handleInboundMessage(msg, topic)
 			})
 			token.Wait()
 			if err := token.Error(); err != nil {
 				slog.Error("Failed to subscribe to remote topic",
 					"bridge", bc.bridge.Name,
-					"topic", topic.RemotePattern,
+					"topic", topic.Remote,
 					"error", err)
 			} else {
 				slog.Debug("Subscribed to remote topic",
 					"bridge", bc.bridge.Name,
-					"topic", topic.RemotePattern)
+					"topic", topic.Remote)
 			}
 		}
 	}
@@ -190,7 +190,7 @@ func (bc *BridgeConnection) reconnect() {
 // handleInboundMessage processes messages received from remote broker
 func (bc *BridgeConnection) handleInboundMessage(msg mqtt.Message, topicMapping storage.BridgeTopic) {
 	// Transform topic from remote pattern to local pattern
-	localTopic := TransformTopic(msg.Topic(), topicMapping.RemotePattern, topicMapping.LocalPattern)
+	localTopic := TransformTopic(msg.Topic(), topicMapping.Remote, topicMapping.Local)
 
 	slog.Debug("Forwarding inbound message",
 		"bridge", bc.bridge.Name,
@@ -222,9 +222,9 @@ func (m *Manager) HandleOutboundMessage(topic string, payload []byte, retained b
 			}
 
 			// Check if topic matches local pattern
-			if MatchTopic(topic, topicMapping.LocalPattern) {
+			if MatchTopic(topic, topicMapping.Local) {
 				// Transform to remote topic
-				remoteTopic := TransformTopic(topic, topicMapping.LocalPattern, topicMapping.RemotePattern)
+				remoteTopic := TransformTopic(topic, topicMapping.Local, topicMapping.Remote)
 
 				slog.Debug("Forwarding outbound message",
 					"bridge", bc.bridge.Name,
