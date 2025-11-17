@@ -170,15 +170,6 @@ make build
 # Run locally
 make run
 
-# Development (hot reload)
-make dev-up          # Backend :8080, Frontend :5173
-make logs            # View logs
-make dev-down
-
-# Production
-make prod-up         # Single binary with embedded UI
-make prod-down
-
 # Testing
 make test            # Go tests
 make test-web        # Frontend tests
