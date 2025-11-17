@@ -56,6 +56,7 @@ func (db *DB) ListACLRulesPaginated(page, pageSize int, search, sortBy, sortOrde
 // Uses in-memory cache to avoid database queries on hot path (MQTT pub/sub)
 func (db *DB) GetACLRulesByMQTTUserID(mqttUserID int) ([]ACLRule, error) {
 	// Check cache first
+	// #nosec G115 -- mqttUserID is validated database ID, always positive
 	if cachedRules, found := db.cache.GetACLRules(uint(mqttUserID)); found {
 		return cachedRules, nil
 	}
@@ -68,6 +69,7 @@ func (db *DB) GetACLRulesByMQTTUserID(mqttUserID int) ([]ACLRule, error) {
 	}
 
 	// Store in cache for future requests
+	// #nosec G115 -- mqttUserID is validated database ID, always positive
 	db.cache.SetACLRules(uint(mqttUserID), rules)
 
 	return rules, nil
@@ -90,6 +92,7 @@ func (db *DB) CreateACLRule(mqttUserID int, topicPattern, permission string) (*A
 	}
 
 	// Create rule
+	// #nosec G115 -- mqttUserID is validated database ID, always positive
 	rule := ACLRule{
 		MQTTUserID: uint(mqttUserID),
 		Topic:      topicPattern,
@@ -101,6 +104,7 @@ func (db *DB) CreateACLRule(mqttUserID int, topicPattern, permission string) (*A
 	}
 
 	// Invalidate ACL cache for this user
+	// #nosec G115 -- mqttUserID is validated database ID, always positive
 	db.cache.DeleteACLRules(uint(mqttUserID))
 
 	return &rule, nil
@@ -184,6 +188,7 @@ func (db *DB) CheckACL(username, clientID, topic, action string) (bool, error) {
 	}
 
 	// Get user's ACL rules
+	// #nosec G115 -- user.ID is database primary key, always positive
 	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
 	if err != nil {
 		return false, err

@@ -54,7 +54,7 @@ func (h *Handler) GetBridge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bridge, err := h.db.GetBridge(uint(id))
+	bridge, err := h.db.GetBridge(uint(id)) // #nosec G115 -- id from route param, validated positive
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"bridge not found: %s"}`, err), http.StatusNotFound)
 		return
@@ -158,7 +158,7 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if bridge is provisioned from config
-	bridge, err := h.db.GetBridge(uint(id))
+	bridge, err := h.db.GetBridge(uint(id)) // #nosec G115 -- id from route param, validated positive
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"bridge not found: %s"}`, err), http.StatusNotFound)
 		return
@@ -218,7 +218,7 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 
 	// Update bridge basic info
 	if _, err := h.db.UpdateBridge(
-		uint(id),
+		uint(id), // #nosec G115 -- id from route param, validated positive
 		req.Name,
 		req.Host,
 		req.Port,
@@ -238,7 +238,7 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 	topics := make([]storage.BridgeTopic, len(req.Topics))
 	for i, t := range req.Topics {
 		topics[i] = storage.BridgeTopic{
-			BridgeID:      uint(id),
+			BridgeID:      uint(id), // #nosec G115 -- id from route param, validated positive
 			Local:  t.Local,
 			Remote: t.Remote,
 			Direction:     t.Direction,
@@ -246,13 +246,13 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.db.UpdateBridgeTopics(uint(id), topics); err != nil {
+	if err := h.db.UpdateBridgeTopics(uint(id), topics); err != nil { // #nosec G115 -- id from route param, validated positive
 		http.Error(w, fmt.Sprintf(`{"error":"failed to update bridge topics: %s"}`, err), http.StatusInternalServerError)
 		return
 	}
 
 	// Fetch updated bridge
-	bridge, err = h.db.GetBridge(uint(id))
+	bridge, err = h.db.GetBridge(uint(id)) // #nosec G115 -- id from route param, validated positive
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to get updated bridge: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -272,7 +272,7 @@ func (h *Handler) DeleteBridge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if bridge is provisioned from config
-	bridge, err := h.db.GetBridge(uint(id))
+	bridge, err := h.db.GetBridge(uint(id)) // #nosec G115 -- id from route param, validated positive
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"bridge not found: %s"}`, err), http.StatusNotFound)
 		return
@@ -283,7 +283,7 @@ func (h *Handler) DeleteBridge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.db.DeleteBridge(uint(id)); err != nil {
+	if err := h.db.DeleteBridge(uint(id)); err != nil { // #nosec G115 -- id from route param, validated positive
 		http.Error(w, fmt.Sprintf(`{"error":"failed to delete bridge: %s"}`, err), http.StatusInternalServerError)
 		return
 	}

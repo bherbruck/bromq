@@ -236,6 +236,7 @@ func (db *DB) GetMQTTUserByUsernameInterface(username string) (interface{}, erro
 // MarkAsProvisioned marks an MQTT user as provisioned from config file
 func (db *DB) MarkAsProvisioned(id uint, provisioned bool) error {
 	// Get username to invalidate cache
+	// #nosec G115 -- id is database primary key, always positive
 	user, err := db.GetMQTTUser(int(id))
 	if err != nil {
 		return fmt.Errorf("MQTT user not found")
