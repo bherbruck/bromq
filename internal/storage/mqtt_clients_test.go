@@ -203,12 +203,12 @@ func TestGetMQTTClient(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		id      int
+		id      uint
 		wantErr bool
 	}{
 		{
 			name:    "get existing client",
-			id:      int(created.ID),
+			id:      created.ID,
 			wantErr: false,
 		},
 		{
@@ -483,21 +483,21 @@ func TestDeleteMQTTClient(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		setup   func() int // Returns client ID to delete
+		setup   func() uint // Returns client ID to delete
 		wantErr bool
 	}{
 		{
 			name: "delete existing client",
-			setup: func() int {
+			setup: func() uint {
 				mqttUser := createTestMQTTUser(t, db, "deluser1", "password123", "Test")
 				client, _ := db.UpsertMQTTClient("delete-me", mqttUser.ID, nil)
-				return int(client.ID)
+				return client.ID
 			},
 			wantErr: false,
 		},
 		{
 			name: "delete non-existent client",
-			setup: func() int {
+			setup: func() uint {
 				return 999999
 			},
 			wantErr: true,
@@ -652,7 +652,7 @@ func TestMQTTClientMetadataJSON(t *testing.T) {
 	}
 
 	// Retrieve and parse metadata
-	retrieved, err := db.GetMQTTClient(int(client.ID))
+	retrieved, err := db.GetMQTTClient(client.ID)
 	if err != nil {
 		t.Fatalf("Failed to retrieve client: %v", err)
 	}

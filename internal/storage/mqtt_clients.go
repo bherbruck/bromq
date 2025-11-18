@@ -71,7 +71,7 @@ func (db *DB) MarkMQTTClientInactive(clientID string) error {
 }
 
 // GetMQTTClient retrieves a client by ID
-func (db *DB) GetMQTTClient(id int) (*MQTTClient, error) {
+func (db *DB) GetMQTTClient(id uint) (*MQTTClient, error) {
 	var client MQTTClient
 	if err := db.Preload("MQTTUser").First(&client, id).Error; err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (db *DB) UpdateMQTTClientMetadata(clientID string, metadata datatypes.JSON)
 }
 
 // DeleteMQTTClient deletes a client record
-func (db *DB) DeleteMQTTClient(id int) error {
+func (db *DB) DeleteMQTTClient(id uint) error {
 	result := db.Delete(&MQTTClient{}, id)
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete MQTT client: %w", result.Error)

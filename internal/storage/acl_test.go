@@ -56,7 +56,7 @@ func TestCreateACLRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rule, err := db.CreateACLRule(int(tt.userID), tt.topicPattern, tt.permission)
+			rule, err := db.CreateACLRule(tt.userID, tt.topicPattern, tt.permission)
 
 			if tt.wantErr {
 				if err == nil {
@@ -146,7 +146,7 @@ func TestGetACLRulesByMQTTUserID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rules, err := db.GetACLRulesByMQTTUserID(int(tt.userID))
+			rules, err := db.GetACLRulesByMQTTUserID(tt.userID)
 			if err != nil {
 				t.Fatalf("GetACLRulesByMQTTUserID() unexpected error: %v", err)
 			}
@@ -196,7 +196,7 @@ func TestDeleteACLRule(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id := tt.setup()
-			err := db.DeleteACLRule(int(id))
+			err := db.DeleteACLRule(id)
 
 			if tt.wantErr {
 				if err == nil {
@@ -482,7 +482,7 @@ func TestDeleteUserCascadesACLRules(t *testing.T) {
 	createTestACLRule(t, db, user.ID, "commands/#", "sub")
 
 	// Verify rules exist
-	rulesBefore, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rulesBefore, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("GetACLRulesByMQTTUserID() before delete failed: %v", err)
 	}
@@ -491,13 +491,13 @@ func TestDeleteUserCascadesACLRules(t *testing.T) {
 	}
 
 	// Delete the user
-	err = db.DeleteMQTTUser(int(user.ID))
+	err = db.DeleteMQTTUser(user.ID)
 	if err != nil {
 		t.Fatalf("DeleteMQTTUser() failed: %v", err)
 	}
 
 	// Verify ACL rules are also deleted (cascade)
-	rulesAfter, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rulesAfter, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("GetACLRulesByMQTTUserID() after delete failed: %v", err)
 	}
@@ -513,19 +513,19 @@ func TestDuplicateACLRulePrevention(t *testing.T) {
 	user := createTestMQTTUser(t, db, "testuser", "password123", "Test MQTT user")
 
 	// Create first ACL rule
-	_, err := db.CreateACLRule(int(user.ID), "sensor/+/temp", "pub")
+	_, err := db.CreateACLRule(user.ID, "sensor/+/temp", "pub")
 	if err != nil {
 		t.Fatalf("CreateACLRule() first call failed: %v", err)
 	}
 
 	// Try to create duplicate ACL rule (same user, same topic pattern)
-	_, err = db.CreateACLRule(int(user.ID), "sensor/+/temp", "sub")
+	_, err = db.CreateACLRule(user.ID, "sensor/+/temp", "sub")
 	if err == nil {
 		t.Error("CreateACLRule() should have failed for duplicate user+topic_pattern but succeeded")
 	}
 
 	// Verify only one rule exists
-	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("GetACLRulesByMQTTUserID() failed: %v", err)
 	}
@@ -535,13 +535,13 @@ func TestDuplicateACLRulePrevention(t *testing.T) {
 
 	// Verify different user with same topic pattern is allowed
 	user2 := createTestMQTTUser(t, db, "testuser2", "password123", "Test MQTT user 2")
-	_, err = db.CreateACLRule(int(user2.ID), "sensor/+/temp", "pub")
+	_, err = db.CreateACLRule(user2.ID, "sensor/+/temp", "pub")
 	if err != nil {
 		t.Errorf("CreateACLRule() should allow same topic for different user but failed: %v", err)
 	}
 
 	// Verify same user with different topic pattern is allowed
-	_, err = db.CreateACLRule(int(user.ID), "sensor/+/humidity", "pub")
+	_, err = db.CreateACLRule(user.ID, "sensor/+/humidity", "pub")
 	if err != nil {
 		t.Errorf("CreateACLRule() should allow different topic for same user but failed: %v", err)
 	}
@@ -784,7 +784,7 @@ func TestCreateProvisionedACLRule(t *testing.T) {
 			}
 
 			// Verify the rule was created and marked as provisioned
-			rules, err := db.GetACLRulesByMQTTUserID(int(tt.userID))
+			rules, err := db.GetACLRulesByMQTTUserID(tt.userID)
 			if err != nil {
 				t.Fatalf("GetACLRulesByMQTTUserID() failed: %v", err)
 			}
@@ -816,10 +816,10 @@ func TestDeleteProvisionedACLRules(t *testing.T) {
 	// Create both provisioned and manual rules
 	db.CreateProvisionedACLRule(user.ID, "provisioned/1/#", "pub")
 	db.CreateProvisionedACLRule(user.ID, "provisioned/2/#", "sub")
-	db.CreateACLRule(int(user.ID), "manual/1/#", "pubsub")
+	db.CreateACLRule(user.ID, "manual/1/#", "pubsub")
 
 	// Verify all rules exist
-	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("GetACLRulesByMQTTUserID() failed: %v", err)
 	}
@@ -834,7 +834,7 @@ func TestDeleteProvisionedACLRules(t *testing.T) {
 	}
 
 	// Verify only manual rule remains
-	rules, err = db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err = db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("GetACLRulesByMQTTUserID() failed: %v", err)
 	}
@@ -869,13 +869,13 @@ func TestDeleteProvisionedACLRules_MultipleUsers(t *testing.T) {
 	}
 
 	// Verify user1's rules are deleted
-	rules1, _ := db.GetACLRulesByMQTTUserID(int(user1.ID))
+	rules1, _ := db.GetACLRulesByMQTTUserID(user1.ID)
 	if len(rules1) != 0 {
 		t.Errorf("expected 0 rules for user1, got %d", len(rules1))
 	}
 
 	// Verify user2's rules are untouched
-	rules2, _ := db.GetACLRulesByMQTTUserID(int(user2.ID))
+	rules2, _ := db.GetACLRulesByMQTTUserID(user2.ID)
 	if len(rules2) != 1 {
 		t.Errorf("expected 1 rule for user2, got %d", len(rules2))
 	}

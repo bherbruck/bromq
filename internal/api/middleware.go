@@ -20,14 +20,14 @@ const (
 
 // JWTClaims represents the JWT token claims
 type JWTClaims struct {
-	UserID   int    `json:"user_id"`
+	UserID   uint   `json:"user_id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
 	jwt.RegisteredClaims
 }
 
 // GenerateJWT generates a new JWT token for a user
-func GenerateJWT(secret []byte, userID int, username, role string) (string, error) {
+func GenerateJWT(secret []byte, userID uint, username, role string) (string, error) {
 	claims := JWTClaims{
 		UserID:   userID,
 		Username: username,

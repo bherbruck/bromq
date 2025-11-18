@@ -196,16 +196,17 @@ func TestCacheConcurrentAccess(t *testing.T) {
 	// Writers
 	for i := 0; i < 5; i++ {
 		go func(id int) {
+			uid := uint(id)
 			user := &MQTTUser{
-				ID:       uint(id),
+				ID:       uid,
 				Username: "user" + string(rune('0'+id)),
 			}
 			cache.SetMQTTUser(user.Username, user)
 
 			rules := []ACLRule{
-				{ID: uint(id), MQTTUserID: uint(id), Topic: "test/#", Permission: "pubsub"},
+				{ID: uid, MQTTUserID: uid, Topic: "test/#", Permission: "pubsub"},
 			}
-			cache.SetACLRules(uint(id), rules)
+			cache.SetACLRules(uid, rules)
 			done <- true
 		}(i)
 	}
@@ -213,9 +214,10 @@ func TestCacheConcurrentAccess(t *testing.T) {
 	// Readers
 	for i := 0; i < 5; i++ {
 		go func(id int) {
+			uid := uint(id)
 			// Try to read (may or may not exist yet)
 			cache.GetMQTTUser("user" + string(rune('0'+id)))
-			cache.GetACLRules(uint(id))
+			cache.GetACLRules(uid)
 			done <- true
 		}(i)
 	}

@@ -62,7 +62,7 @@ func TestProvision_NewUsers(t *testing.T) {
 	}
 
 	// Verify ACL rule was created
-	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("failed to get ACL rules: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestProvision_UpdateExistingUser(t *testing.T) {
 	}
 
 	// Verify ACL rules were replaced
-	rules, err := db.GetACLRulesByMQTTUserID(int(user2.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(user2.ID)
 	if err != nil {
 		t.Fatalf("failed to get ACL rules: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestProvision_ManualUsersNotTouched(t *testing.T) {
 	}
 
 	// Create manual ACL rule
-	_, err = db.CreateACLRule(int(manualUser.ID), "manual/#", "pubsub")
+	_, err = db.CreateACLRule(manualUser.ID, "manual/#", "pubsub")
 	if err != nil {
 		t.Fatalf("failed to create manual ACL rule: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestProvision_ManualUsersNotTouched(t *testing.T) {
 	}
 
 	// Verify manual ACL rule still exists
-	rules, err := db.GetACLRulesByMQTTUserID(int(manualUser.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(manualUser.ID)
 	if err != nil {
 		t.Fatalf("failed to get manual ACL rules: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestProvision_MultipleACLRules(t *testing.T) {
 
 	// Verify all ACL rules were created
 	user, _ := db.GetMQTTUserByUsername("user1")
-	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("failed to get ACL rules: %v", err)
 	}
@@ -388,7 +388,7 @@ func TestProvision_Idempotent(t *testing.T) {
 
 	// Should only have one ACL rule
 	user, _ := db.GetMQTTUserByUsername("test")
-	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("failed to get ACL rules: %v", err)
 	}
@@ -418,7 +418,7 @@ func TestProvision_RemoveAllACLRules(t *testing.T) {
 
 	// Verify ACL rules were created
 	user, _ := db.GetMQTTUserByUsername("test_user")
-	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("failed to get ACL rules: %v", err)
 	}
@@ -439,7 +439,7 @@ func TestProvision_RemoveAllACLRules(t *testing.T) {
 	}
 
 	// Verify all ACL rules were removed
-	rules, err = db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err = db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		t.Fatalf("failed to get ACL rules after removal: %v", err)
 	}
@@ -481,7 +481,7 @@ func TestProvision_ACLRuleIDsPreservedWhenUnchanged(t *testing.T) {
 
 	// Get initial rule IDs
 	user, _ := db.GetMQTTUserByUsername("test_user")
-	rules1, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules1, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules1) != 2 {
 		t.Fatalf("expected 2 rules, got %d", len(rules1))
 	}
@@ -492,7 +492,7 @@ func TestProvision_ACLRuleIDsPreservedWhenUnchanged(t *testing.T) {
 	}
 
 	// Get rules again and verify IDs didn't change
-	rules2, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules2, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules2) != 2 {
 		t.Fatalf("expected 2 rules after second provision, got %d", len(rules2))
 	}
@@ -529,7 +529,7 @@ func TestProvision_AddNewACLRule(t *testing.T) {
 	}
 
 	user, _ := db.GetMQTTUserByUsername("test_user")
-	rules1, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules1, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules1) != 1 {
 		t.Fatalf("expected 1 rule, got %d", len(rules1))
 	}
@@ -551,7 +551,7 @@ func TestProvision_AddNewACLRule(t *testing.T) {
 	}
 
 	// Should now have 2 rules
-	rules2, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules2, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules2) != 2 {
 		t.Fatalf("expected 2 rules after adding, got %d", len(rules2))
 	}
@@ -599,7 +599,7 @@ func TestProvision_RemoveOneACLRule(t *testing.T) {
 	}
 
 	user, _ := db.GetMQTTUserByUsername("test_user")
-	rules1, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules1, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules1) != 2 {
 		t.Fatalf("expected 2 rules, got %d", len(rules1))
 	}
@@ -628,7 +628,7 @@ func TestProvision_RemoveOneACLRule(t *testing.T) {
 	}
 
 	// Should now have 1 rule
-	rules2, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules2, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules2) != 1 {
 		t.Fatalf("expected 1 rule after removing, got %d", len(rules2))
 	}
@@ -663,7 +663,7 @@ func TestProvision_MixedACLChanges(t *testing.T) {
 	}
 
 	user, _ := db.GetMQTTUserByUsername("test_user")
-	rules1, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules1, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules1) != 3 {
 		t.Fatalf("expected 3 rules, got %d", len(rules1))
 	}
@@ -694,7 +694,7 @@ func TestProvision_MixedACLChanges(t *testing.T) {
 	}
 
 	// Should now have 2 rules
-	rules2, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules2, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules2) != 2 {
 		t.Fatalf("expected 2 rules after mixed changes, got %d", len(rules2))
 	}
@@ -728,7 +728,7 @@ func TestProvision_ManualACLRulesNotTouched(t *testing.T) {
 
 	// Create user and manual rule
 	user, _ := db.CreateMQTTUser("test_user", "pass123", "", nil)
-	manualRule, _ := db.CreateACLRule(int(user.ID), "manual/#", "pub")
+	manualRule, _ := db.CreateACLRule(user.ID, "manual/#", "pub")
 
 	// Provision with different rules
 	cfg := &config.Config{
@@ -745,7 +745,7 @@ func TestProvision_ManualACLRulesNotTouched(t *testing.T) {
 	}
 
 	// Should have both manual and provisioned rules
-	rules, _ := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, _ := db.GetACLRulesByMQTTUserID(user.ID)
 	if len(rules) != 2 {
 		t.Fatalf("expected 2 rules (1 manual + 1 provisioned), got %d", len(rules))
 	}

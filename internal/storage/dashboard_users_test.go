@@ -121,7 +121,7 @@ func TestGetDashboardUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			user, err := db.GetDashboardUser(int(tt.id))
+			user, err := db.GetDashboardUser(tt.id)
 
 			if tt.wantErr {
 				if err == nil {
@@ -251,7 +251,7 @@ func TestUpdateDashboardUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := db.UpdateDashboardUser(int(tt.id), tt.newUsername, tt.newRole)
+			err := db.UpdateDashboardUser(tt.id, tt.newUsername, tt.newRole)
 
 			if tt.wantErr {
 				if err == nil {
@@ -265,7 +265,7 @@ func TestUpdateDashboardUser(t *testing.T) {
 			}
 
 			// Verify the update
-			updated, err := db.GetDashboardUser(int(tt.id))
+			updated, err := db.GetDashboardUser(tt.id)
 			if err != nil {
 				t.Fatalf("GetDashboardUser() after update failed: %v", err)
 			}
@@ -310,7 +310,7 @@ func TestUpdateDashboardUserPassword(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := db.UpdateDashboardUserPassword(int(tt.id), tt.newPassword)
+			err := db.UpdateDashboardUserPassword(tt.id, tt.newPassword)
 
 			if tt.wantErr {
 				if err == nil {
@@ -324,7 +324,7 @@ func TestUpdateDashboardUserPassword(t *testing.T) {
 			}
 
 			// Verify the password was updated
-			updated, err := db.GetDashboardUser(int(tt.id))
+			updated, err := db.GetDashboardUser(tt.id)
 			if err != nil {
 				t.Fatalf("GetDashboardUser() after password update failed: %v", err)
 			}
@@ -367,7 +367,7 @@ func TestDeleteDashboardUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id := tt.setup()
-			err := db.DeleteDashboardUser(int(id))
+			err := db.DeleteDashboardUser(id)
 
 			if tt.wantErr {
 				if err == nil {
@@ -381,7 +381,7 @@ func TestDeleteDashboardUser(t *testing.T) {
 			}
 
 			// Verify user is deleted
-			_, err = db.GetDashboardUser(int(id))
+			_, err = db.GetDashboardUser(id)
 			if err == nil {
 				t.Errorf("DeleteDashboardUser() user still exists after deletion")
 			}
