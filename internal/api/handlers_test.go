@@ -176,12 +176,12 @@ func TestListACL(t *testing.T) {
 		t.Fatalf("Failed to create test MQTT user: %v", err)
 	}
 
-	rule1, err := handler.db.CreateACLRule(int(mqttUser.ID), "sensor/#", "pubsub")
+	rule1, err := handler.db.CreateACLRule(mqttUser.ID, "sensor/#", "pubsub")
 	if err != nil {
 		t.Fatalf("Failed to create test ACL rule: %v", err)
 	}
 
-	rule2, err := handler.db.CreateACLRule(int(mqttUser.ID), "device/+/status", "pub")
+	rule2, err := handler.db.CreateACLRule(mqttUser.ID, "device/+/status", "pub")
 	if err != nil {
 		t.Fatalf("Failed to create second test ACL rule: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestCreateACL(t *testing.T) {
 		{
 			name: "create valid ACL rule",
 			request: CreateACLRequest{
-				MQTTUserID:   int(mqttUser.ID),
+				MQTTUserID:   mqttUser.ID,
 				Topic: "sensor/temperature",
 				Permission:   "pubsub",
 			},
@@ -282,7 +282,7 @@ func TestCreateACL(t *testing.T) {
 		{
 			name: "create pub-only rule",
 			request: CreateACLRequest{
-				MQTTUserID:   int(mqttUser.ID),
+				MQTTUserID:   mqttUser.ID,
 				Topic: "device/status",
 				Permission:   "pub",
 			},
@@ -291,7 +291,7 @@ func TestCreateACL(t *testing.T) {
 		{
 			name: "create sub-only rule",
 			request: CreateACLRequest{
-				MQTTUserID:   int(mqttUser.ID),
+				MQTTUserID:   mqttUser.ID,
 				Topic: "command/#",
 				Permission:   "sub",
 			},
@@ -300,7 +300,7 @@ func TestCreateACL(t *testing.T) {
 		{
 			name: "create with wildcard topic",
 			request: CreateACLRequest{
-				MQTTUserID:   int(mqttUser.ID),
+				MQTTUserID:   mqttUser.ID,
 				Topic: "sensor/+/temp",
 				Permission:   "pubsub",
 			},
@@ -367,7 +367,7 @@ func TestDeleteACL(t *testing.T) {
 		t.Fatalf("Failed to create test MQTT user: %v", err)
 	}
 
-	rule, err := handler.db.CreateACLRule(int(mqttUser.ID), "sensor/#", "pubsub")
+	rule, err := handler.db.CreateACLRule(mqttUser.ID, "sensor/#", "pubsub")
 	if err != nil {
 		t.Fatalf("Failed to create test ACL rule: %v", err)
 	}
@@ -615,7 +615,7 @@ func TestHandlerCRUD_ACL_Integration(t *testing.T) {
 
 	// 2. Create ACL rule
 	createReq := CreateACLRequest{
-		MQTTUserID:   int(mqttUser.ID),
+		MQTTUserID:   mqttUser.ID,
 		Topic: "sensor/#",
 		Permission:   "pubsub",
 	}

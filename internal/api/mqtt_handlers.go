@@ -98,11 +98,12 @@ func (h *Handler) CreateMQTTUser(w http.ResponseWriter, r *http.Request) {
 // GetMQTTUser returns a single MQTT user by ID
 func (h *Handler) GetMQTTUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	user, err := h.db.GetMQTTUser(id)
 	if err != nil {
@@ -117,11 +118,12 @@ func (h *Handler) GetMQTTUser(w http.ResponseWriter, r *http.Request) {
 // UpdateMQTTUser updates MQTT user information
 func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	// Check if user is provisioned from config
 	user, err := h.db.GetMQTTUser(id)
@@ -159,11 +161,12 @@ func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 // DeleteMQTTUser deletes MQTT user
 func (h *Handler) DeleteMQTTUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	// Check if user is provisioned from config
 	user, err := h.db.GetMQTTUser(id)
@@ -189,11 +192,12 @@ func (h *Handler) DeleteMQTTUser(w http.ResponseWriter, r *http.Request) {
 // UpdateMQTTUserPassword updates MQTT user password
 func (h *Handler) UpdateMQTTUserPassword(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	// Check if user is provisioned from config
 	user, err := h.db.GetMQTTUser(id)
@@ -314,11 +318,12 @@ func (h *Handler) UpdateMQTTClientMetadata(w http.ResponseWriter, r *http.Reques
 // DeleteMQTTClient deletes a client record
 func (h *Handler) DeleteMQTTClient(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid client ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	if err := h.db.DeleteMQTTClient(id); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to delete client: %s"}`, err), http.StatusInternalServerError)

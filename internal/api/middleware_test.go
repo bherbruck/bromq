@@ -14,7 +14,7 @@ import (
 func TestGenerateJWT(t *testing.T) {
 	tests := []struct {
 		name     string
-		userID   int
+		userID   uint
 		username string
 		role     string
 		wantErr  bool

@@ -1049,11 +1049,11 @@ func TestBlockProvisionedACLRuleUpdate(t *testing.T) {
 	user, _ := handler.db.CreateMQTTUser("acl_test_user", "password123", "Test user", nil)
 	
 	// Create manual rule
-	manualRule, _ := handler.db.CreateACLRule(int(user.ID), "manual/topic/#", "pubsub")
+	manualRule, _ := handler.db.CreateACLRule(user.ID, "manual/topic/#", "pubsub")
 	
 	// Create provisioned rule
 	handler.db.CreateProvisionedACLRule(user.ID, "provisioned/topic/#", "pubsub")
-	provisionedRule, _ := handler.db.GetACLRulesByMQTTUserID(int(user.ID))
+	provisionedRule, _ := handler.db.GetACLRulesByMQTTUserID(user.ID)
 	var provisionedRuleID int
 	for _, rule := range provisionedRule {
 		if rule.ProvisionedFromConfig {
@@ -1114,11 +1114,11 @@ func TestBlockProvisionedACLRuleDelete(t *testing.T) {
 	user, _ := handler.db.CreateMQTTUser("acl_del_test_user", "password123", "Test user", nil)
 	
 	// Create manual rule
-	manualRule, _ := handler.db.CreateACLRule(int(user.ID), "manual/delete/#", "pubsub")
+	manualRule, _ := handler.db.CreateACLRule(user.ID, "manual/delete/#", "pubsub")
 	
 	// Create provisioned rule
 	handler.db.CreateProvisionedACLRule(user.ID, "provisioned/delete/#", "pubsub")
-	provisionedRule, _ := handler.db.GetACLRulesByMQTTUserID(int(user.ID))
+	provisionedRule, _ := handler.db.GetACLRulesByMQTTUserID(user.ID)
 	var provisionedRuleID int
 	for _, rule := range provisionedRule {
 		if rule.ProvisionedFromConfig {
