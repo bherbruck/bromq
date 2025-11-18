@@ -31,6 +31,10 @@ interface DataTableProps<TData, TValue> {
   searchColumn?: string
   searchPlaceholder?: string
   getRowClassName?: (row: TData) => string
+  onRowClick?: (row: TData) => void
+  toolbarLeftElement?: React.ReactNode
+  toolbarRightElement?: React.ReactNode
+  emptyState?: React.ReactNode
 
   // Server-side pagination props (fully controlled)
   pageCount?: number
@@ -53,6 +57,10 @@ export function DataTable<TData, TValue>({
   searchColumn,
   searchPlaceholder,
   getRowClassName,
+  onRowClick,
+  toolbarLeftElement,
+  toolbarRightElement,
+  emptyState,
   pageCount,
   pagination: controlledPagination,
   sorting: controlledSorting,
@@ -158,6 +166,8 @@ export function DataTable<TData, TValue>({
         table={table}
         searchColumn={searchColumn}
         searchPlaceholder={searchPlaceholder}
+        leftElement={toolbarLeftElement}
+        rightElement={toolbarRightElement}
       />
       <div className="rounded-md border">
         <Table>
@@ -182,7 +192,8 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className={getRowClassName?.(row.original)}
+                  className={`${getRowClassName?.(row.original) || ''} ${onRowClick ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                  onClick={() => onRowClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -194,7 +205,7 @@ export function DataTable<TData, TValue>({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  {emptyState || 'No results.'}
                 </TableCell>
               </TableRow>
             )}

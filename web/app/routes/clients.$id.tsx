@@ -1,4 +1,4 @@
-import { ChevronRight, Home, Inbox } from 'lucide-react'
+import { Inbox } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import type { Route } from './+types/clients.$id'
@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '~/components/ui/table'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
-import { api, type ClientDetails, type ClientMetrics } from '~/lib/api'
+import { api, type ClientDetails, type ClientMetrics, type MQTTClient } from '~/lib/api'
 
 export const meta: Route.MetaFunction = () => [{ title: 'Client Details - BroMQ' }]
 
@@ -39,6 +39,7 @@ type RateDataPoint = {
 
 export default function ClientDetailPage() {
   const { id } = useParams()
+  const [dbClient, setDbClient] = useState<MQTTClient | null>(null)
   const [client, setClient] = useState<ClientDetails | null>(null)
   const [metrics, setMetrics] = useState<ClientMetrics | null>(null)
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistoryPoint[]>([])
@@ -51,71 +52,82 @@ export default function ClientDetailPage() {
       if (!id) return
 
       try {
-        const [clientData, metricsData] = await Promise.all([
-          api.getClientDetails(id),
-          api.getClientMetrics(id),
-        ])
-        setClient(clientData)
-        setMetrics(metricsData)
+        // First, get database record (works for both online and offline)
+        const dbData = await api.getMQTTClientDetails(id)
+        setDbClient(dbData)
 
-        const now = Date.now()
-        const newPoint = { ...metricsData, timestamp: now }
+        // Only fetch live data if client is active
+        if (dbData.is_active) {
+          const [clientData, metricsData] = await Promise.all([
+            api.getClientDetails(id),
+            api.getClientMetrics(id),
+          ])
+          setClient(clientData)
+          setMetrics(metricsData)
 
-        // Add to history (keep last 100 points = 5 minutes at 3-second intervals)
-        setMetricsHistory((prev) => {
-          const updated = [...prev, newPoint]
-          return updated.slice(-100)
-        })
+          const now = Date.now()
+          const newPoint = { ...metricsData, timestamp: now }
 
-        // Calculate rates per second
-        setMetricsHistory((prev) => {
-          if (prev.length < 2) return prev
+          // Add to history (keep last 100 points = 5 minutes at 3-second intervals)
+          setMetricsHistory((prev) => {
+            const updated = [...prev, newPoint]
+            return updated.slice(-100)
+          })
 
-          const lastPoint = prev[prev.length - 2]
-          const timeDiffSec = (now - lastPoint.timestamp) / 1000
+          // Calculate rates per second
+          setMetricsHistory((prev) => {
+            if (prev.length < 2) return prev
 
-          if (timeDiffSec > 0) {
-            // Handle counter resets like Prometheus:
-            // If new value < old value, assume counter reset and use new value as delta
-            const calcDelta = (newVal: number, oldVal: number) =>
-              newVal >= oldVal ? newVal - oldVal : newVal
+            const lastPoint = prev[prev.length - 2]
+            const timeDiffSec = (now - lastPoint.timestamp) / 1000
 
-            const messagesReceivedDelta = calcDelta(
-              metricsData.messages_received,
-              lastPoint.messages_received,
-            )
-            const messagesSentDelta = calcDelta(metricsData.messages_sent, lastPoint.messages_sent)
-            const bytesReceivedDelta = calcDelta(
-              metricsData.bytes_received,
-              lastPoint.bytes_received,
-            )
-            const bytesSentDelta = calcDelta(metricsData.bytes_sent, lastPoint.bytes_sent)
+            if (timeDiffSec > 0) {
+              // Handle counter resets like Prometheus:
+              // If new value < old value, assume counter reset and use new value as delta
+              const calcDelta = (newVal: number, oldVal: number) =>
+                newVal >= oldVal ? newVal - oldVal : newVal
 
-            // Only add rate data if there's any activity (non-zero delta)
-            const hasActivity =
-              messagesReceivedDelta > 0 ||
-              messagesSentDelta > 0 ||
-              bytesReceivedDelta > 0 ||
-              bytesSentDelta > 0
+              const messagesReceivedDelta = calcDelta(
+                metricsData.messages_received,
+                lastPoint.messages_received,
+              )
+              const messagesSentDelta = calcDelta(metricsData.messages_sent, lastPoint.messages_sent)
+              const bytesReceivedDelta = calcDelta(
+                metricsData.bytes_received,
+                lastPoint.bytes_received,
+              )
+              const bytesSentDelta = calcDelta(metricsData.bytes_sent, lastPoint.bytes_sent)
 
-            if (hasActivity) {
-              const rate: RateDataPoint = {
-                timestamp: now,
-                messages_received_rate: messagesReceivedDelta / timeDiffSec,
-                messages_sent_rate: messagesSentDelta / timeDiffSec,
-                bytes_received_rate: bytesReceivedDelta / timeDiffSec,
-                bytes_sent_rate: bytesSentDelta / timeDiffSec,
+              // Only add rate data if there's any activity (non-zero delta)
+              const hasActivity =
+                messagesReceivedDelta > 0 ||
+                messagesSentDelta > 0 ||
+                bytesReceivedDelta > 0 ||
+                bytesSentDelta > 0
+
+              if (hasActivity) {
+                const rate: RateDataPoint = {
+                  timestamp: now,
+                  messages_received_rate: messagesReceivedDelta / timeDiffSec,
+                  messages_sent_rate: messagesSentDelta / timeDiffSec,
+                  bytes_received_rate: bytesReceivedDelta / timeDiffSec,
+                  bytes_sent_rate: bytesSentDelta / timeDiffSec,
+                }
+
+                setRateData((prevRates) => {
+                  const updated = [...prevRates, rate]
+                  return updated.slice(-100)
+                })
               }
-
-              setRateData((prevRates) => {
-                const updated = [...prevRates, rate]
-                return updated.slice(-100)
-              })
             }
-          }
 
-          return prev
-        })
+            return prev
+          })
+        } else {
+          // Client is offline - clear live data
+          setClient(null)
+          setMetrics(null)
+        }
       } catch (error) {
         console.error('Failed to fetch client data:', error)
         setError('Failed to load client details')
@@ -148,106 +160,86 @@ export default function ClientDetailPage() {
     )
   }
 
-  if (error || !client) {
+  if (error || !dbClient) {
     return (
-      <div className="space-y-4">
-        <nav className="text-muted-foreground flex items-center gap-2 text-sm">
-          <Link to="/dashboard" className="hover:text-foreground">
-            <Home className="h-4 w-4" />
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <Link to="/clients" className="hover:text-foreground">
-            Clients
-          </Link>
-        </nav>
-        <Card>
-          <CardContent className="py-8">
-            <div className="text-center">
-              <p className="text-destructive">{error || 'Client not found'}</p>
-              <Link to="/clients" className="text-primary mt-4 inline-block">
-                Back to Clients
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardContent className="py-8">
+          <div className="text-center">
+            <p className="text-destructive">{error || 'Client not found'}</p>
+            <Link to="/clients" className="text-primary mt-4 inline-block">
+              Back to Clients
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
+  const isOnline = dbClient.is_active
+
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs */}
-      <nav className="text-muted-foreground flex items-center gap-2 text-sm">
-        <Link to="/dashboard" className="hover:text-foreground">
-          <Home className="h-4 w-4" />
-        </Link>
-        <ChevronRight className="h-4 w-4" />
-        <Link to="/clients" className="hover:text-foreground">
-          Clients
-        </Link>
-        <ChevronRight className="h-4 w-4" />
-        <span className="text-foreground font-medium">{client.id}</span>
-      </nav>
-
       {/* Client Overview */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Client: <span className="font-mono text-base">{client.id}</span>
-          </CardTitle>
-          <CardDescription>
-            {client.username || 'Anonymous'} • {getProtocolVersion(client.protocol_version)}
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <span className="font-mono text-base">{dbClient.client_id}</span>
+              </CardTitle>
+              <CardDescription>
+                {isOnline ? 'Currently connected' : `Last seen ${new Date(dbClient.last_seen).toLocaleString()}`}
+              </CardDescription>
+            </div>
+            <Badge variant={isOnline ? 'default' : 'secondary'} className={isOnline ? 'bg-green-500' : ''}>
+              {isOnline ? 'Online' : 'Offline'}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
             <div>
-              <p className="text-muted-foreground mb-1 text-sm">Username</p>
-              <p className="font-medium">{client.username || 'anonymous'}</p>
+              <p className="text-muted-foreground mb-1 text-sm">Client ID</p>
+              <p className="font-mono text-sm">{dbClient.client_id}</p>
             </div>
             <div>
-              <p className="text-muted-foreground mb-1 text-sm">Remote Address</p>
-              <p className="font-mono text-sm">{client.remote}</p>
+              <p className="text-muted-foreground mb-1 text-sm">First Seen</p>
+              <p className="text-sm">{new Date(dbClient.first_seen).toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-muted-foreground mb-1 text-sm">Listener</p>
-              <Badge variant="outline">{client.listener}</Badge>
+              <p className="text-muted-foreground mb-1 text-sm">Last Seen</p>
+              <p className="text-sm">{new Date(dbClient.last_seen).toLocaleString()}</p>
             </div>
-            <div>
-              <p className="text-muted-foreground mb-1 text-sm">Protocol Version</p>
-              <Badge variant="outline">{getProtocolVersion(client.protocol_version)}</Badge>
-            </div>
-            <div>
-              <p className="text-muted-foreground mb-1 text-sm">Keepalive</p>
-              <p>{client.keepalive}s</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground mb-1 text-sm">Clean Session</p>
-              <Badge variant={client.clean ? 'default' : 'secondary'}>
-                {client.clean ? 'Yes' : 'No'}
-              </Badge>
-            </div>
-            <div>
-              <p className="text-muted-foreground mb-1 text-sm">Subscriptions</p>
-              <p className="text-lg font-semibold">{client.subscriptions.length}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground mb-1 text-sm">In-Flight Messages</p>
-              <p className="text-lg font-semibold">{client.inflight_count}</p>
-            </div>
+            {client && (
+              <>
+                <div>
+                  <p className="text-muted-foreground mb-1 text-sm">Remote Address</p>
+                  <p className="font-mono text-sm">{client.remote}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1 text-sm">Protocol Version</p>
+                  <Badge variant="outline">{getProtocolVersion(client.protocol_version)}</Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1 text-sm">Subscriptions</p>
+                  <Badge>{client.subscriptions?.length || 0}</Badge>
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Subscriptions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Subscriptions</CardTitle>
-          <CardDescription>
-            {client.subscriptions.length} active subscription
-            {client.subscriptions.length !== 1 ? 's' : ''}
-          </CardDescription>
-        </CardHeader>
+      {/* Subscriptions - Only for online clients */}
+      {isOnline && client && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Subscriptions</CardTitle>
+            <CardDescription>
+              {client.subscriptions.length} active subscription
+              {client.subscriptions.length !== 1 ? 's' : ''}
+            </CardDescription>
+          </CardHeader>
         <CardContent>
           {client.subscriptions.length === 0 ? (
             <Empty>
@@ -280,10 +272,11 @@ export default function ClientDetailPage() {
             </Table>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      )}
 
-      {/* Metrics Overview */}
-      {metrics && (
+      {/* Metrics Overview - Only for online clients */}
+      {isOnline && metrics && (
         <Card>
           <CardHeader>
             <CardTitle>Client Metrics</CardTitle>

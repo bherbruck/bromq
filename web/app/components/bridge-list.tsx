@@ -1,4 +1,4 @@
-import { Network, Pencil, Plus, Trash2 } from 'lucide-react'
+import { MoreVertical, Network, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -30,6 +30,13 @@ import { PageTitle } from '~/components/page-title'
 import { Spinner } from '~/components/ui/spinner'
 import { DataTable } from '~/components/data-table'
 import { DataTableColumnHeader } from '~/components/data-table-column-header'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
 import { BridgeForm } from '~/components/bridge-form'
 import { api, type Bridge, type CreateBridgeRequest, type UpdateBridgeRequest } from '~/lib/api'
 
@@ -221,35 +228,48 @@ export function BridgeList() {
         ? [
             {
               id: 'actions',
-              header: 'Actions',
               cell: ({ row }) => {
                 const bridge = row.original
+                const isProvisioned = bridge.provisioned_from_config
                 return (
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleEditClick(bridge)
-                      }}
-                      disabled={bridge.provisioned_from_config}
-                      title={bridge.provisioned_from_config ? 'Edit config file to modify' : 'Edit bridge'}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setDeleteBridge(bridge)
-                      }}
-                      disabled={bridge.provisioned_from_config}
-                      title={bridge.provisioned_from_config ? 'Remove from config file to delete' : 'Delete bridge'}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditClick(bridge)
+                          }}
+                          disabled={isProvisioned}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteBridge(bridge)
+                          }}
+                          disabled={isProvisioned}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )
               },
@@ -297,7 +317,7 @@ export function BridgeList() {
         action={
           canEdit ? (
             <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Create Bridge
             </Button>
           ) : undefined
@@ -309,6 +329,29 @@ export function BridgeList() {
         data={bridges}
         searchColumn="name"
         searchPlaceholder="Search by name or host..."
+        onRowClick={(bridge) => navigate(`/bridges/${bridge.id}`)}
+        getRowClassName={(bridge) =>
+          bridge.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+        }
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Network />
+              </EmptyMedia>
+              <EmptyTitle>No bridges configured</EmptyTitle>
+              <EmptyDescription>
+                Create a bridge to connect this broker to another MQTT broker
+              </EmptyDescription>
+            </EmptyHeader>
+            {canEdit && (
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create Bridge
+              </Button>
+            )}
+          </Empty>
+        }
         pageCount={pagination.total_pages}
         pagination={{ pageIndex: page - 1, pageSize }}
         sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
@@ -319,7 +362,6 @@ export function BridgeList() {
         onPaginationChange={setPaginationState}
         onSortingChange={setSortingState}
         onGlobalFilterChange={setGlobalFilter}
-        onRowClick={(bridge) => navigate(`/bridges/${bridge.id}`)}
       />
 
       {/* Create Bridge Dialog */}

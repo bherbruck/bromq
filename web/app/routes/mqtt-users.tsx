@@ -1,8 +1,8 @@
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { MoreVertical, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { useMemo, useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import type { Route } from './+types/mqtt-users'
 import { useAuth } from '~/lib/auth-context'
 import { useDebounce } from '~/lib/use-debounce'
@@ -35,6 +35,13 @@ import { PageHeader } from '~/components/page-header'
 import { PageTitle } from '~/components/page-title'
 import { Spinner } from '~/components/ui/spinner'
 import { Textarea } from '~/components/ui/textarea'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
 import { api, type MQTTUser } from '~/lib/api'
 
 export const meta: Route.MetaFunction = () => [{ title: 'MQTT Users - BroMQ' }]
@@ -42,6 +49,7 @@ export const meta: Route.MetaFunction = () => [{ title: 'MQTT Users - BroMQ' }]
 export default function MQTTUsersPage() {
   const { user: currentUser } = useAuth()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // Get pagination params from URL
@@ -218,14 +226,7 @@ export default function MQTTUsersPage() {
       {
         accessorKey: 'username',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Username" />,
-        cell: ({ row }) => (
-          <Link
-            to={`/mqtt-users/${row.original.id}`}
-            className="hover:text-primary font-medium hover:underline"
-          >
-            {row.getValue('username')}
-          </Link>
-        ),
+        cell: ({ row }) => <span className="font-medium">{row.getValue('username')}</span>,
       },
       {
         accessorKey: 'description',
@@ -266,32 +267,46 @@ export default function MQTTUsersPage() {
               id: 'actions',
               cell: ({ row }: { row: any }) => {
                 const user = row.original as MQTTUser
+                const isProvisioned = user.provisioned_from_config
                 return (
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditDialog(user)}
-                      disabled={user.provisioned_from_config}
-                      title={
-                        user.provisioned_from_config ? 'Edit config file to modify' : 'Edit user'
-                      }
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setDeleteUser(user)}
-                      disabled={user.provisioned_from_config}
-                      title={
-                        user.provisioned_from_config
-                          ? 'Remove from config file to delete'
-                          : 'Delete user'
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditDialog(user)
+                          }}
+                          disabled={isProvisioned}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteUser(user)
+                          }}
+                          disabled={isProvisioned}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )
               },
@@ -335,53 +350,53 @@ export default function MQTTUsersPage() {
         action={
           canEdit ? (
             <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Add MQTT User
             </Button>
           ) : undefined
         }
       />
 
-      {users.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Users />
-            </EmptyMedia>
-            <EmptyTitle>No MQTT users</EmptyTitle>
-            <EmptyDescription>
-              Add an MQTT user to allow devices to connect to the broker.
-            </EmptyDescription>
-          </EmptyHeader>
-          {canEdit && (
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add MQTT User
-            </Button>
-          )}
-        </Empty>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={users}
-          searchColumn="username"
-          searchPlaceholder="Search users..."
-          getRowClassName={(user) =>
-            user.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
-          }
-          // Server-side pagination - pass controlled state
-          pageCount={pageCount}
-          pagination={{ pageIndex: page - 1, pageSize }}
-          sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
-          columnFilters={localSearch ? [{ id: 'username', value: localSearch }] : []}
-          manualPagination
-          manualSorting
-          manualFiltering
-          onPaginationChange={setPaginationState}
-          onSortingChange={setSortingState}
-          onGlobalFilterChange={setGlobalFilter}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={users}
+        searchColumn="username"
+        searchPlaceholder="Search users..."
+        onRowClick={(user) => navigate(`/mqtt-users/${user.id}`)}
+        getRowClassName={(user) =>
+          user.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+        }
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Users />
+              </EmptyMedia>
+              <EmptyTitle>No MQTT users</EmptyTitle>
+              <EmptyDescription>
+                Add an MQTT user to allow devices to connect to the broker.
+              </EmptyDescription>
+            </EmptyHeader>
+            {canEdit && (
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add MQTT User
+              </Button>
+            )}
+          </Empty>
+        }
+        // Server-side pagination - pass controlled state
+        pageCount={pageCount}
+        pagination={{ pageIndex: page - 1, pageSize }}
+        sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
+        columnFilters={localSearch ? [{ id: 'username', value: localSearch }] : []}
+        manualPagination
+        manualSorting
+        manualFiltering
+        onPaginationChange={setPaginationState}
+        onSortingChange={setSortingState}
+        onGlobalFilterChange={setGlobalFilter}
+      />
 
       {/* Create Dialog */}
       <Dialog
@@ -437,7 +452,7 @@ export default function MQTTUsersPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending && <Spinner className="mr-2" />}
+                {createMutation.isPending && <Spinner />}
                 {createMutation.isPending ? 'Creating...' : 'Create MQTT User'}
               </Button>
             </DialogFooter>
@@ -522,7 +537,7 @@ export default function MQTTUsersPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending && <Spinner className="mr-2" />}
+                {updateMutation.isPending && <Spinner />}
                 {updateMutation.isPending ? 'Updating...' : 'Save Changes'}
               </Button>
             </DialogFooter>
