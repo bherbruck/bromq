@@ -39,7 +39,7 @@ jobs:
         run: go vet ./...
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: go test -race -coverprofile=coverage.out ./...
 
       - name: Display test coverage
         run: go tool cover -func=coverage.out
@@ -107,13 +107,13 @@ jobs:
 
       - name: Run SQLite tests
         if: matrix.database == 'sqlite'
-        run: go test -v ./internal/storage/... ./internal/provisioning/...
+        run: go test ./internal/storage/... ./internal/provisioning/...
         env:
           DB_TYPE: sqlite
 
       - name: Run PostgreSQL tests
         if: matrix.database == 'postgres'
-        run: go test -v ./internal/storage/... ./internal/provisioning/...
+        run: go test ./internal/storage/... ./internal/provisioning/...
         env:
           DB_TYPE: postgres
           DB_HOST: localhost
@@ -124,7 +124,7 @@ jobs:
 
       - name: Run MySQL tests
         if: matrix.database == 'mysql'
-        run: go test -v ./internal/storage/... ./internal/provisioning/...
+        run: go test ./internal/storage/... ./internal/provisioning/...
         env:
           DB_TYPE: mysql
           DB_HOST: localhost
@@ -204,7 +204,7 @@ jobs:
         run: |
           mkdir -p bin
           VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
-          go build -ldflags="-X main.version=$VERSION" -v -o bin/bromq .
+          go build -ldflags="-X main.version=$VERSION" -v -o bin/bromq ./cmd/server
 
       - name: Verify binary
         run: |
@@ -264,44 +264,6 @@ jobs:
           context: .
           push: false
           tags: bromq:ci-test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # Docker dev build (push to ghcr.io on main)
-  docker-dev:
-    name: Docker Dev Build
-    needs: [test-go, test-frontend, lint]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push dev image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:main
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
