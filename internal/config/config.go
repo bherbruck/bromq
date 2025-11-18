@@ -140,6 +140,7 @@ func restoreDollarSigns(content string) string {
 // - $${...} - escaped, becomes literal ${...} (for JavaScript template literals)
 func Load(path string) (*Config, error) {
 	// Read the file
+	// #nosec G304 -- Config file path is controlled by operator via CLI flag/env var
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)

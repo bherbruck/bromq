@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github/bherbruck/bromq/internal/mqtt"
@@ -136,8 +137,18 @@ func (s *Server) Start() error {
 	// Apply middleware
 	handler := LoggingMiddleware(CORSMiddleware(mux))
 
+	// Create server with timeouts to prevent resource exhaustion
+	server := &http.Server{
+		Addr:           s.addr,
+		Handler:        handler,
+		ReadTimeout:    15 * time.Second,
+		WriteTimeout:   15 * time.Second,
+		IdleTimeout:    60 * time.Second,
+		MaxHeaderBytes: 1 << 20, // 1 MB
+	}
+
 	slog.Info("HTTP API server started", "address", s.addr)
-	return http.ListenAndServe(s.addr, handler)
+	return server.ListenAndServe()
 }
 
 // spaHandler serves the Single Page Application with fallback to index.html
