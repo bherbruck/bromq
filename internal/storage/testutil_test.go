@@ -49,7 +49,7 @@ func createTestMQTTUser(t *testing.T, db *DB, username, password, description st
 func createTestACLRule(t *testing.T, db *DB, mqttUserID uint, topicPattern, permission string) *ACLRule {
 	t.Helper()
 
-	rule, err := db.CreateACLRule(int(mqttUserID), topicPattern, permission)
+	rule, err := db.CreateACLRule(mqttUserID, topicPattern, permission)
 	if err != nil {
 		t.Fatalf("failed to create test ACL rule: %v", err)
 	}

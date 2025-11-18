@@ -54,10 +54,9 @@ func (db *DB) ListACLRulesPaginated(page, pageSize int, search, sortBy, sortOrde
 
 // GetACLRulesByMQTTUserID returns all ACL rules for a specific MQTT user
 // Uses in-memory cache to avoid database queries on hot path (MQTT pub/sub)
-func (db *DB) GetACLRulesByMQTTUserID(mqttUserID int) ([]ACLRule, error) {
+func (db *DB) GetACLRulesByMQTTUserID(mqttUserID uint) ([]ACLRule, error) {
 	// Check cache first
-	// #nosec G115 -- mqttUserID is validated database ID, always positive
-	if cachedRules, found := db.cache.GetACLRules(uint(mqttUserID)); found {
+	if cachedRules, found := db.cache.GetACLRules(mqttUserID); found {
 		return cachedRules, nil
 	}
 
@@ -69,14 +68,13 @@ func (db *DB) GetACLRulesByMQTTUserID(mqttUserID int) ([]ACLRule, error) {
 	}
 
 	// Store in cache for future requests
-	// #nosec G115 -- mqttUserID is validated database ID, always positive
-	db.cache.SetACLRules(uint(mqttUserID), rules)
+	db.cache.SetACLRules(mqttUserID, rules)
 
 	return rules, nil
 }
 
 // CreateACLRule creates a new ACL rule
-func (db *DB) CreateACLRule(mqttUserID int, topicPattern, permission string) (*ACLRule, error) {
+func (db *DB) CreateACLRule(mqttUserID uint, topicPattern, permission string) (*ACLRule, error) {
 	// Validate permission
 	if permission != "pub" && permission != "sub" && permission != "pubsub" {
 		return nil, fmt.Errorf("invalid permission: must be 'pub', 'sub', or 'pubsub'")
@@ -92,9 +90,8 @@ func (db *DB) CreateACLRule(mqttUserID int, topicPattern, permission string) (*A
 	}
 
 	// Create rule
-	// #nosec G115 -- mqttUserID is validated database ID, always positive
 	rule := ACLRule{
-		MQTTUserID: uint(mqttUserID),
+		MQTTUserID: mqttUserID,
 		Topic:      topicPattern,
 		Permission: permission,
 	}
@@ -104,14 +101,13 @@ func (db *DB) CreateACLRule(mqttUserID int, topicPattern, permission string) (*A
 	}
 
 	// Invalidate ACL cache for this user
-	// #nosec G115 -- mqttUserID is validated database ID, always positive
-	db.cache.DeleteACLRules(uint(mqttUserID))
+	db.cache.DeleteACLRules(mqttUserID)
 
 	return &rule, nil
 }
 
 // UpdateACLRule updates an existing ACL rule
-func (db *DB) UpdateACLRule(id int, topicPattern, permission string) (*ACLRule, error) {
+func (db *DB) UpdateACLRule(id uint, topicPattern, permission string) (*ACLRule, error) {
 	// Validate permission
 	if permission != "pub" && permission != "sub" && permission != "pubsub" {
 		return nil, fmt.Errorf("invalid permission: must be 'pub', 'sub', or 'pubsub'")
@@ -138,7 +134,7 @@ func (db *DB) UpdateACLRule(id int, topicPattern, permission string) (*ACLRule, 
 }
 
 // GetACLRule retrieves an ACL rule by ID
-func (db *DB) GetACLRule(id int) (*ACLRule, error) {
+func (db *DB) GetACLRule(id uint) (*ACLRule, error) {
 	var rule ACLRule
 	if err := db.First(&rule, id).Error; err != nil {
 		return nil, fmt.Errorf("ACL rule not found")
@@ -147,7 +143,7 @@ func (db *DB) GetACLRule(id int) (*ACLRule, error) {
 }
 
 // DeleteACLRule deletes an ACL rule by ID
-func (db *DB) DeleteACLRule(id int) error {
+func (db *DB) DeleteACLRule(id uint) error {
 	// Get rule to find user ID for cache invalidation
 	rule, err := db.GetACLRule(id)
 	if err != nil {
@@ -188,8 +184,7 @@ func (db *DB) CheckACL(username, clientID, topic, action string) (bool, error) {
 	}
 
 	// Get user's ACL rules
-	// #nosec G115 -- user.ID is database primary key, always positive
-	rules, err := db.GetACLRulesByMQTTUserID(int(user.ID))
+	rules, err := db.GetACLRulesByMQTTUserID(user.ID)
 	if err != nil {
 		return false, err
 	}

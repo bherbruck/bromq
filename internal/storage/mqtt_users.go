@@ -36,7 +36,7 @@ func (db *DB) CreateMQTTUser(username, password, description string, metadata da
 }
 
 // GetMQTTUser retrieves an MQTT user by ID
-func (db *DB) GetMQTTUser(id int) (*MQTTUser, error) {
+func (db *DB) GetMQTTUser(id uint) (*MQTTUser, error) {
 	var user MQTTUser
 	if err := db.First(&user, id).Error; err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (db *DB) ListMQTTUsersPaginated(page, pageSize int, search, sortBy, sortOrd
 }
 
 // UpdateMQTTUser updates an MQTT user's information
-func (db *DB) UpdateMQTTUser(id int, username, description string, metadata datatypes.JSON) error {
+func (db *DB) UpdateMQTTUser(id uint, username, description string, metadata datatypes.JSON) error {
 	// Get old username to invalidate cache
 	oldUser, err := db.GetMQTTUser(id)
 	if err != nil {
@@ -149,7 +149,7 @@ func (db *DB) UpdateMQTTUser(id int, username, description string, metadata data
 }
 
 // UpdateMQTTUserPassword updates an MQTT user's password
-func (db *DB) UpdateMQTTUserPassword(id int, password string) error {
+func (db *DB) UpdateMQTTUserPassword(id uint, password string) error {
 	// Get username to invalidate cache
 	user, err := db.GetMQTTUser(id)
 	if err != nil {
@@ -177,7 +177,7 @@ func (db *DB) UpdateMQTTUserPassword(id int, password string) error {
 }
 
 // DeleteMQTTUser deletes an MQTT user and cascades to ACL rules and clients
-func (db *DB) DeleteMQTTUser(id int) error {
+func (db *DB) DeleteMQTTUser(id uint) error {
 	// Get username to invalidate cache
 	user, err := db.GetMQTTUser(id)
 	if err != nil {
@@ -236,8 +236,7 @@ func (db *DB) GetMQTTUserByUsernameInterface(username string) (interface{}, erro
 // MarkAsProvisioned marks an MQTT user as provisioned from config file
 func (db *DB) MarkAsProvisioned(id uint, provisioned bool) error {
 	// Get username to invalidate cache
-	// #nosec G115 -- id is database primary key, always positive
-	user, err := db.GetMQTTUser(int(id))
+	user, err := db.GetMQTTUser(id)
 	if err != nil {
 		return fmt.Errorf("MQTT user not found")
 	}

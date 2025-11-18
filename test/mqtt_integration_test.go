@@ -32,13 +32,13 @@ func setupMQTTTestServer(t *testing.T) (*mqttserver.Server, *storage.DB, func())
 
 	// Create ACL rules
 	user, _ := db.GetMQTTUserByUsername("testuser")
-	db.CreateACLRule(int(user.ID), "test/#", "pubsub")
+	db.CreateACLRule(user.ID, "test/#", "pubsub")
 
 	pub, _ := db.GetMQTTUserByUsername("publisher")
-	db.CreateACLRule(int(pub.ID), "publish/#", "pub")
+	db.CreateACLRule(pub.ID, "publish/#", "pub")
 
 	sub, _ := db.GetMQTTUserByUsername("subscriber")
-	db.CreateACLRule(int(sub.ID), "subscribe/#", "sub")
+	db.CreateACLRule(sub.ID, "subscribe/#", "sub")
 
 	// Create MQTT server with test port
 	cfg := &mqttserver.Config{
@@ -274,8 +274,8 @@ func TestMQTTIntegration_WildcardTopics(t *testing.T) {
 
 	// Create user with wildcard permissions
 	wildcardUser, _ := db.CreateMQTTUser("wildcarduser", "password123", "Wildcard user", nil)
-	db.CreateACLRule(int(wildcardUser.ID), "devices/+/telemetry", "pub")
-	db.CreateACLRule(int(wildcardUser.ID), "sensors/#", "sub")
+	db.CreateACLRule(wildcardUser.ID, "devices/+/telemetry", "pub")
+	db.CreateACLRule(wildcardUser.ID, "sensors/#", "sub")
 
 	client := createMQTTClient(t, "test-wildcard", "wildcarduser", "password123")
 

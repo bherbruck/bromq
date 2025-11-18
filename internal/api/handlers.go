@@ -50,7 +50,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(h.config.JWTSecret, int(user.ID), user.Username, user.Role) // #nosec G115 -- user.ID is database primary key
+	token, err := GenerateJWT(h.config.JWTSecret, user.ID, user.Username, user.Role)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to generate token: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -123,11 +123,12 @@ func (h *Handler) CreateACL(w http.ResponseWriter, r *http.Request) {
 // UpdateACL updates an existing ACL rule
 func (h *Handler) UpdateACL(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid ACL rule ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	// Check if ACL rule is provisioned from config
 	existingRule, err := h.db.GetACLRule(id)
@@ -160,11 +161,12 @@ func (h *Handler) UpdateACL(w http.ResponseWriter, r *http.Request) {
 // DeleteACL deletes an ACL rule
 func (h *Handler) DeleteACL(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid ACL rule ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	// Check if ACL rule is provisioned from config
 	existingRule, err := h.db.GetACLRule(id)

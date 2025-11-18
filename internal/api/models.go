@@ -76,7 +76,7 @@ type UpdateMQTTClientMetadataRequest struct {
 
 // CreateACLRequest represents a request to create an ACL rule
 type CreateACLRequest struct {
-	MQTTUserID int    `json:"mqtt_user_id"`
+	MQTTUserID uint   `json:"mqtt_user_id"`
 	Topic      string `json:"topic"`
 	Permission string `json:"permission"`
 }
