@@ -50,7 +50,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(h.config.JWTSecret, int(user.ID), user.Username, user.Role)
+	token, err := GenerateJWT(h.config.JWTSecret, int(user.ID), user.Username, user.Role) // #nosec G115 -- user.ID is database primary key
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to generate token: %s"}`, err), http.StatusInternalServerError)
 		return
