@@ -1,6 +1,7 @@
 package mqtt
 
 import (
+	"sync/atomic"
 	"time"
 )
 
@@ -21,21 +22,22 @@ type Metrics struct {
 }
 
 // GetMetrics returns current server metrics
+// Uses atomic loads to safely read counters that are updated concurrently
 func (s *Server) GetMetrics() Metrics {
 	info := s.Info
 
 	return Metrics{
-		Uptime:            time.Since(time.Unix(info.Started, 0)),
+		Uptime:            time.Since(time.Unix(atomic.LoadInt64(&info.Started), 0)),
 		ConnectedClients:  len(s.Clients.GetAll()),
-		TotalClients:      int(info.ClientsConnected),
-		MessagesReceived:  info.MessagesReceived,
-		MessagesSent:      info.MessagesSent,
-		MessagesDropped:   info.MessagesDropped,
-		PacketsReceived:   info.PacketsReceived,
-		PacketsSent:       info.PacketsSent,
-		BytesReceived:     info.BytesReceived,
-		BytesSent:         info.BytesSent,
-		SubscriptionsTotal: int(info.Subscriptions),
-		RetainedMessages:  int(info.Retained),
+		TotalClients:      int(atomic.LoadInt64(&info.ClientsConnected)),
+		MessagesReceived:  atomic.LoadInt64(&info.MessagesReceived),
+		MessagesSent:      atomic.LoadInt64(&info.MessagesSent),
+		MessagesDropped:   atomic.LoadInt64(&info.MessagesDropped),
+		PacketsReceived:   atomic.LoadInt64(&info.PacketsReceived),
+		PacketsSent:       atomic.LoadInt64(&info.PacketsSent),
+		BytesReceived:     atomic.LoadInt64(&info.BytesReceived),
+		BytesSent:         atomic.LoadInt64(&info.BytesSent),
+		SubscriptionsTotal: int(atomic.LoadInt64(&info.Subscriptions)),
+		RetainedMessages:  int(atomic.LoadInt64(&info.Retained)),
 	}
 }
