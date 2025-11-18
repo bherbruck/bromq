@@ -75,7 +75,7 @@ export default function LoginPage() {
               </div>
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Spinner className="mr-2" />}
+              {isLoading && <Spinner />}
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>

@@ -196,7 +196,7 @@ export function BridgeForm({ mode, initialData, onSubmit, isSubmitting, error }:
               <CardDescription>Define topic routing rules between brokers</CardDescription>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={addTopic}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Add Topic
             </Button>
           </div>
