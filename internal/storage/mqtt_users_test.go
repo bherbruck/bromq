@@ -121,7 +121,7 @@ func TestGetMQTTUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			user, err := db.GetMQTTUser(int(tt.id))
+			user, err := db.GetMQTTUser(tt.id)
 
 			if tt.wantErr {
 				if err == nil {
@@ -238,7 +238,7 @@ func TestUpdateMQTTUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := db.UpdateMQTTUser(int(tt.id), tt.newUsername, tt.newDescription, nil)
+			err := db.UpdateMQTTUser(tt.id, tt.newUsername, tt.newDescription, nil)
 
 			if tt.wantErr {
 				if err == nil {
@@ -252,7 +252,7 @@ func TestUpdateMQTTUser(t *testing.T) {
 			}
 
 			// Verify the update
-			updated, err := db.GetMQTTUser(int(tt.id))
+			updated, err := db.GetMQTTUser(tt.id)
 			if err != nil {
 				t.Fatalf("GetMQTTUser() after update failed: %v", err)
 			}
@@ -297,7 +297,7 @@ func TestUpdateMQTTUserPassword(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := db.UpdateMQTTUserPassword(int(tt.id), tt.newPassword)
+			err := db.UpdateMQTTUserPassword(tt.id, tt.newPassword)
 
 			if tt.wantErr {
 				if err == nil {
@@ -311,7 +311,7 @@ func TestUpdateMQTTUserPassword(t *testing.T) {
 			}
 
 			// Verify the password was updated
-			updated, err := db.GetMQTTUser(int(tt.id))
+			updated, err := db.GetMQTTUser(tt.id)
 			if err != nil {
 				t.Fatalf("GetMQTTUser() after password update failed: %v", err)
 			}
@@ -354,7 +354,7 @@ func TestDeleteMQTTUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			id := tt.setup()
-			err := db.DeleteMQTTUser(int(id))
+			err := db.DeleteMQTTUser(id)
 
 			if tt.wantErr {
 				if err == nil {
@@ -368,7 +368,7 @@ func TestDeleteMQTTUser(t *testing.T) {
 			}
 
 			// Verify user is deleted
-			_, err = db.GetMQTTUser(int(id))
+			_, err = db.GetMQTTUser(id)
 			if err == nil {
 				t.Errorf("DeleteMQTTUser() user still exists after deletion")
 			}
@@ -488,7 +488,7 @@ func TestMarkAsProvisioned(t *testing.T) {
 	}
 
 	// Verify it was marked
-	updated, err := db.GetMQTTUser(int(user.ID))
+	updated, err := db.GetMQTTUser(user.ID)
 	if err != nil {
 		t.Fatalf("GetMQTTUser() failed: %v", err)
 	}
@@ -503,7 +503,7 @@ func TestMarkAsProvisioned(t *testing.T) {
 	}
 
 	// Verify it was unmarked
-	updated, err = db.GetMQTTUser(int(user.ID))
+	updated, err = db.GetMQTTUser(user.ID)
 	if err != nil {
 		t.Fatalf("GetMQTTUser() failed: %v", err)
 	}

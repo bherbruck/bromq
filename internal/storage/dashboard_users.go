@@ -35,7 +35,7 @@ func (db *DB) CreateDashboardUser(username, password, role string) (*DashboardUs
 }
 
 // GetDashboardUser retrieves an admin user by ID
-func (db *DB) GetDashboardUser(id int) (*DashboardUser, error) {
+func (db *DB) GetDashboardUser(id uint) (*DashboardUser, error) {
 	var user DashboardUser
 	if err := db.First(&user, id).Error; err != nil {
 		return nil, err
@@ -100,7 +100,7 @@ func (db *DB) ListDashboardUsersPaginated(page, pageSize int, search, sortBy, so
 }
 
 // UpdateDashboardUser updates an admin user's information
-func (db *DB) UpdateDashboardUser(id int, username, role string) error {
+func (db *DB) UpdateDashboardUser(id uint, username, role string) error {
 	if role != "admin" && role != "viewer" {
 		return fmt.Errorf("invalid role: must be 'admin' or 'viewer'")
 	}
@@ -123,7 +123,7 @@ func (db *DB) UpdateDashboardUser(id int, username, role string) error {
 }
 
 // UpdateDashboardUserPassword updates an admin user's password
-func (db *DB) UpdateDashboardUserPassword(id int, password string) error {
+func (db *DB) UpdateDashboardUserPassword(id uint, password string) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
@@ -142,7 +142,7 @@ func (db *DB) UpdateDashboardUserPassword(id int, password string) error {
 }
 
 // DeleteDashboardUser deletes an admin user
-func (db *DB) DeleteDashboardUser(id int) error {
+func (db *DB) DeleteDashboardUser(id uint) error {
 	result := db.Delete(&DashboardUser{}, id)
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete admin user: %w", result.Error)

@@ -66,11 +66,12 @@ func (h *Handler) CreateDashboardUser(w http.ResponseWriter, r *http.Request) {
 // GetDashboardUser returns a single dashboard user by ID
 func (h *Handler) GetDashboardUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	user, err := h.db.GetDashboardUser(id)
 	if err != nil {
@@ -85,11 +86,12 @@ func (h *Handler) GetDashboardUser(w http.ResponseWriter, r *http.Request) {
 // UpdateDashboardUser updates an admin user's information
 func (h *Handler) UpdateDashboardUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	var req UpdateDashboardUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -115,11 +117,12 @@ func (h *Handler) UpdateDashboardUser(w http.ResponseWriter, r *http.Request) {
 // DeleteDashboardUser deletes an admin user
 func (h *Handler) DeleteDashboardUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	// Prevent deleting yourself
 	claims, ok := GetUserFromContext(r)
@@ -140,11 +143,12 @@ func (h *Handler) DeleteDashboardUser(w http.ResponseWriter, r *http.Request) {
 // UpdateDashboardUserPassword updates an admin user's password
 func (h *Handler) UpdateDashboardUserPassword(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	idVal, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		http.Error(w, `{"error":"invalid user ID"}`, http.StatusBadRequest)
 		return
 	}
+	id := uint(idVal)
 
 	var req UpdateAdminPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

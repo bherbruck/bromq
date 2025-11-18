@@ -82,7 +82,7 @@ func provisionUser(db *storage.DB, userCfg config.MQTTUserConfig) (uint, error) 
 	existingUser, err := db.GetMQTTUserByUsername(userCfg.Username)
 	if err == nil {
 		// User exists - update password and metadata
-		if err := db.UpdateMQTTUserPassword(int(existingUser.ID), userCfg.Password); err != nil { // #nosec G115 -- existingUser.ID is database primary key
+		if err := db.UpdateMQTTUserPassword(existingUser.ID, userCfg.Password); err != nil {
 			return 0, fmt.Errorf("failed to update password: %w", err)
 		}
 
@@ -95,7 +95,7 @@ func provisionUser(db *storage.DB, userCfg config.MQTTUserConfig) (uint, error) 
 			}
 		}
 
-		if err := db.UpdateMQTTUser(int(existingUser.ID), userCfg.Username, userCfg.Description, metadataJSON); err != nil { // #nosec G115 -- existingUser.ID is database primary key
+		if err := db.UpdateMQTTUser(existingUser.ID, userCfg.Username, userCfg.Description, metadataJSON); err != nil {
 			return 0, fmt.Errorf("failed to update user: %w", err)
 		}
 
@@ -144,7 +144,7 @@ func syncACLRules(db *storage.DB, userIDMap map[string]uint, configRules []confi
 	// Process each user in config
 	for username, userID := range userIDMap {
 		// Get existing provisioned rules from DB
-		existingRules, err := db.GetACLRulesByMQTTUserID(int(userID)) // #nosec G115 -- userID is database primary key
+		existingRules, err := db.GetACLRulesByMQTTUserID(userID)
 		if err != nil {
 			return fmt.Errorf("failed to get existing ACL rules for user '%s': %w", username, err)
 		}
@@ -178,7 +178,7 @@ func syncACLRules(db *storage.DB, userIDMap map[string]uint, configRules []confi
 		for key, existingRule := range existingMap {
 			if _, inConfig := configSet[key]; !inConfig {
 				slog.Debug("Deleting removed ACL rule", "username", username, "topic", existingRule.Topic, "permission", existingRule.Permission)
-				if err := db.DeleteACLRule(int(existingRule.ID)); err != nil { // #nosec G115 -- existingRule.ID is database primary key
+				if err := db.DeleteACLRule(existingRule.ID); err != nil {
 					return fmt.Errorf("failed to delete ACL rule: %w", err)
 				}
 			}
@@ -212,7 +212,7 @@ func cleanupOrphanedUsers(db *storage.DB, currentUserMap map[string]uint) error 
 		if _, exists := currentUserMap[user.Username]; !exists {
 			// User was provisioned but is no longer in config - remove it
 			slog.Info("Removing orphaned provisioned user", "username", user.Username, "id", user.ID)
-			if err := db.DeleteMQTTUser(int(user.ID)); err != nil { // #nosec G115 -- user.ID is database primary key
+			if err := db.DeleteMQTTUser(user.ID); err != nil {
 				slog.Warn("Failed to delete orphaned user", "username", user.Username, "error", err)
 			}
 		}
