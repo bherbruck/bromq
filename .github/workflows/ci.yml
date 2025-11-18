@@ -39,8 +39,7 @@ jobs:
         run: go vet ./...
 
       - name: Run tests
-        # TODO: Re-enable -race flag after fixing race condition in GetMetrics() (issue tracked separately)
-        run: go test -v -coverprofile=coverage.out ./...
+        run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: Display test coverage
         run: go tool cover -func=coverage.out
@@ -311,7 +310,6 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: test-frontend
-    continue-on-error: true  # TODO: Remove after fixing security issues (tracked separately)
 
     steps:
       - name: Checkout code
