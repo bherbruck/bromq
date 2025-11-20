@@ -13,7 +13,22 @@ import (
 
 // === Bridge Management Handlers ===
 
-// ListBridges returns paginated bridges
+// ListBridges godoc
+// @Summary List bridges
+// @Description Get paginated list of MQTT bridges with their topic mappings
+// @Tags Bridges
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Items per page" default(25)
+// @Param search query string false "Search by bridge name"
+// @Param sortBy query string false "Sort field" default(id)
+// @Param sortOrder query string false "Sort order (asc/desc)" default(asc)
+// @Success 200 {object} PaginatedResponse{data=[]storage.Bridge}
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /bridges [get]
 func (h *Handler) ListBridges(w http.ResponseWriter, r *http.Request) {
 	params := parsePaginationParams(r)
 
@@ -45,7 +60,19 @@ func (h *Handler) ListBridges(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// GetBridge returns a single bridge by ID
+// GetBridge godoc
+// @Summary Get bridge
+// @Description Get a single MQTT bridge by ID with its topic mappings
+// @Tags Bridges
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Bridge ID"
+// @Success 200 {object} storage.Bridge
+// @Failure 400 {object} ErrorResponse "Invalid bridge ID"
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse "Bridge not found"
+// @Router /bridges/{id} [get]
 func (h *Handler) GetBridge(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -65,7 +92,20 @@ func (h *Handler) GetBridge(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(bridge)
 }
 
-// CreateBridge creates a new bridge
+// CreateBridge godoc
+// @Summary Create bridge
+// @Description Create a new MQTT bridge with topic mappings to forward messages to/from remote brokers
+// @Tags Bridges
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param bridge body CreateBridgeRequest true "Bridge configuration with topics"
+// @Success 201 {object} storage.Bridge
+// @Failure 400 {object} ErrorResponse "Invalid request or validation error"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /bridges [post]
 func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 	var req CreateBridgeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -149,7 +189,23 @@ func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(bridge)
 }
 
-// UpdateBridge updates a bridge's configuration
+// UpdateBridge godoc
+// @Summary Update bridge
+// @Description Update an existing MQTT bridge configuration and topic mappings
+// @Tags Bridges
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Bridge ID"
+// @Param bridge body UpdateBridgeRequest true "Updated bridge configuration"
+// @Success 200 {object} storage.Bridge
+// @Failure 400 {object} ErrorResponse "Invalid bridge ID or validation error"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse "Bridge not found"
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be modified"
+// @Failure 500 {object} ErrorResponse
+// @Router /bridges/{id} [put]
 func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -264,7 +320,22 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(bridge)
 }
 
-// DeleteBridge deletes a bridge
+// DeleteBridge godoc
+// @Summary Delete bridge
+// @Description Delete an MQTT bridge and all its topic mappings
+// @Tags Bridges
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Bridge ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse "Invalid bridge ID"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse "Bridge not found"
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be deleted"
+// @Failure 500 {object} ErrorResponse
+// @Router /bridges/{id} [delete]
 func (h *Handler) DeleteBridge(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)

@@ -13,7 +13,22 @@ import (
 
 // === Script Management Handlers ===
 
-// ListScripts returns paginated scripts
+// ListScripts godoc
+// @Summary List scripts
+// @Description Get paginated list of JavaScript scripts with their triggers
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Items per page" default(25)
+// @Param search query string false "Search by script name"
+// @Param sortBy query string false "Sort field" default(id)
+// @Param sortOrder query string false "Sort order (asc/desc)" default(asc)
+// @Success 200 {object} PaginatedResponse{data=[]storage.Script}
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /scripts [get]
 func (h *Handler) ListScripts(w http.ResponseWriter, r *http.Request) {
 	params := parsePaginationParams(r)
 
@@ -45,7 +60,19 @@ func (h *Handler) ListScripts(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// GetScript returns a single script by ID
+// GetScript godoc
+// @Summary Get script
+// @Description Get a single JavaScript script by ID with its triggers
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Script ID"
+// @Success 200 {object} storage.Script
+// @Failure 400 {object} ErrorResponse "Invalid script ID"
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse "Script not found"
+// @Router /scripts/{id} [get]
 func (h *Handler) GetScript(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -64,7 +91,20 @@ func (h *Handler) GetScript(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(script)
 }
 
-// CreateScript creates a new script
+// CreateScript godoc
+// @Summary Create script
+// @Description Create a new JavaScript script with triggers for MQTT events (publish, connect, disconnect, subscribe)
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param script body CreateScriptRequest true "Script content and triggers"
+// @Success 201 {object} storage.Script
+// @Failure 400 {object} ErrorResponse "Invalid request or validation error"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /scripts [post]
 func (h *Handler) CreateScript(w http.ResponseWriter, r *http.Request) {
 	var req CreateScriptRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -115,7 +155,23 @@ func (h *Handler) CreateScript(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(script)
 }
 
-// UpdateScript updates a script
+// UpdateScript godoc
+// @Summary Update script
+// @Description Update an existing JavaScript script and its triggers
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Script ID"
+// @Param script body UpdateScriptRequest true "Updated script content and triggers"
+// @Success 200 {object} storage.Script
+// @Failure 400 {object} ErrorResponse "Invalid script ID or validation error"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse "Script not found"
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be modified"
+// @Failure 500 {object} ErrorResponse
+// @Router /scripts/{id} [put]
 func (h *Handler) UpdateScript(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -179,7 +235,22 @@ func (h *Handler) UpdateScript(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(script)
 }
 
-// DeleteScript deletes a script
+// DeleteScript godoc
+// @Summary Delete script
+// @Description Delete a JavaScript script and all its triggers
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Script ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse "Invalid script ID"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse "Script not found"
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be deleted"
+// @Failure 500 {object} ErrorResponse
+// @Router /scripts/{id} [delete]
 func (h *Handler) DeleteScript(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -209,7 +280,21 @@ func (h *Handler) DeleteScript(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "script deleted successfully"})
 }
 
-// EnableScript toggles script enabled status
+// EnableScript godoc
+// @Summary Enable/disable script
+// @Description Toggle script enabled status to control whether it executes on MQTT events
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Script ID"
+// @Param enabled body object{enabled=bool} true "Enable/disable flag"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse "Invalid script ID or request"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /scripts/{id}/enable [put]
 func (h *Handler) EnableScript(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -240,7 +325,18 @@ func (h *Handler) EnableScript(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: fmt.Sprintf("script %s successfully", status)})
 }
 
-// TestScript tests a script with mock event data
+// TestScript godoc
+// @Summary Test script
+// @Description Test a JavaScript script with mock event data without saving it to the database
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param test body TestScriptRequest true "Script content and mock event data"
+// @Success 200 {object} object{success=bool,execution_time_ms=number,logs=[]string,error=string}
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 401 {object} ErrorResponse
+// @Router /scripts/test [post]
 func (h *Handler) TestScript(w http.ResponseWriter, r *http.Request) {
 	var req TestScriptRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -275,7 +371,22 @@ func (h *Handler) TestScript(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// GetScriptLogs returns logs for a script
+// GetScriptLogs godoc
+// @Summary Get script logs
+// @Description Get paginated execution logs for a specific script with optional level filtering
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Script ID"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Items per page" default(25)
+// @Param level query string false "Filter by log level (debug, info, warn, error)"
+// @Success 200 {object} PaginatedResponse{data=[]storage.ScriptLog}
+// @Failure 400 {object} ErrorResponse "Invalid script ID"
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /scripts/{id}/logs [get]
 func (h *Handler) GetScriptLogs(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -315,7 +426,20 @@ func (h *Handler) GetScriptLogs(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// ClearScriptLogs clears all logs for a script
+// ClearScriptLogs godoc
+// @Summary Clear script logs
+// @Description Delete all execution logs for a specific script
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Script ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse "Invalid script ID"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /scripts/{id}/logs [delete]
 func (h *Handler) ClearScriptLogs(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -333,7 +457,18 @@ func (h *Handler) ClearScriptLogs(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "logs cleared successfully"})
 }
 
-// GetScriptState returns state keys for a script
+// GetScriptState godoc
+// @Summary Get script state
+// @Description Get all persistent state keys stored by a script
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Script ID"
+// @Success 200 {object} object{script_id=int,keys=[]string,count=int}
+// @Failure 400 {object} ErrorResponse "Invalid script ID"
+// @Failure 401 {object} ErrorResponse
+// @Router /scripts/{id}/state [get]
 func (h *Handler) GetScriptState(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -355,7 +490,21 @@ func (h *Handler) GetScriptState(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// DeleteScriptStateKey deletes a specific state key for a script
+// DeleteScriptStateKey godoc
+// @Summary Delete script state key
+// @Description Delete a specific persistent state key for a script
+// @Tags Scripts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Script ID"
+// @Param key path string true "State key to delete"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse "Invalid script ID or missing key"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /scripts/{id}/state/{key} [delete]
 func (h *Handler) DeleteScriptStateKey(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)

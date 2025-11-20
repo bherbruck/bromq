@@ -1,4 +1,4 @@
-.PHONY: help install run stop clean test test-race test-coverage test-web test-all lint security-deps security-code security ci schema
+.PHONY: help install run stop clean test test-race test-coverage test-web test-all lint security-deps security-code security ci schema swagger swagger-install
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -22,11 +22,21 @@ web/dist: web/node_modules $(shell find web/app -type f 2>/dev/null || echo "web
 	@touch $@
 
 # Go binary (tracks all Go source files and embeds frontend)
-bin/bromq: $(shell find . -name '*.go' -not -path './web/*') go.mod go.sum web/dist
+bin/bromq: $(shell find . -name '*.go' -not -path './web/*') go.mod go.sum web/dist internal/api/swagger/swagger.json
 	@echo "Building Go binary..."
 	@mkdir -p bin
 	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
 	go build -ldflags="-X main.version=$$VERSION" -o $@ ./cmd/server
+
+# Generate swagger JSON/YAML specs (skip bloated docs.go)
+internal/api/swagger/swagger.json: $(shell find internal/api -name '*.go' -not -path '*/swagger/*')
+	@echo "Generating Swagger documentation..."
+	@command -v swag >/dev/null 2>&1 || { \
+		echo "Installing swag..."; \
+		go install github.com/swaggo/swag/cmd/swag@latest; \
+	}
+	@mkdir -p internal/api/swagger
+	@swag init -g internal/api/doc.go -d ./ --output internal/api/swagger --parseDependency --parseInternal --outputTypes json,yaml
 
 # Convenience targets
 build: bin/bromq ## Build the complete application
@@ -112,3 +122,19 @@ schema: ## Generate JSON Schema for config files
 	@mkdir -p schema
 	@go run cmd/schema-gen/main.go > schema/bromq-config.schema.json
 	@echo "Schema generated: schema/bromq-config.schema.json"
+
+swagger-install: ## Install swag CLI tool for generating OpenAPI docs
+	@echo "Installing swag..."
+	@go install github.com/swaggo/swag/cmd/swag@latest
+	@echo "✅ swag installed"
+
+swagger: ## Generate OpenAPI/Swagger documentation
+	@command -v swag >/dev/null 2>&1 || { \
+		echo "swag not installed, installing..."; \
+		go install github.com/swaggo/swag/cmd/swag@latest; \
+	}
+	@echo "Generating Swagger documentation..."
+	@mkdir -p internal/api/swagger
+	@swag init -g internal/api/doc.go -d ./ --output internal/api/swagger --parseDependency --parseInternal --outputTypes json,yaml
+	@echo "✅ Swagger JSON/YAML generated in internal/api/swagger/"
+	@echo "   Access at: http://localhost:8080/swagger/index.html"

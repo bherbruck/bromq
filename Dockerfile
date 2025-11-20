@@ -38,6 +38,10 @@ COPY web/embed.go ./web/
 # Copy built frontend from previous stage
 COPY --from=frontend /app/web/dist/client ./web/dist/client
 
+# Install swag CLI and generate OpenAPI documentation
+RUN go install github.com/swaggo/swag/cmd/swag@latest && \
+    swag init -g internal/api/doc.go -d ./ --output internal/api/swagger --parseDependency --parseInternal --outputTypes json,yaml
+
 # Build the application with optimizations (pure Go, no CGO!)
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -X main.version=${VERSION}" \

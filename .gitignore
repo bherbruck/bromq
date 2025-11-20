@@ -43,6 +43,10 @@ web/.vite/
 # Go
 vendor/
 
+# Generated OpenAPI/Swagger files (regenerated on build)
+internal/api/swagger/swagger.json
+internal/api/swagger/swagger.yaml
+
 .local/
 tmp/
 
