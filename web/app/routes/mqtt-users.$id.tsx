@@ -159,7 +159,7 @@ export default function MQTTUserDetailPage() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" asChild>
             <Link to="/mqtt-users">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               Back to MQTT Users
             </Link>
           </Button>
@@ -173,12 +173,12 @@ export default function MQTTUserDetailPage() {
                   onClick={handleCancel}
                   disabled={updateMutation.isPending}
                 >
-                  <X className="mr-2 h-4 w-4" />
+                  <X className="h-4 w-4" />
                   Cancel
                 </Button>
                 <Button onClick={handleSave} disabled={updateMutation.isPending}>
-                  {updateMutation.isPending && <Spinner className="mr-2" />}
-                  {!updateMutation.isPending && <Save className="mr-2 h-4 w-4" />}
+                  {updateMutation.isPending && <Spinner />}
+                  {!updateMutation.isPending && <Save className="h-4 w-4" />}
                   {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </>
@@ -189,7 +189,7 @@ export default function MQTTUserDetailPage() {
               disabled={isProvisioned}
               title={isProvisioned ? 'Remove from config file to delete' : 'Delete user'}
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
               Delete User
             </Button>
           </div>

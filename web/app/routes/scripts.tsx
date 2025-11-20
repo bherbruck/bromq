@@ -1,8 +1,8 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Code, Plus, Trash2 } from 'lucide-react'
+import { Code, MoreVertical, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useNavigate } from 'react-router'
 import type { Route } from './+types/scripts'
 import { useAuth } from '~/lib/auth-context'
 import {
@@ -31,6 +31,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~
 import { Spinner } from '~/components/ui/spinner'
 import { Switch } from '~/components/ui/switch'
 import { Textarea } from '~/components/ui/textarea'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
 import { DataTable } from '~/components/data-table'
 import { DataTableColumnHeader } from '~/components/data-table-column-header'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '~/components/ui/empty'
@@ -145,11 +152,7 @@ export default function ScriptsPage() {
     {
       accessorKey: 'name',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
-      cell: ({ row }) => (
-        <Link to={`/scripts/${row.original.id}`} className="font-medium hover:underline">
-          {row.original.name}
-        </Link>
-      ),
+      cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
       enableSorting: true,
     },
     {
@@ -211,23 +214,49 @@ export default function ScriptsPage() {
         const isProvisioned = row.original.provisioned_from_config
         const isAdmin = currentUser?.role === 'admin'
 
-        return (
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="icon">
-              <Link to={`/scripts/${row.original.id}`}>
-                <Code className="h-4 w-4" />
-              </Link>
-            </Button>
+        if (!isAdmin) return null
 
-            {isAdmin && !isProvisioned && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDeleteScript(row.original)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigate(`/scripts/${row.original.id}`)
+                  }}
+                >
+                  <Code className="h-4 w-4" />
+                  View
+                </DropdownMenuItem>
+                {!isProvisioned && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeleteScript(row.original)
+                      }}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )
       },
@@ -254,40 +283,43 @@ export default function ScriptsPage() {
         action={
           canEdit ? (
             <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Create Script
             </Button>
           ) : undefined
         }
       />
 
-      {scripts && scripts.length > 0 ? (
-        <DataTable
-          columns={columns}
-          data={scripts}
-          searchColumn="name"
-          searchPlaceholder="Search scripts..."
-        />
-      ) : (
-        <Empty className="mt-8">
-          <EmptyHeader>
-            <EmptyMedia>
-              <Code className="h-12 w-12" />
-            </EmptyMedia>
-            <EmptyTitle>No scripts configured</EmptyTitle>
-            <EmptyDescription>
-              Scripts execute automatically in response to MQTT events. Get started by creating your
-              first script.
-            </EmptyDescription>
-          </EmptyHeader>
-          {canEdit && (
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Script
-            </Button>
-          )}
-        </Empty>
-      )}
+      <DataTable
+        columns={columns}
+        data={scripts || []}
+        searchColumn="name"
+        searchPlaceholder="Search scripts..."
+        onRowClick={(script) => navigate(`/scripts/${script.id}`)}
+        getRowClassName={(script) =>
+          script.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+        }
+        emptyState={
+          <Empty className="mt-8">
+            <EmptyHeader>
+              <EmptyMedia>
+                <Code className="h-12 w-12" />
+              </EmptyMedia>
+              <EmptyTitle>No scripts configured</EmptyTitle>
+              <EmptyDescription>
+                Scripts execute automatically in response to MQTT events. Get started by creating your
+                first script.
+              </EmptyDescription>
+            </EmptyHeader>
+            {canEdit && (
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create Script
+              </Button>
+            )}
+          </Empty>
+        }
+      />
 
       {/* Create Dialog */}
       <Dialog
@@ -361,7 +393,7 @@ export default function ScriptsPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending && <Spinner className="mr-2" />}
+                {createMutation.isPending && <Spinner />}
                 {createMutation.isPending ? 'Creating...' : 'Create Script'}
               </Button>
             </DialogFooter>

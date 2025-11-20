@@ -292,11 +292,11 @@ export default function ScriptDetailPage() {
             {!isSaved && canEdit && (
               <>
                 <Button variant="outline" onClick={handleCancel}>
-                  <X className="mr-2 h-4 w-4" />
+                  <X className="h-4 w-4" />
                   Cancel
                 </Button>
                 <Button onClick={handleSubmit} disabled={updateMutation.isPending}>
-                  <Save className="mr-2 h-4 w-4" />
+                  <Save className="h-4 w-4" />
                   {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </>
@@ -304,11 +304,11 @@ export default function ScriptDetailPage() {
             {isSaved && canEdit && (
               <>
                 <Button variant="outline" onClick={() => setTestDialogOpen(true)}>
-                  <Play className="mr-2 h-4 w-4" />
+                  <Play className="h-4 w-4" />
                   Test
                 </Button>
                 <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="h-4 w-4" />
                   Delete
                 </Button>
               </>
@@ -419,7 +419,7 @@ export default function ScriptDetailPage() {
                     size="sm"
                     onClick={addTrigger}
                   >
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="h-4 w-4" />
                     Add Trigger
                   </Button>
                 )}

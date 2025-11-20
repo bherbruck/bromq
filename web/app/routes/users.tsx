@@ -1,6 +1,6 @@
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2, Users as UsersIcon } from 'lucide-react'
+import { MoreVertical, Pencil, Plus, Trash2, Users as UsersIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import type { Route } from './+types/users'
@@ -35,6 +35,13 @@ import { PageHeader } from '~/components/page-header'
 import { PageTitle } from '~/components/page-title'
 import { Spinner } from '~/components/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
 import { api, type DashboardUser } from '~/lib/api'
 
 export const meta: Route.MetaFunction = () => [{ title: 'Dashboard Users - BroMQ' }]
@@ -245,13 +252,29 @@ export default function UsersPage() {
               cell: ({ row }: { row: any }) => {
                 const user = row.original as DashboardUser
                 return (
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => setDeleteUser(user)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(user)}>
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setDeleteUser(user)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )
               },
@@ -295,50 +318,49 @@ export default function UsersPage() {
         action={
           isAdmin ? (
             <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="h-4 w-4" />
               Add User
             </Button>
           ) : undefined
         }
       />
 
-      {users.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <UsersIcon />
-            </EmptyMedia>
-            <EmptyTitle>No dashboard users</EmptyTitle>
-            <EmptyDescription>
-              Add a user to allow them to log in to the dashboard.
-            </EmptyDescription>
-          </EmptyHeader>
-          {isAdmin && (
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
-          )}
-        </Empty>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={users}
-          searchColumn="username"
-          searchPlaceholder="Search users..."
-          // Server-side pagination - pass controlled state
-          pageCount={pageCount}
-          pagination={{ pageIndex: page - 1, pageSize }}
-          sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
-          columnFilters={localSearch ? [{ id: 'username', value: localSearch }] : []}
-          manualPagination
-          manualSorting
-          manualFiltering
-          onPaginationChange={setPaginationState}
-          onSortingChange={setSortingState}
-          onGlobalFilterChange={setGlobalFilter}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={users}
+        searchColumn="username"
+        searchPlaceholder="Search users..."
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <UsersIcon />
+              </EmptyMedia>
+              <EmptyTitle>No dashboard users</EmptyTitle>
+              <EmptyDescription>
+                Add a user to allow them to log in to the dashboard.
+              </EmptyDescription>
+            </EmptyHeader>
+            {isAdmin && (
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add User
+              </Button>
+            )}
+          </Empty>
+        }
+        // Server-side pagination - pass controlled state
+        pageCount={pageCount}
+        pagination={{ pageIndex: page - 1, pageSize }}
+        sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
+        columnFilters={localSearch ? [{ id: 'username', value: localSearch }] : []}
+        manualPagination
+        manualSorting
+        manualFiltering
+        onPaginationChange={setPaginationState}
+        onSortingChange={setSortingState}
+        onGlobalFilterChange={setGlobalFilter}
+      />
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
@@ -390,7 +412,7 @@ export default function UsersPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending && <Spinner className="mr-2" />}
+                {createMutation.isPending && <Spinner />}
                 {createMutation.isPending ? 'Creating...' : 'Create User'}
               </Button>
             </DialogFooter>
@@ -474,7 +496,7 @@ export default function UsersPage() {
                 Cancel
               </Button>
               <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending && <Spinner className="mr-2" />}
+                {updateMutation.isPending && <Spinner />}
                 {updateMutation.isPending ? 'Updating...' : 'Save Changes'}
               </Button>
             </DialogFooter>
