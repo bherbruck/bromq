@@ -50,7 +50,7 @@ func setupMQTTTestServer(t *testing.T) (*mqttserver.Server, *storage.DB, func())
 	server := mqttserver.New(cfg)
 
 	// Add authentication hook
-	authHook := auth.NewAuthHook(db)
+	authHook := auth.NewAuthHook(db, true) // Allow anonymous for tests
 	if err := server.AddAuthHook(authHook); err != nil {
 		t.Fatalf("failed to add auth hook: %v", err)
 	}

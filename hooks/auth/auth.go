@@ -11,8 +11,9 @@ import (
 // AuthHook implements MQTT authentication using a database
 type AuthHook struct {
 	mqtt.HookBase
-	authenticator Authenticator
-	metrics       AuthMetrics
+	authenticator  Authenticator
+	metrics        AuthMetrics
+	allowAnonymous bool
 }
 
 // Authenticator interface for user authentication
@@ -27,9 +28,10 @@ type AuthMetrics interface {
 }
 
 // NewAuthHook creates a new authentication hook
-func NewAuthHook(authenticator Authenticator) *AuthHook {
+func NewAuthHook(authenticator Authenticator, allowAnonymous bool) *AuthHook {
 	return &AuthHook{
-		authenticator: authenticator,
+		authenticator:  authenticator,
+		allowAnonymous: allowAnonymous,
 	}
 }
 
@@ -56,8 +58,16 @@ func (h *AuthHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) boo
 	username := string(pk.Connect.Username)
 	password := string(pk.Connect.Password)
 
-	// Allow anonymous connections if no username provided
+	// Check anonymous connections
 	if username == "" {
+		if !h.allowAnonymous {
+			slog.Warn("Anonymous connection rejected - anonymous access disabled", "client_id", cl.ID)
+			if h.metrics != nil {
+				h.metrics.RecordAuthAttempt("anonymous", "failure")
+				h.metrics.RecordAuthFailure("anonymous")
+			}
+			return false
+		}
 		slog.Debug("Client connecting anonymously", "client_id", cl.ID)
 		if h.metrics != nil {
 			h.metrics.RecordAuthAttempt("anonymous", "success")

@@ -115,12 +115,20 @@ func main() {
 	}
 
 	// Create MQTT server
+	allowAnonymous := os.Getenv("MQTT_ALLOW_ANONYMOUS") == "true"
+	if allowAnonymous {
+		slog.Warn("Anonymous MQTT connections are ENABLED - this is insecure for production use")
+	} else {
+		slog.Info("Anonymous MQTT connections are DISABLED (secure default)")
+	}
+
 	mqttConfig := &mqtt.Config{
 		TCPAddr:         *mqttTCP,
 		WSAddr:          *mqttWS,
 		EnableTLS:       false,
 		MaxClients:      0,
 		RetainAvailable: true,
+		AllowAnonymous:  allowAnonymous,
 	}
 	mqttServer := mqtt.New(mqttConfig)
 
@@ -134,7 +142,7 @@ func main() {
 	slog.Info("Metrics hook registered")
 
 	// Add authentication hook with metrics
-	authHook := auth.NewAuthHook(db)
+	authHook := auth.NewAuthHook(db, mqttConfig.AllowAnonymous)
 	authHook.SetMetrics(promMetrics)
 	if err := mqttServer.AddAuthHook(authHook); err != nil {
 		slog.Error("Failed to add auth hook", "error", err)
