@@ -29,8 +29,18 @@ func NewHandler(db *storage.DB, mqttServer *mqtt.Server, scriptEngine *script.En
 	}
 }
 
-// Login handles user authentication and returns a JWT token
-// Only DashboardUsers can log in to the dashboard
+// Login godoc
+// @Summary Login to dashboard
+// @Description Authenticate with dashboard credentials and receive JWT token
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param credentials body LoginRequest true "Login credentials"
+// @Success 200 {object} LoginResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse "Invalid credentials"
+// @Failure 500 {object} ErrorResponse
+// @Router /auth/login [post]
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -63,7 +73,22 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ListACL returns paginated ACL rules
+// ListACL godoc
+// @Summary List ACL rules
+// @Description Get paginated list of access control rules
+// @Tags ACL
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Items per page" default(25)
+// @Param search query string false "Search by topic"
+// @Param sortBy query string false "Sort field" default(id)
+// @Param sortOrder query string false "Sort order (asc/desc)" default(asc)
+// @Success 200 {object} PaginatedResponse{data=[]storage.ACLRule}
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /acl [get]
 func (h *Handler) ListACL(w http.ResponseWriter, r *http.Request) {
 	// Parse pagination parameters
 	params := parsePaginationParams(r)
@@ -101,7 +126,21 @@ func (h *Handler) ListACL(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// CreateACL creates a new ACL rule
+// CreateACL godoc
+// @Summary Create ACL rule
+// @Description Create a new access control rule for an MQTT user
+// @Tags ACL
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param rule body CreateACLRequest true "ACL rule details"
+// @Success 201 {object} storage.ACLRule
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 409 {object} ErrorResponse "Duplicate rule"
+// @Failure 500 {object} ErrorResponse
+// @Router /acl [post]
 func (h *Handler) CreateACL(w http.ResponseWriter, r *http.Request) {
 	var req CreateACLRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -120,7 +159,23 @@ func (h *Handler) CreateACL(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(rule)
 }
 
-// UpdateACL updates an existing ACL rule
+// UpdateACL godoc
+// @Summary Update ACL rule
+// @Description Update an existing access control rule
+// @Tags ACL
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "ACL Rule ID"
+// @Param rule body UpdateACLRequest true "Updated ACL rule details"
+// @Success 200 {object} storage.ACLRule
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse "Rule not found"
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be modified"
+// @Failure 500 {object} ErrorResponse
+// @Router /acl/{id} [put]
 func (h *Handler) UpdateACL(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -158,7 +213,22 @@ func (h *Handler) UpdateACL(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(rule)
 }
 
-// DeleteACL deletes an ACL rule
+// DeleteACL godoc
+// @Summary Delete ACL rule
+// @Description Delete an access control rule
+// @Tags ACL
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "ACL Rule ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse "Rule not found"
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be deleted"
+// @Failure 500 {object} ErrorResponse
+// @Router /acl/{id} [delete]
 func (h *Handler) DeleteACL(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -189,7 +259,16 @@ func (h *Handler) DeleteACL(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "ACL rule deleted"})
 }
 
-// ListClients returns all connected MQTT clients
+// ListClients godoc
+// @Summary List connected clients
+// @Description Get list of all currently connected MQTT clients with their connection details
+// @Tags Clients
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} object
+// @Failure 401 {object} ErrorResponse
+// @Router /clients [get]
 func (h *Handler) ListClients(w http.ResponseWriter, r *http.Request) {
 	clients := h.mqtt.GetClients()
 
@@ -197,7 +276,19 @@ func (h *Handler) ListClients(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(clients)
 }
 
-// GetClientDetails returns detailed information about a specific client
+// GetClientDetails godoc
+// @Summary Get client details
+// @Description Get detailed information about a specific connected MQTT client by client ID
+// @Tags Clients
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Client ID"
+// @Success 200 {object} object
+// @Failure 400 {object} ErrorResponse "Client ID required"
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse "Client not found"
+// @Router /clients/{id} [get]
 func (h *Handler) GetClientDetails(w http.ResponseWriter, r *http.Request) {
 	clientID := r.PathValue("id")
 	if clientID == "" {
@@ -215,7 +306,20 @@ func (h *Handler) GetClientDetails(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(details)
 }
 
-// DisconnectClient forcefully disconnects an MQTT client
+// DisconnectClient godoc
+// @Summary Disconnect client
+// @Description Forcefully disconnect a connected MQTT client by client ID
+// @Tags Clients
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Client ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse "Client ID required"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /clients/{id} [delete]
 func (h *Handler) DisconnectClient(w http.ResponseWriter, r *http.Request) {
 	clientID := r.PathValue("id")
 	if clientID == "" {
@@ -232,7 +336,16 @@ func (h *Handler) DisconnectClient(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "client disconnected"})
 }
 
-// GetMetrics returns server metrics
+// GetMetrics godoc
+// @Summary Get server metrics
+// @Description Get MQTT server metrics in JSON format including clients, messages, subscriptions, and system stats
+// @Tags Metrics
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object
+// @Failure 401 {object} ErrorResponse
+// @Router /metrics [get]
 func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	metrics := h.mqtt.GetMetrics()
 
