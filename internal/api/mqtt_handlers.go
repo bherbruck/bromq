@@ -44,7 +44,22 @@ func parsePaginationParams(r *http.Request) PaginationQuery {
 
 // === MQTT User (Credentials) Management Handlers ===
 
-// ListMQTTUsers returns paginated MQTT users
+// ListMQTTUsers godoc
+// @Summary List MQTT users
+// @Description Get paginated list of MQTT credentials (shared by devices)
+// @Tags MQTT Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Items per page" default(25)
+// @Param search query string false "Search by username"
+// @Param sortBy query string false "Sort field" default(id)
+// @Param sortOrder query string false "Sort order (asc/desc)" default(asc)
+// @Success 200 {object} PaginatedResponse{data=[]storage.MQTTUser}
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /mqtt/users [get]
 func (h *Handler) ListMQTTUsers(w http.ResponseWriter, r *http.Request) {
 	params := parsePaginationParams(r)
 
@@ -76,7 +91,20 @@ func (h *Handler) ListMQTTUsers(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// CreateMQTTUser creates new MQTT user
+// CreateMQTTUser godoc
+// @Summary Create MQTT user
+// @Description Create new MQTT credentials (can be shared by multiple devices)
+// @Tags MQTT Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param user body CreateMQTTUserRequest true "MQTT user details"
+// @Success 201 {object} storage.MQTTUser
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /mqtt/users [post]
 func (h *Handler) CreateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	var req CreateMQTTUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -95,7 +123,19 @@ func (h *Handler) CreateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(user)
 }
 
-// GetMQTTUser returns a single MQTT user by ID
+// GetMQTTUser godoc
+// @Summary Get MQTT user
+// @Description Get a single MQTT user by ID
+// @Tags MQTT Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "MQTT User ID"
+// @Success 200 {object} storage.MQTTUser
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /mqtt/users/{id} [get]
 func (h *Handler) GetMQTTUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -115,7 +155,23 @@ func (h *Handler) GetMQTTUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(user)
 }
 
-// UpdateMQTTUser updates MQTT user information
+// UpdateMQTTUser godoc
+// @Summary Update MQTT user
+// @Description Update MQTT user credentials
+// @Tags MQTT Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "MQTT User ID"
+// @Param user body UpdateMQTTUserRequest true "Updated MQTT user details"
+// @Success 200 {object} storage.MQTTUser
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be modified"
+// @Failure 500 {object} ErrorResponse
+// @Router /mqtt/users/{id} [put]
 func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -158,7 +214,22 @@ func (h *Handler) UpdateMQTTUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(user)
 }
 
-// DeleteMQTTUser deletes MQTT user
+// DeleteMQTTUser godoc
+// @Summary Delete MQTT user
+// @Description Delete MQTT credentials (also deletes associated clients and ACL rules)
+// @Tags MQTT Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "MQTT User ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be deleted"
+// @Failure 500 {object} ErrorResponse
+// @Router /mqtt/users/{id} [delete]
 func (h *Handler) DeleteMQTTUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -189,7 +260,23 @@ func (h *Handler) DeleteMQTTUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "MQTT user deleted"})
 }
 
-// UpdateMQTTUserPassword updates MQTT user password
+// UpdateMQTTUserPassword godoc
+// @Summary Update MQTT user password
+// @Description Update password for MQTT credentials
+// @Tags MQTT Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "MQTT User ID"
+// @Param password body UpdateMQTTPasswordRequest true "New password"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse "Provisioned resource cannot be modified"
+// @Failure 500 {object} ErrorResponse
+// @Router /mqtt/users/{id}/password [put]
 func (h *Handler) UpdateMQTTUserPassword(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -233,7 +320,23 @@ func (h *Handler) UpdateMQTTUserPassword(w http.ResponseWriter, r *http.Request)
 
 // === MQTT Client Management Handlers ===
 
-// ListMQTTClients returns paginated MQTT clients (connected devices)
+// ListMQTTClients godoc
+// @Summary List MQTT clients
+// @Description Get paginated list of connected MQTT devices/clients
+// @Tags MQTT Clients
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Items per page" default(25)
+// @Param search query string false "Search by client ID"
+// @Param sortBy query string false "Sort field" default(id)
+// @Param sortOrder query string false "Sort order (asc/desc)" default(asc)
+// @Param active query boolean false "Filter active clients only"
+// @Success 200 {object} PaginatedResponse{data=[]storage.MQTTClient}
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /mqtt/clients [get]
 func (h *Handler) ListMQTTClients(w http.ResponseWriter, r *http.Request) {
 	// Parse pagination parameters
 	params := parsePaginationParams(r)
@@ -274,7 +377,19 @@ func (h *Handler) ListMQTTClients(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// GetMQTTClientDetails returns details about a specific MQTT client
+// GetMQTTClientDetails godoc
+// @Summary Get MQTT client details
+// @Description Get details for a specific MQTT client by client ID
+// @Tags MQTT Clients
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param client_id path string true "Client ID"
+// @Success 200 {object} storage.MQTTClient
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /mqtt/clients/{client_id} [get]
 func (h *Handler) GetMQTTClientDetails(w http.ResponseWriter, r *http.Request) {
 	clientID := r.PathValue("client_id")
 	if clientID == "" {
@@ -292,7 +407,21 @@ func (h *Handler) GetMQTTClientDetails(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(client)
 }
 
-// UpdateMQTTClientMetadata updates a client's metadata
+// UpdateMQTTClientMetadata godoc
+// @Summary Update MQTT client metadata
+// @Description Update custom metadata for an MQTT client
+// @Tags MQTT Clients
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param client_id path string true "Client ID"
+// @Param metadata body UpdateMQTTClientMetadataRequest true "Client metadata"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /mqtt/clients/{client_id}/metadata [put]
 func (h *Handler) UpdateMQTTClientMetadata(w http.ResponseWriter, r *http.Request) {
 	clientID := r.PathValue("client_id")
 	if clientID == "" {
@@ -315,7 +444,20 @@ func (h *Handler) UpdateMQTTClientMetadata(w http.ResponseWriter, r *http.Reques
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "client metadata updated"})
 }
 
-// DeleteMQTTClient deletes a client record
+// DeleteMQTTClient godoc
+// @Summary Delete MQTT client
+// @Description Delete an MQTT client record from tracking
+// @Tags MQTT Clients
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Client ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /mqtt/clients/{id} [delete]
 func (h *Handler) DeleteMQTTClient(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)

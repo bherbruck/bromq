@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	httpSwagger "github.com/swaggo/http-swagger"
+	"github/bherbruck/bromq/internal/api/swagger"
 	"github/bherbruck/bromq/internal/mqtt"
 	"github/bherbruck/bromq/internal/script"
 	"github/bherbruck/bromq/internal/storage"
@@ -125,6 +127,17 @@ func (s *Server) Start() error {
 
 	// Prometheus metrics endpoint (no auth required)
 	mux.Handle("/metrics", promhttp.Handler())
+
+	// Swagger spec endpoint (no auth required)
+	mux.HandleFunc("GET /swagger/doc.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(swagger.SwaggerJSON)
+	})
+
+	// Swagger UI endpoint (no auth required)
+	mux.HandleFunc("/swagger/", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 
 	// Serve frontend (embedded)
 	if s.webFS != nil {

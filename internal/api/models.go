@@ -7,8 +7,8 @@ import (
 
 // LoginRequest represents a login request
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"username" example:"admin"`
+	Password string `json:"password" example:"password123"`
 }
 
 // LoginResponse represents a login response with JWT token
@@ -152,12 +152,12 @@ type PaginatedResponse struct {
 
 // ErrorResponse represents an error response
 type ErrorResponse struct {
-	Error string `json:"error"`
+	Error string `json:"error" example:"validation error"`
 }
 
 // SuccessResponse represents a generic success response
 type SuccessResponse struct {
-	Message string      `json:"message"`
+	Message string      `json:"message" example:"operation successful"`
 	Data    interface{} `json:"data,omitempty"`
 }
 

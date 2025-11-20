@@ -32,6 +32,9 @@ jobs:
           name: frontend-build
           path: web/dist/
 
+      - name: Generate Swagger docs
+        run: make swagger
+
       - name: Verify dependencies
         run: go mod verify
 
@@ -104,6 +107,9 @@ jobs:
         with:
           name: frontend-build
           path: web/dist/
+
+      - name: Generate Swagger docs
+        run: make swagger
 
       - name: Run SQLite tests
         if: matrix.database == 'sqlite'
@@ -200,6 +206,9 @@ jobs:
           npm ci
           npm run build
 
+      - name: Generate Swagger docs
+        run: make swagger
+
       - name: Build Go binary
         run: |
           mkdir -p bin
@@ -239,6 +248,9 @@ jobs:
         with:
           name: frontend-build
           path: web/dist/
+
+      - name: Generate Swagger docs
+        run: make swagger
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -287,6 +299,9 @@ jobs:
         with:
           name: frontend-build
           path: web/dist/
+
+      - name: Generate Swagger docs
+        run: make swagger
 
       - name: Run govulncheck
         run: |
