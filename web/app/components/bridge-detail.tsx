@@ -150,11 +150,11 @@ export function BridgeDetail({ bridgeId }: BridgeDetailProps) {
           canEdit && !bridge.provisioned_from_config ? (
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
-                <Pencil className="mr-2 h-4 w-4" />
+                <Pencil className="h-4 w-4" />
                 Edit
               </Button>
               <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
                 Delete
               </Button>
             </div>

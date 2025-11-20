@@ -1,4 +1,4 @@
-import { Pencil, Plus, Shield, Trash2 } from 'lucide-react'
+import { MoreVertical, Pencil, Plus, Shield, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -34,6 +34,13 @@ import { Spinner } from '~/components/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { DataTable } from '~/components/data-table'
 import { DataTableColumnHeader } from '~/components/data-table-column-header'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
 import { api, type ACLRule, type MQTTUser } from '~/lib/api'
 
 interface ACLRulesProps {
@@ -71,7 +78,7 @@ export function ACLRules({
   const [editingRule, setEditingRule] = useState<ACLRule | null>(null)
   const [deleteRule, setDeleteRule] = useState<ACLRule | null>(null)
   const [selectedMqttUserId, setSelectedMqttUserId] = useState<number>(mqttUserId || 0)
-  const [topicPattern, setTopicPattern] = useState('')
+  const [topic, setTopic] = useState('')
   const [permission, setPermission] = useState<'pub' | 'sub' | 'pubsub'>('pubsub')
   const [error, setError] = useState('')
 
@@ -160,8 +167,8 @@ export function ACLRules({
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: (data: { mqtt_user_id: number; topic_pattern: string; permission: 'pub' | 'sub' | 'pubsub' }) =>
-      api.createACLRule(data.mqtt_user_id, data.topic_pattern, data.permission),
+    mutationFn: (data: { mqtt_user_id: number; topic: string; permission: 'pub' | 'sub' | 'pubsub' }) =>
+      api.createACLRule(data.mqtt_user_id, data.topic, data.permission),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['acl-rules'] })
       setIsCreateDialogOpen(false)
@@ -174,8 +181,8 @@ export function ACLRules({
   })
 
   const updateMutation = useMutation({
-    mutationFn: (data: { id: number; topic_pattern: string; permission: 'pub' | 'sub' | 'pubsub' }) =>
-      api.updateACLRule(data.id, data.topic_pattern, data.permission),
+    mutationFn: (data: { id: number; topic: string; permission: 'pub' | 'sub' | 'pubsub' }) =>
+      api.updateACLRule(data.id, data.topic, data.permission),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['acl-rules'] })
       setIsEditDialogOpen(false)
@@ -200,7 +207,7 @@ export function ACLRules({
   })
 
   const resetForm = () => {
-    setTopicPattern('')
+    setTopic('')
     setPermission('pubsub')
     if (mqttUserId) {
       setSelectedMqttUserId(mqttUserId)
@@ -213,12 +220,12 @@ export function ACLRules({
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    createMutation.mutate({ mqtt_user_id: selectedMqttUserId, topic_pattern: topicPattern, permission })
+    createMutation.mutate({ mqtt_user_id: selectedMqttUserId, topic, permission })
   }
 
   const handleEditClick = (rule: ACLRule) => {
     setEditingRule(rule)
-    setTopicPattern(rule.topic_pattern)
+    setTopic(rule.topic)
     setPermission(rule.permission as 'pub' | 'sub' | 'pubsub')
     setIsEditDialogOpen(true)
   }
@@ -227,7 +234,7 @@ export function ACLRules({
     e.preventDefault()
     if (!editingRule) return
     setError('')
-    updateMutation.mutate({ id: editingRule.id, topic_pattern: topicPattern, permission })
+    updateMutation.mutate({ id: editingRule.id, topic, permission })
   }
 
   const handleDelete = () => {
@@ -263,9 +270,9 @@ export function ACLRules({
           ]
         : []),
       {
-        accessorKey: 'topic_pattern',
+        accessorKey: 'topic',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Topic Pattern" />,
-        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue('topic_pattern')}</span>,
+        cell: ({ row }) => <span className="font-mono text-sm">{row.getValue('topic')}</span>,
       },
       {
         accessorKey: 'permission',
@@ -290,26 +297,35 @@ export function ACLRules({
               id: 'actions',
               cell: ({ row }) => {
                 const rule = row.original
+                const isProvisioned = rule.provisioned_from_config
                 return (
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditClick(rule)}
-                      disabled={rule.provisioned_from_config}
-                      title={rule.provisioned_from_config ? 'Edit config file to modify' : 'Edit rule'}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setDeleteRule(rule)}
-                      disabled={rule.provisioned_from_config}
-                      title={rule.provisioned_from_config ? 'Remove from config file to delete' : 'Delete rule'}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => handleEditClick(rule)}
+                          disabled={isProvisioned}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setDeleteRule(rule)}
+                          disabled={isProvisioned}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )
               },
@@ -367,7 +383,7 @@ export function ACLRules({
           action={
             canEdit && mqttUsers.length > 0 ? (
               <Button onClick={() => setIsCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="h-4 w-4" />
                 Add Rule
               </Button>
             ) : undefined
@@ -387,43 +403,57 @@ export function ACLRules({
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
-      ) : rules.length === 0 && !localSearch && rulesData?.pagination?.total === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Shield />
-            </EmptyMedia>
-            <EmptyTitle>No ACL rules</EmptyTitle>
-            <EmptyDescription>
-              Add a rule to control topic access for MQTT users
-            </EmptyDescription>
-          </EmptyHeader>
-          {canEdit && (
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Rule
-            </Button>
-          )}
-        </Empty>
       ) : mqttUserId ? (
         // Embedded mode (filtered by user) - no pagination UI
         <DataTable
           columns={columns}
           data={rules}
           getRowClassName={(row) => row.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}
+          emptyState={
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Shield />
+                </EmptyMedia>
+                <EmptyTitle>No ACL rules</EmptyTitle>
+                <EmptyDescription>
+                  Add a rule to control topic access for this MQTT user
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          }
         />
       ) : (
         // Standalone mode - with pagination
         <DataTable
           columns={columns}
           data={rules}
-          searchColumn="topic_pattern"
+          searchColumn="topic"
           searchPlaceholder="Search topic patterns..."
           getRowClassName={(row) => row.provisioned_from_config ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}
+          emptyState={
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Shield />
+                </EmptyMedia>
+                <EmptyTitle>No ACL rules</EmptyTitle>
+                <EmptyDescription>
+                  Add a rule to control topic access for MQTT users
+                </EmptyDescription>
+              </EmptyHeader>
+              {canEdit && (
+                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Add Rule
+                </Button>
+              )}
+            </Empty>
+          }
           pageCount={pageCount}
           pagination={{ pageIndex: page - 1, pageSize }}
           sorting={sortBy ? [{ id: sortBy, desc: sortOrder === 'desc' }] : []}
-          columnFilters={localSearch ? [{ id: 'topic_pattern', value: localSearch }] : []}
+          columnFilters={localSearch ? [{ id: 'topic', value: localSearch }] : []}
           manualPagination
           manualSorting
           manualFiltering
@@ -474,8 +504,8 @@ export function ACLRules({
                 <Input
                   id="topic"
                   placeholder="e.g., sensor/+/temp or device/#"
-                  value={topicPattern}
-                  onChange={(e) => setTopicPattern(e.target.value)}
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
                   required
                 />
               </Field>
@@ -502,7 +532,7 @@ export function ACLRules({
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending && <Spinner className="mr-2" />}
+                {createMutation.isPending && <Spinner />}
                 {createMutation.isPending ? 'Creating...' : 'Create Rule'}
               </Button>
             </DialogFooter>
@@ -535,8 +565,8 @@ export function ACLRules({
                 <Input
                   id="edit-topic"
                   placeholder="e.g., sensor/+/temp or device/#"
-                  value={topicPattern}
-                  onChange={(e) => setTopicPattern(e.target.value)}
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
                   required
                 />
               </Field>
@@ -563,7 +593,7 @@ export function ACLRules({
                 Cancel
               </Button>
               <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending && <Spinner className="mr-2" />}
+                {updateMutation.isPending && <Spinner />}
                 {updateMutation.isPending ? 'Updating...' : 'Update Rule'}
               </Button>
             </DialogFooter>
@@ -579,7 +609,7 @@ export function ACLRules({
             <AlertDialogDescription>
               Are you sure you want to delete this ACL rule? MQTT user{' '}
               <strong>{deleteRule && getMQTTUsernameById(deleteRule.mqtt_user_id)}</strong> will lose access
-              to topic pattern <code className="font-mono">{deleteRule?.topic_pattern}</code>.
+              to topic pattern <code className="font-mono">{deleteRule?.topic}</code>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
