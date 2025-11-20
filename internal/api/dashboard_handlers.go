@@ -12,7 +12,22 @@ import (
 
 // === Admin User Management Handlers ===
 
-// ListDashboardUsers returns paginated admin users
+// ListDashboardUsers godoc
+// @Summary List dashboard users
+// @Description Get paginated list of dashboard admin users
+// @Tags Dashboard Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Items per page" default(25)
+// @Param search query string false "Search by username"
+// @Param sortBy query string false "Sort field" default(id)
+// @Param sortOrder query string false "Sort order (asc/desc)" default(asc)
+// @Success 200 {object} PaginatedResponse{data=[]storage.DashboardUser}
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /dashboard/users [get]
 func (h *Handler) ListDashboardUsers(w http.ResponseWriter, r *http.Request) {
 	params := parsePaginationParams(r)
 
@@ -44,7 +59,20 @@ func (h *Handler) ListDashboardUsers(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// CreateDashboardUser creates a new admin user
+// CreateDashboardUser godoc
+// @Summary Create dashboard user
+// @Description Create a new dashboard admin user
+// @Tags Dashboard Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param user body CreateDashboardUserRequest true "User details"
+// @Success 201 {object} storage.DashboardUser
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /dashboard/users [post]
 func (h *Handler) CreateDashboardUser(w http.ResponseWriter, r *http.Request) {
 	var req CreateDashboardUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -63,7 +91,19 @@ func (h *Handler) CreateDashboardUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(user)
 }
 
-// GetDashboardUser returns a single dashboard user by ID
+// GetDashboardUser godoc
+// @Summary Get dashboard user
+// @Description Get a single dashboard user by ID
+// @Tags Dashboard Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Success 200 {object} storage.DashboardUser
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /dashboard/users/{id} [get]
 func (h *Handler) GetDashboardUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -83,7 +123,21 @@ func (h *Handler) GetDashboardUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(user)
 }
 
-// UpdateDashboardUser updates an admin user's information
+// UpdateDashboardUser godoc
+// @Summary Update dashboard user
+// @Description Update dashboard user information (username, role)
+// @Tags Dashboard Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Param user body UpdateDashboardUserRequest true "Updated user details"
+// @Success 200 {object} storage.DashboardUser
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /dashboard/users/{id} [put]
 func (h *Handler) UpdateDashboardUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -114,7 +168,20 @@ func (h *Handler) UpdateDashboardUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(user)
 }
 
-// DeleteDashboardUser deletes an admin user
+// DeleteDashboardUser godoc
+// @Summary Delete dashboard user
+// @Description Delete a dashboard user (cannot delete yourself)
+// @Tags Dashboard Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse "Invalid ID or attempting to delete yourself"
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /dashboard/users/{id} [delete]
 func (h *Handler) DeleteDashboardUser(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -140,7 +207,21 @@ func (h *Handler) DeleteDashboardUser(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "admin user deleted"})
 }
 
-// UpdateDashboardUserPassword updates an admin user's password
+// UpdateDashboardUserPassword godoc
+// @Summary Update user password (admin)
+// @Description Admin endpoint to update any dashboard user's password
+// @Tags Dashboard Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "User ID"
+// @Param password body UpdateAdminPasswordRequest true "New password"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse "Admin only"
+// @Failure 500 {object} ErrorResponse
+// @Router /dashboard/users/{id}/password [put]
 func (h *Handler) UpdateDashboardUserPassword(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	idVal, err := strconv.ParseUint(idStr, 10, 32)
@@ -170,7 +251,19 @@ func (h *Handler) UpdateDashboardUserPassword(w http.ResponseWriter, r *http.Req
 	_ = json.NewEncoder(w).Encode(SuccessResponse{Message: "password updated"})
 }
 
-// ChangePassword allows authenticated admin users to change their own password
+// ChangePassword godoc
+// @Summary Change own password
+// @Description Authenticated users can change their own password
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param passwords body ChangePasswordRequest true "Current and new password"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse "Invalid current password"
+// @Failure 500 {object} ErrorResponse
+// @Router /auth/change-password [put]
 func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Get authenticated user from context (set by auth middleware)
 	claims, ok := GetUserFromContext(r)
