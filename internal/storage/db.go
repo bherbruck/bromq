@@ -78,9 +78,16 @@ func OpenWithCache(config *DatabaseConfig, cache *Cache) (*DB, error) {
 		sqlDB.SetMaxIdleConns(1)   // Keep one connection open
 		sqlDB.SetConnMaxLifetime(0) // Reuse connection indefinitely (local file)
 
-		// Enable foreign keys (SQLite default is OFF)
-		if _, err := sqlDB.Exec("PRAGMA foreign_keys = ON"); err != nil {
-			return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+		// Verify foreign keys are enabled (set via connection string)
+		var foreignKeys int
+		if err := sqlDB.QueryRow("PRAGMA foreign_keys").Scan(&foreignKeys); err != nil {
+			return nil, fmt.Errorf("failed to check foreign keys: %w", err)
+		}
+		if foreignKeys != 1 {
+			slog.Warn("Foreign keys not enabled, forcing enable")
+			if _, err := sqlDB.Exec("PRAGMA foreign_keys = ON"); err != nil {
+				return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+			}
 		}
 	}
 	// Network databases (Postgres/MySQL) use Go's defaults:

@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	mqtt "github.com/mochi-mqtt/server/v2"
 
+	"github/bherbruck/bromq/internal/badgerstore"
 	"github/bherbruck/bromq/internal/storage"
 )
 
@@ -34,8 +35,11 @@ func setupTestRuntime(t *testing.T) (*storage.DB, *Runtime, *mqtt.Server) {
 		t.Fatalf("failed to start MQTT server: %v", err)
 	}
 
+	// Setup BadgerDB for state
+	badger := badgerstore.OpenInMemory(t)
+
 	// Setup state manager and runtime
-	stateManager := NewStateManager(db)
+	stateManager := NewStateManagerBadger(badger)
 	runtime := NewRuntime(db, stateManager, mqttServer)
 
 	return db, runtime, mqttServer

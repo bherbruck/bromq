@@ -21,6 +21,9 @@ coverage.html
 *.db-shm
 *.db-wal
 
+# BadgerDB data directory
+badger/
+
 # Logs
 *.log
 

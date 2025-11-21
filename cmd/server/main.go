@@ -19,6 +19,7 @@ import (
 	"github/bherbruck/bromq/hooks/tracking"
 	"github/bherbruck/bromq/internal/api"
 	"github/bherbruck/bromq/internal/appconfig"
+	"github/bherbruck/bromq/internal/badgerstore"
 	"github/bherbruck/bromq/internal/config"
 	"github/bherbruck/bromq/internal/mqtt"
 	"github/bherbruck/bromq/internal/provisioning"
@@ -65,6 +66,17 @@ func main() {
 	if err := db.CreateDefaultAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
 		slog.Warn("Failed to create default admin", "error", err)
 	}
+
+	// Initialize BadgerDB for high-write data (script state, retained messages)
+	slog.Info("Opening BadgerDB", "path", cfg.BadgerPath)
+	badgerStore, err := badgerstore.Open(&badgerstore.Config{
+		Path: cfg.BadgerPath,
+	})
+	if err != nil {
+		slog.Error("Failed to open BadgerDB", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = badgerStore.Close() }()
 
 	// Load and provision configuration if provided
 	if cfg.ConfigFile != "" {
@@ -117,9 +129,9 @@ func main() {
 	}
 	slog.Info("ACL hook registered")
 
-	// Add retained message persistence hook
+	// Add retained message persistence hook (uses BadgerDB for high-write performance)
 	// The hook will automatically load retained messages on startup via StoredRetainedMessages()
-	retainedHook := retained.NewRetainedHook(db)
+	retainedHook := retained.NewRetainedHook(badgerStore)
 	if err := mqttServer.AddHook(retainedHook, nil); err != nil {
 		slog.Error("Failed to add retained hook", "error", err)
 		os.Exit(1)
@@ -144,7 +156,7 @@ func main() {
 	slog.Info("Bridge hook registered")
 
 	// Initialize script engine and hook
-	scriptEngine := script.NewEngine(db, mqttServer.Server)
+	scriptEngine := script.NewEngine(db, badgerStore, mqttServer.Server)
 	scriptEngine.Start()
 	scriptHookInstance := scripthook.NewScriptHook(scriptEngine)
 	if err := mqttServer.AddHook(scriptHookInstance, nil); err != nil {
@@ -211,13 +223,19 @@ func main() {
 	slog.Info("Stopping bridges...")
 	bridgeManager.Stop()
 
-	// 3. Shutdown script engine (CRITICAL: final state flush)
+	// 3. Shutdown script engine (state is now in BadgerDB, no flush needed)
 	slog.Info("Shutting down script engine...")
 	if err := scriptEngine.Shutdown(ctx); err != nil {
 		slog.Error("Error shutting down script engine", "error", err)
 	}
 
-	// 4. Close database
+	// 4. Close BadgerDB (flushes any pending writes)
+	slog.Info("Closing BadgerDB...")
+	if err := badgerStore.Close(); err != nil {
+		slog.Error("Error closing BadgerDB", "error", err)
+	}
+
+	// 5. Close database
 	slog.Info("Closing database...")
 	if err := db.Close(); err != nil {
 		slog.Error("Error closing database", "error", err)

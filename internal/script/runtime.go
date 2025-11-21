@@ -23,14 +23,14 @@ type ExecutionResult struct {
 // Runtime handles individual script execution with timeout and error handling
 type Runtime struct {
 	db             *storage.DB
-	state          *StateManager
+	state          StateStore
 	mqttServer     *mqtt.Server
 	defaultTimeout time.Duration
 	maxPublishes   int
 }
 
 // NewRuntime creates a new runtime
-func NewRuntime(db *storage.DB, state *StateManager, mqttServer *mqtt.Server) *Runtime {
+func NewRuntime(db *storage.DB, state StateStore, mqttServer *mqtt.Server) *Runtime {
 	return &Runtime{
 		db:             db,
 		state:          state,

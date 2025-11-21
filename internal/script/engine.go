@@ -11,15 +11,18 @@ import (
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 
+	"github/bherbruck/bromq/internal/badgerstore"
 	"github/bherbruck/bromq/internal/storage"
 )
 
 // Engine manages script execution, state, and lifecycle
 type Engine struct {
 	db              *storage.DB
+	badger          *badgerstore.BadgerStore
 	mqttServer      *mqtt.Server
-	state           *StateManager
+	state           *StateManagerBadger
 	runtime         *Runtime
+	scriptCache     *ScriptCache      // Cache enabled scripts to avoid DB queries on every event
 	defaultTimeout  time.Duration // Default script execution timeout
 	maxPublishes    int           // Max publishes per script execution
 	logRetention    time.Duration // How long to keep logs (0 = forever)
@@ -32,9 +35,10 @@ type Engine struct {
 }
 
 // NewEngine creates a new script engine
-func NewEngine(db *storage.DB, mqttServer *mqtt.Server) *Engine {
-	state := NewStateManager(db)
+func NewEngine(db *storage.DB, badger *badgerstore.BadgerStore, mqttServer *mqtt.Server) *Engine {
+	state := NewStateManagerBadger(badger)
 	runtime := NewRuntime(db, state, mqttServer)
+	scriptCache := NewScriptCache(db)
 
 	// Load timeout configuration
 	defaultTimeout := loadTimeoutConfig()
@@ -60,9 +64,11 @@ func NewEngine(db *storage.DB, mqttServer *mqtt.Server) *Engine {
 
 	return &Engine{
 		db:              db,
+		badger:          badger,
 		mqttServer:      mqttServer,
 		state:           state,
 		runtime:         runtime,
+		scriptCache:     scriptCache,
 		defaultTimeout:  defaultTimeout,
 		maxPublishes:    maxPublishes,
 		logRetention:    logRetention,
@@ -160,6 +166,11 @@ func loadMaxPublishesConfig() int {
 func (e *Engine) Start() {
 	e.state.Start()
 
+	// Load enabled scripts into memory cache
+	if err := e.scriptCache.Load(); err != nil {
+		slog.Error("Failed to load script cache", "error", err)
+	}
+
 	// Start log cleanup worker if retention is configured
 	if e.logRetention > 0 && e.cleanupInterval > 0 {
 		e.wg.Add(1)
@@ -217,12 +228,8 @@ func (e *Engine) ExecuteForTrigger(triggerType, topic string, message *Message) 
 	default:
 	}
 
-	// Get matching scripts from database
-	scripts, err := e.db.GetEnabledScriptsForTrigger(triggerType, topic)
-	if err != nil {
-		slog.Error("Failed to get scripts for trigger", "trigger", triggerType, "error", err)
-		return
-	}
+	// Get matching scripts from cache (avoids expensive database query on every event)
+	scripts := e.scriptCache.GetScriptsForTrigger(triggerType, topic)
 
 	if len(scripts) == 0 {
 		return // No scripts to execute
@@ -319,7 +326,7 @@ func (e *Engine) TestScript(scriptContent string, triggerType string, messageDat
 }
 
 // GetState returns the state manager (for API access)
-func (e *Engine) GetState() *StateManager {
+func (e *Engine) GetState() StateStore {
 	return e.state
 }
 
@@ -361,4 +368,9 @@ func (e *Engine) cleanupOldLogs() {
 	}
 
 	slog.Debug("Script log cleanup completed")
+}
+
+// ReloadScripts reloads the script cache (called when scripts change via API)
+func (e *Engine) ReloadScripts() error {
+	return e.scriptCache.Reload()
 }

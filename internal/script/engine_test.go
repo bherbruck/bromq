@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github/bherbruck/bromq/internal/badgerstore"
 	"github/bherbruck/bromq/internal/storage"
 )
 
@@ -12,7 +13,8 @@ func TestEngineExecuteForTrigger(t *testing.T) {
 	db, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	engine := NewEngine(db, mqttServer)
+	badger := badgerstore.OpenInMemory(t)
+	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 	defer engine.Shutdown(context.Background())
 
@@ -35,6 +37,9 @@ func TestEngineExecuteForTrigger(t *testing.T) {
 	`, false, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_publish", Topic: "test/#", Priority: 10, Enabled: true},
 	})
+
+	// Reload cache after creating scripts
+	engine.ReloadScripts()
 
 	message := &Message{
 		Type:     "publish",
@@ -71,7 +76,8 @@ func TestEngineExecuteForTriggerNoMatch(t *testing.T) {
 	db, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	engine := NewEngine(db, mqttServer)
+	badger := badgerstore.OpenInMemory(t)
+	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 	defer engine.Shutdown(context.Background())
 
@@ -79,6 +85,9 @@ func TestEngineExecuteForTriggerNoMatch(t *testing.T) {
 	script, _ := db.CreateScript("no-match", "", `log.info("Should not run");`, true, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_publish", Topic: "other/#", Priority: 100, Enabled: true},
 	})
+
+	// Reload cache after creating scripts
+	engine.ReloadScripts()
 
 	message := &Message{
 		Type:     "publish",
@@ -103,7 +112,8 @@ func TestEngineExecuteForTriggerConnect(t *testing.T) {
 	db, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	engine := NewEngine(db, mqttServer)
+	badger := badgerstore.OpenInMemory(t)
+	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 	defer engine.Shutdown(context.Background())
 
@@ -111,6 +121,9 @@ func TestEngineExecuteForTriggerConnect(t *testing.T) {
 	script, _ := db.CreateScript("on-connect", "", `log.info("Client connected: " + msg.clientId);`, true, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_connect", Topic: "", Priority: 100, Enabled: true},
 	})
+
+	// Reload cache after creating scripts
+	engine.ReloadScripts()
 
 	message := &Message{
 		Type:     "connect",
@@ -137,7 +150,8 @@ func TestEngineTestScript(t *testing.T) {
 	db, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	engine := NewEngine(db, mqttServer)
+	badger := badgerstore.OpenInMemory(t)
+	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 	defer engine.Shutdown(context.Background())
 
@@ -180,7 +194,8 @@ func TestEngineTestScriptWithError(t *testing.T) {
 	db, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	engine := NewEngine(db, mqttServer)
+	badger := badgerstore.OpenInMemory(t)
+	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 	defer engine.Shutdown(context.Background())
 
@@ -206,7 +221,8 @@ func TestEngineShutdown(t *testing.T) {
 	db, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	engine := NewEngine(db, mqttServer)
+	badger := badgerstore.OpenInMemory(t)
+	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 
 	// Create and execute a script that sets state
@@ -244,7 +260,8 @@ func TestEngineShutdownDuringExecution(t *testing.T) {
 	db, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	engine := NewEngine(db, mqttServer)
+	badger := badgerstore.OpenInMemory(t)
+	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 
 	// Create a long-running script
@@ -257,6 +274,9 @@ func TestEngineShutdownDuringExecution(t *testing.T) {
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_publish", Topic: "#", Priority: 100, Enabled: true},
 	})
+
+	// Reload cache after creating scripts
+	engine.ReloadScripts()
 
 	message := &Message{
 		Type:     "publish",
@@ -288,7 +308,8 @@ func TestEngineShutdownMultipleTimes(t *testing.T) {
 	db, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	engine := NewEngine(db, mqttServer)
+	badger := badgerstore.OpenInMemory(t)
+	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 
 	ctx := context.Background()

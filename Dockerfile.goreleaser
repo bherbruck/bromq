@@ -17,7 +17,8 @@ RUN mkdir -p /app/data
 
 # Default database configuration (SQLite in mounted volume)
 ENV DB_TYPE=sqlite \
-    DB_PATH=/app/data/bromq.db
+    DB_PATH=/app/data/bromq.db \
+    BADGER_PATH=/app/data/badger
 
 # Expose ports
 # 1883: MQTT TCP
