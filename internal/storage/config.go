@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"strings"
 )
 
 // DatabaseConfig holds database connection configuration
@@ -43,7 +44,13 @@ func (c *DatabaseConfig) PostParse() error {
 func (c *DatabaseConfig) ConnectionString() (string, error) {
 	switch c.Type {
 	case "sqlite":
-		return c.FilePath, nil
+		// WAL mode is incompatible with in-memory databases (used in tests)
+		// For file-based SQLite, enable WAL mode for better read concurrency
+		// With MaxOpenConns=1, WAL allows concurrent readers while single writer writes
+		if c.FilePath == ":memory:" || strings.HasPrefix(c.FilePath, "file::memory:") {
+			return c.FilePath, nil // No WAL for in-memory databases
+		}
+		return c.FilePath + "?_journal_mode=WAL&_busy_timeout=5000", nil
 
 	case "postgres":
 		return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s",
