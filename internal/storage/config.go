@@ -2,20 +2,18 @@ package storage
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 )
 
 // DatabaseConfig holds database connection configuration
 type DatabaseConfig struct {
-	Type     string // "sqlite", "postgres", "mysql"
-	FilePath string // for sqlite
-	Host     string // for postgres/mysql
-	Port     int    // for postgres/mysql
-	User     string // for postgres/mysql
-	Password string // for postgres/mysql
-	DBName   string // for postgres/mysql
-	SSLMode  string // for postgres (disable, require, verify-ca, verify-full)
+	Type     string `env:"DB_TYPE" flag:"db-type" default:"sqlite" desc:"Database type (sqlite, postgres, mysql)"`
+	FilePath string `env:"DB_PATH" flag:"db-path" default:"bromq.db" desc:"SQLite database file path"`
+	Host     string `env:"DB_HOST" flag:"db-host" default:"localhost" desc:"Database host (postgres/mysql)"`
+	Port     int    `env:"DB_PORT" flag:"db-port" desc:"Database port (postgres/mysql). Auto-detected if not set"`
+	User     string `env:"DB_USER" flag:"db-user" default:"mqtt" desc:"Database user (postgres/mysql)"`
+	Password string `env:"DB_PASSWORD" flag:"db-password" desc:"Database password (postgres/mysql)"`
+	DBName   string `env:"DB_NAME" flag:"db-name" default:"mqtt" desc:"Database name (postgres/mysql)"`
+	SSLMode  string `env:"DB_SSLMODE" flag:"db-sslmode" default:"disable" desc:"SSL mode for postgres (disable, require, verify-ca, verify-full)"`
 }
 
 // DefaultSQLiteConfig returns default SQLite configuration
@@ -26,22 +24,19 @@ func DefaultSQLiteConfig(filePath string) *DatabaseConfig {
 	}
 }
 
-// LoadConfigFromEnv loads database configuration from environment variables
-func LoadConfigFromEnv() *DatabaseConfig {
-	dbType := getEnv("DB_TYPE", "sqlite")
 
-	config := &DatabaseConfig{
-		Type:     dbType,
-		FilePath: getEnv("DB_PATH", "bromq.db"),
-		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     getEnvInt("DB_PORT", getDefaultPort(dbType)),
-		User:     getEnv("DB_USER", "mqtt"),
-		Password: getEnv("DB_PASSWORD", ""),
-		DBName:   getEnv("DB_NAME", "mqtt"),
-		SSLMode:  getEnv("DB_SSLMODE", "disable"),
+// PostParse applies defaults and validation after parsing
+func (c *DatabaseConfig) PostParse() error {
+	// Set default ports based on database type if not specified
+	if c.Port == 0 {
+		switch c.Type {
+		case "postgres":
+			c.Port = 5432
+		case "mysql":
+			c.Port = 3306
+		}
 	}
-
-	return config
+	return nil
 }
 
 // ConnectionString builds the appropriate connection string for the database type
@@ -60,35 +55,5 @@ func (c *DatabaseConfig) ConnectionString() (string, error) {
 
 	default:
 		return "", fmt.Errorf("unsupported database type: %s (supported: sqlite, postgres, mysql)", c.Type)
-	}
-}
-
-// getEnv retrieves an environment variable or returns a default value
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// getEnvInt retrieves an integer environment variable or returns a default value
-func getEnvInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		}
-	}
-	return defaultValue
-}
-
-// getDefaultPort returns the default port for a database type
-func getDefaultPort(dbType string) int {
-	switch dbType {
-	case "postgres":
-		return 5432
-	case "mysql":
-		return 3306
-	default:
-		return 0
 	}
 }

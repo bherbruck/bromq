@@ -81,7 +81,7 @@ func NewAuthMiddleware(config *Config) func(http.Handler) http.Handler {
 			}
 
 			// Validate token
-			claims, err := ValidateJWT(config.JWTSecret, parts[1])
+			claims, err := ValidateJWT(config.JWTSecretBytes(), parts[1])
 			if err != nil {
 				http.Error(w, fmt.Sprintf(`{"error":"invalid token: %s"}`, err), http.StatusUnauthorized)
 				return

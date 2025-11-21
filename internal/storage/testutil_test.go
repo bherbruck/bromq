@@ -18,6 +18,11 @@ func setupTestDB(t *testing.T) *DB {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
+	// Create default admin user for tests
+	if err := db.CreateDefaultAdmin("admin", "admin"); err != nil {
+		t.Fatalf("failed to create default admin: %v", err)
+	}
+
 	return db
 }
 

@@ -92,11 +92,6 @@ func OpenWithCache(config *DatabaseConfig, cache *Cache) (*DB, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	// Create default admin user if not exists
-	if err := storage.createDefaultAdmin(); err != nil {
-		slog.Warn("Failed to create default admin", "error", err)
-	}
-
 	// Warm cache with MQTT users and ACL rules for performance
 	if err := storage.warmCache(); err != nil {
 		slog.Warn("Failed to warm cache", "error", err)
@@ -123,16 +118,11 @@ func (db *DB) autoMigrate() error {
 	)
 }
 
-// createDefaultAdmin creates a default admin user on first run
-// Credentials can be configured via ADMIN_USERNAME and ADMIN_PASSWORD environment variables
-// Defaults to "admin"/"admin" if not set (for development convenience)
-// Note: Like Grafana, these env vars ONLY work on first launch - once the admin user exists
-// in the database, changing the env vars has no effect
-func (db *DB) createDefaultAdmin() error {
-	// Get admin credentials from environment (only used on first run)
-	adminUsername := getEnv("ADMIN_USERNAME", "admin")
-	adminPassword := getEnv("ADMIN_PASSWORD", "admin")
-
+// CreateDefaultAdmin creates a default admin user on first run
+// Credentials are passed from the config (sourced from env vars, CLI flags, or defaults)
+// Note: Like Grafana, these credentials ONLY work on first launch - once the admin user exists
+// in the database, changing them has no effect
+func (db *DB) CreateDefaultAdmin(adminUsername, adminPassword string) error {
 	// Check if admin user already exists
 	var existingAdmin DashboardUser
 	err := db.Where("username = ?", adminUsername).First(&existingAdmin).Error
