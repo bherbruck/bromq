@@ -33,7 +33,7 @@ func (m *MockAuthenticator) AuthenticateUser(username, password string) (interfa
 
 func TestAuthHook_ID(t *testing.T) {
 	auth := NewMockAuthenticator()
-	hook := NewAuthHook(auth)
+	hook := NewAuthHook(auth, true) // Allow anonymous for tests
 
 	if hook.ID() != "database-auth" {
 		t.Errorf("AuthHook.ID() = %v, want database-auth", hook.ID())
@@ -42,7 +42,7 @@ func TestAuthHook_ID(t *testing.T) {
 
 func TestAuthHook_Provides(t *testing.T) {
 	auth := NewMockAuthenticator()
-	hook := NewAuthHook(auth)
+	hook := NewAuthHook(auth, true) // Allow anonymous for tests
 
 	tests := []struct {
 		name     string
@@ -83,7 +83,7 @@ func TestAuthHook_Provides(t *testing.T) {
 func TestAuthHook_OnConnectAuthenticate(t *testing.T) {
 	auth := NewMockAuthenticator()
 	auth.AddUser("validuser", "correctpassword")
-	hook := NewAuthHook(auth)
+	hook := NewAuthHook(auth, true) // Allow anonymous for this test
 
 	tests := []struct {
 		name     string
@@ -148,7 +148,7 @@ func TestAuthHook_OnConnectAuthenticate(t *testing.T) {
 
 func TestAuthHook_OnConnect(t *testing.T) {
 	auth := NewMockAuthenticator()
-	hook := NewAuthHook(auth)
+	hook := NewAuthHook(auth, true) // Allow anonymous for this test
 
 	tests := []struct {
 		name     string

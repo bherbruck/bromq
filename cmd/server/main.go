@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bherbruck/configlib"
 	"github/bherbruck/bromq/hooks/auth"
 	"github/bherbruck/bromq/hooks/bridge"
 	"github/bherbruck/bromq/hooks/metrics"
@@ -18,6 +18,7 @@ import (
 	scripthook "github/bherbruck/bromq/hooks/script"
 	"github/bherbruck/bromq/hooks/tracking"
 	"github/bherbruck/bromq/internal/api"
+	"github/bherbruck/bromq/internal/appconfig"
 	"github/bherbruck/bromq/internal/config"
 	"github/bherbruck/bromq/internal/mqtt"
 	"github/bherbruck/bromq/internal/provisioning"
@@ -30,99 +31,64 @@ import (
 var version = "dev"
 
 func main() {
-	// Set up structured logging
-	setupLogging()
+	// Set up basic logging (will be reconfigured after parsing)
+	setupBasicLogging()
 
-	// Parse command line flags
-	showVersion := flag.Bool("version", false, "Show version and exit")
-	dbType := flag.String("db-type", "", "Database type (sqlite, postgres, mysql). Defaults to DB_TYPE env var or 'sqlite'")
-	dbPath := flag.String("db-path", "", "SQLite database file path. Defaults to DB_PATH env var or 'bromq.db'")
-	dbHost := flag.String("db-host", "", "Database host (postgres/mysql). Defaults to DB_HOST env var or 'localhost'")
-	dbPort := flag.Int("db-port", 0, "Database port (postgres/mysql). Defaults to DB_PORT env var or default port")
-	dbUser := flag.String("db-user", "", "Database user (postgres/mysql). Defaults to DB_USER env var or 'mqtt'")
-	dbPassword := flag.String("db-password", "", "Database password (postgres/mysql). Defaults to DB_PASSWORD env var")
-	dbName := flag.String("db-name", "", "Database name (postgres/mysql). Defaults to DB_NAME env var or 'mqtt'")
-	dbSSLMode := flag.String("db-sslmode", "", "SSL mode for postgres (disable, require, verify-ca, verify-full). Defaults to DB_SSLMODE env var or 'disable'")
-	configFile := flag.String("config", "", "Path to configuration file for provisioning MQTT users and ACL rules. Defaults to CONFIG_FILE env var")
-	mqttTCP := flag.String("mqtt-tcp", ":1883", "MQTT TCP listener address")
-	mqttWS := flag.String("mqtt-ws", ":8883", "MQTT WebSocket listener address")
-	httpAddr := flag.String("http", ":8080", "HTTP API server address")
-	flag.Parse()
+	// Parse configuration from env vars, CLI flags, and defaults
+	var cfg appconfig.Config
+	if err := configlib.Parse(&cfg); err != nil {
+		slog.Error("Failed to parse configuration", "error", err)
+		os.Exit(1)
+	}
+
+	// Reconfigure logging with user preferences
+	setupLogging(cfg.Logging.Level, cfg.Logging.Format)
 
 	// Handle version flag
-	if *showVersion {
+	if cfg.Version {
 		fmt.Printf("BroMQ version %s\n", version)
 		os.Exit(0)
 	}
 
 	slog.Info("Starting BroMQ", "version", version)
 
-	// Load database configuration from environment variables first
-	dbConfig := storage.LoadConfigFromEnv()
-
-	// Override with command-line flags if provided
-	if *dbType != "" {
-		dbConfig.Type = *dbType
-	}
-	if *dbPath != "" {
-		dbConfig.FilePath = *dbPath
-	}
-	if *dbHost != "" {
-		dbConfig.Host = *dbHost
-	}
-	if *dbPort != 0 {
-		dbConfig.Port = *dbPort
-	}
-	if *dbUser != "" {
-		dbConfig.User = *dbUser
-	}
-	if *dbPassword != "" {
-		dbConfig.Password = *dbPassword
-	}
-	if *dbName != "" {
-		dbConfig.DBName = *dbName
-	}
-	if *dbSSLMode != "" {
-		dbConfig.SSLMode = *dbSSLMode
-	}
-
 	// Initialize database
-	slog.Info("Connecting to database", "type", dbConfig.Type)
-	db, err := storage.Open(dbConfig)
+	slog.Info("Connecting to database", "type", cfg.Database.Type)
+	db, err := storage.Open(&cfg.Database)
 	if err != nil {
 		slog.Error("Failed to open database", "error", err)
 		os.Exit(1)
 	}
 	defer func() { _ = db.Close() }()
 
-	// Load and provision configuration if provided
-	configPath := *configFile
-	if configPath == "" {
-		configPath = os.Getenv("CONFIG_FILE")
+	// Create default admin user if not exists (uses config from env vars, CLI flags, or defaults)
+	if err := db.CreateDefaultAdmin(cfg.Admin.Username, cfg.Admin.Password); err != nil {
+		slog.Warn("Failed to create default admin", "error", err)
 	}
-	if configPath != "" {
-		slog.Info("Loading configuration file", "path", configPath)
-		cfg, err := config.Load(configPath)
+
+	// Load and provision configuration if provided
+	if cfg.ConfigFile != "" {
+		slog.Info("Loading configuration file", "path", cfg.ConfigFile)
+		provCfg, err := config.Load(cfg.ConfigFile)
 		if err != nil {
 			slog.Error("Failed to load configuration file", "error", err)
 			os.Exit(1)
 		}
 
-		if err := provisioning.Provision(db, cfg); err != nil {
+		if err := provisioning.Provision(db, provCfg); err != nil {
 			slog.Error("Failed to provision configuration", "error", err)
 			os.Exit(1)
 		}
 	}
 
 	// Create MQTT server
-	mqttConfig := &mqtt.Config{
-		TCPAddr:         *mqttTCP,
-		WSAddr:          *mqttWS,
-		EnableTLS:       false,
-		MaxClients:      0,
-		RetainAvailable: true,
+	if cfg.MQTT.AllowAnonymous {
+		slog.Warn("Anonymous MQTT connections are ENABLED - this is insecure for production use")
+	} else {
+		slog.Info("Anonymous MQTT connections are DISABLED (secure default)")
 	}
-	mqttServer := mqtt.New(mqttConfig)
+
+	mqttServer := mqtt.New(&cfg.MQTT)
 
 	// Add metrics tracking hook with Prometheus (create first so we can pass to other hooks)
 	promMetrics := mqtt.NewPrometheusMetrics()
@@ -134,7 +100,7 @@ func main() {
 	slog.Info("Metrics hook registered")
 
 	// Add authentication hook with metrics
-	authHook := auth.NewAuthHook(db)
+	authHook := auth.NewAuthHook(db, cfg.MQTT.AllowAnonymous)
 	authHook.SetMetrics(promMetrics)
 	if err := mqttServer.AddAuthHook(authHook); err != nil {
 		slog.Error("Failed to add auth hook", "error", err)
@@ -201,11 +167,8 @@ func main() {
 		// Don't exit - bridges are optional, continue without them
 	}
 
-	// Load API configuration (JWT secret)
-	apiConfig := api.LoadConfig()
-
 	// Start HTTP API server in a goroutine
-	apiServer := api.NewServer(*httpAddr, db, mqttServer, web.FS, scriptEngine, apiConfig)
+	apiServer := api.NewServer(cfg.API.HTTPAddr, db, mqttServer, web.FS, scriptEngine, &cfg.API)
 	go func() {
 		if err := apiServer.Start(); err != nil {
 			slog.Error("Failed to start HTTP server", "error", err)
@@ -215,13 +178,13 @@ func main() {
 
 	slog.Info("===========================================")
 	slog.Info("BroMQ is running")
-	slog.Info("  MQTT TCP", "address", *mqttTCP)
-	slog.Info("  MQTT WebSocket", "address", *mqttWS)
-	slog.Info("  HTTP API", "address", *httpAddr)
-	if dbConfig.Type == "sqlite" {
-		slog.Info("  Database", "type", dbConfig.Type, "path", dbConfig.FilePath)
+	slog.Info("  MQTT TCP", "address", cfg.MQTT.TCPAddr)
+	slog.Info("  MQTT WebSocket", "address", cfg.MQTT.WSAddr)
+	slog.Info("  HTTP API", "address", cfg.API.HTTPAddr)
+	if cfg.Database.Type == "sqlite" {
+		slog.Info("  Database", "type", cfg.Database.Type, "path", cfg.Database.FilePath)
 	} else {
-		slog.Info("  Database", "type", dbConfig.Type, "host", dbConfig.Host, "port", dbConfig.Port, "database", dbConfig.DBName)
+		slog.Info("  Database", "type", cfg.Database.Type, "host", cfg.Database.Host, "port", cfg.Database.Port, "database", cfg.Database.DBName)
 	}
 	slog.Info("===========================================")
 	slog.Info("Default credentials: admin / admin")
@@ -263,15 +226,21 @@ func main() {
 	slog.Info("Shutdown complete")
 }
 
-// setupLogging configures slog based on environment variables
-func setupLogging() {
-	// Get log level from environment (default: info)
-	logLevel := strings.ToLower(os.Getenv("LOG_LEVEL"))
+// setupBasicLogging configures a basic logger before config parsing
+// This ensures we can log config parsing errors
+func setupBasicLogging() {
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+	slog.SetDefault(slog.New(handler))
+}
+
+// setupLogging reconfigures slog with user preferences from config
+func setupLogging(logLevel, logFormat string) {
+	// Parse log level
 	var level slog.Level
-	switch logLevel {
+	switch strings.ToLower(logLevel) {
 	case "debug":
 		level = slog.LevelDebug
-	case "info", "":
+	case "info":
 		level = slog.LevelInfo
 	case "warn", "warning":
 		level = slog.LevelWarn
@@ -281,15 +250,14 @@ func setupLogging() {
 		level = slog.LevelInfo
 	}
 
-	// Get log format from environment (default: text)
-	logFormat := strings.ToLower(os.Getenv("LOG_FORMAT"))
+	// Parse log format
 	var handler slog.Handler
 	opts := &slog.HandlerOptions{Level: level}
 
-	switch logFormat {
+	switch strings.ToLower(logFormat) {
 	case "json":
 		handler = slog.NewJSONHandler(os.Stdout, opts)
-	case "text", "":
+	case "text":
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	default:
 		handler = slog.NewTextHandler(os.Stdout, opts)
