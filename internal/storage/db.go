@@ -65,12 +65,27 @@ func OpenWithCache(config *DatabaseConfig, cache *Cache) (*DB, error) {
 		return nil, fmt.Errorf("failed to get underlying database: %w", err)
 	}
 
-	// Enable foreign keys for SQLite (other databases have it enabled by default)
+	// Configure connection pool based on database type
 	if config.Type == "sqlite" {
+		// SQLite with single connection (no pool)
+		// Rationale:
+		// - SQLite has single-writer architecture (even with WAL mode)
+		// - Multiple connections just compete for the same write lock
+		// - SQLite is used for auth/config (low write volume, cached reads)
+		// - High-write data will eventually move to BadgerDB
+		// - Single connection = zero lock contention, predictable behavior
+		sqlDB.SetMaxOpenConns(1)   // Single connection - no contention
+		sqlDB.SetMaxIdleConns(1)   // Keep one connection open
+		sqlDB.SetConnMaxLifetime(0) // Reuse connection indefinitely (local file)
+
+		// Enable foreign keys (SQLite default is OFF)
 		if _, err := sqlDB.Exec("PRAGMA foreign_keys = ON"); err != nil {
 			return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
 		}
 	}
+	// Network databases (Postgres/MySQL) use Go's defaults:
+	// - MaxOpenConns: unlimited (database server handles limits)
+	// - MaxIdleConns: 2 (small pool for common case)
 
 	// Use provided cache or create a new one
 	if cache == nil {
@@ -82,12 +97,7 @@ func OpenWithCache(config *DatabaseConfig, cache *Cache) (*DB, error) {
 		cache: cache,
 	}
 
-	// Migrate admin_users table to dashboard_users if it exists
-	if err := storage.migrateAdminUsersToDashboardUsers(config.Type); err != nil {
-		return nil, fmt.Errorf("failed to migrate admin_users table: %w", err)
-	}
-
-	// Run auto-migrations (works identically for all database types)
+	// Run auto-migrations (GORM handles all schema changes)
 	if err := storage.autoMigrate(); err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
@@ -158,28 +168,6 @@ func (db *DB) CreateDefaultAdmin(adminUsername, adminPassword string) error {
 	}
 
 	slog.Info("Admin user created successfully", "username", adminUsername)
-	return nil
-}
-
-// migrateAdminUsersToDashboardUsers renames admin_users table to dashboard_users if it exists
-// This is a one-time migration for the renamed table
-func (db *DB) migrateAdminUsersToDashboardUsers(dbType string) error {
-	// Check if admin_users table exists
-	if db.Migrator().HasTable("admin_users") {
-		slog.Info("Migrating admin_users table to dashboard_users")
-
-		// Rename the table based on database type
-		switch dbType {
-		case "sqlite":
-			return db.Exec("ALTER TABLE admin_users RENAME TO dashboard_users").Error
-		case "postgres":
-			return db.Exec("ALTER TABLE admin_users RENAME TO dashboard_users").Error
-		case "mysql":
-			return db.Exec("ALTER TABLE admin_users RENAME TO dashboard_users").Error
-		default:
-			return fmt.Errorf("unsupported database type for migration: %s", dbType)
-		}
-	}
 	return nil
 }
 
