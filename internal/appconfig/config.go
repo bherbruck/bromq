@@ -11,11 +11,12 @@ type Config struct {
 	Version    bool   `flag:"version,v" desc:"Show version and exit"`
 	ConfigFile string `env:"CONFIG_FILE" flag:"config,c" desc:"Path to YAML configuration file for provisioning"`
 
-	Database storage.DatabaseConfig `desc:"Database connection settings"`
-	MQTT     mqtt.Config            `desc:"MQTT broker settings"`
-	API      api.Config             `desc:"HTTP API server settings"`
-	Logging  LogConfig              `desc:"Logging settings"`
-	Admin    AdminConfig            `desc:"Default admin credentials (only used on first run)"`
+	Database   storage.DatabaseConfig `desc:"Database connection settings"`
+	BadgerPath string                 `env:"BADGER_PATH" flag:"badger-path" default:"badger" desc:"BadgerDB data directory for high-write data (script state, retained messages)"`
+	MQTT       mqtt.Config            `desc:"MQTT broker settings"`
+	API        api.Config             `desc:"HTTP API server settings"`
+	Logging    LogConfig              `desc:"Logging settings"`
+	Admin      AdminConfig            `desc:"Default admin credentials (only used on first run)"`
 }
 
 // LogConfig holds logging configuration
