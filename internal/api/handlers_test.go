@@ -45,9 +45,14 @@ func setupTestHandler(t *testing.T) *Handler {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
+	// Create default admin user for tests
+	if err := db.CreateDefaultAdmin("admin", "admin"); err != nil {
+		t.Fatalf("Failed to create default admin: %v", err)
+	}
+
 	// Create test config with JWT secret
 	testConfig := &Config{
-		JWTSecret: []byte("test-jwt-secret-for-testing-only"),
+		JWTSecret: "test-jwt-secret-for-testing-only",
 	}
 
 	// Create a mock MQTT server that implements the needed interface

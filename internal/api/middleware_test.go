@@ -152,7 +152,7 @@ func TestValidateJWT(t *testing.T) {
 func TestAuthMiddleware(t *testing.T) {
 	// Create test config
 	testConfig := &Config{
-		JWTSecret: testJWTSecret,
+		JWTSecret: string(testJWTSecret),
 	}
 
 	// Generate a valid token

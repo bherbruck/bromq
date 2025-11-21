@@ -192,13 +192,25 @@ DB_PORT=5432               # Postgres/MySQL port
 DB_USER=mqtt               # Postgres/MySQL user
 DB_PASSWORD=secret         # Postgres/MySQL password
 DB_NAME=mqtt               # Postgres/MySQL database
+DB_SSLMODE=disable         # Postgres SSL mode (disable, require, verify-ca, verify-full)
+
+# MQTT Server
+MQTT_TCP_ADDR=:1883                # TCP listener address
+MQTT_WS_ADDR=:8883                 # WebSocket listener address
+MQTT_ENABLE_TLS=false              # Enable TLS
+MQTT_TLS_CERT=/path/to/cert.pem    # TLS certificate file
+MQTT_TLS_KEY=/path/to/key.pem      # TLS key file
+MQTT_MAX_CLIENTS=0                 # Max concurrent clients (0 = unlimited)
+MQTT_RETAIN_AVAILABLE=true         # Enable retained messages
+MQTT_ALLOW_ANONYMOUS=false         # Allow anonymous connections (insecure)
+
+# HTTP API
+HTTP_ADDR=:8080            # HTTP API server address
+JWT_SECRET=<secret>        # JWT secret for token signing (auto-generated if not set)
 
 # Admin (ONLY used on first run)
 ADMIN_USERNAME=admin       # Default: admin
 ADMIN_PASSWORD=admin       # Default: admin
-
-# Security
-JWT_SECRET=<secret>        # REQUIRED for production (openssl rand -hex 32)
 
 # Logging
 LOG_LEVEL=info             # debug, info, warn, error
@@ -216,16 +228,27 @@ CONFIG_FILE=config.yml     # Path to YAML config
 **CLI Flags:**
 
 ```bash
+# All flags have corresponding environment variables
+# Use --help to see all available flags with descriptions
+
+./bromq --help              # Show all flags and descriptions
+./bromq --version           # Show version and exit
+
+# Example with common flags:
 ./bromq \
-  -db-type postgres \
-  -db-host localhost \
-  -db-port 5432 \
-  -db-user mqtt \
-  -db-password secret \
-  -mqtt-tcp :1883 \
-  -mqtt-ws :8883 \
-  -http :8080 \
-  -config config.yml
+  --db-type postgres \
+  --db-host localhost \
+  --db-port 5432 \
+  --db-user mqtt \
+  --db-password secret \
+  --mqtt-tcp :1883 \
+  --mqtt-ws :8883 \
+  --mqtt-allow-anonymous \
+  --http :8080 \
+  --config config.yml
+
+# Shorthand flags available:
+./bromq -c config.yml -v    # -c for --config, -v for --version
 ```
 
 ## API Overview
