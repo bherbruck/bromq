@@ -165,6 +165,12 @@ func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Set default MQTT version if not specified
+	mqttVersion := req.MQTTVersion
+	if mqttVersion == "" {
+		mqttVersion = "5" // Default to MQTT v5
+	}
+
 	// Create bridge
 	bridge, err := h.db.CreateBridge(
 		req.Name,
@@ -173,6 +179,7 @@ func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 		req.Username,
 		req.Password,
 		req.ClientID,
+		mqttVersion,
 		req.CleanSession,
 		req.KeepAlive,
 		req.ConnectionTimeout,

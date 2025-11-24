@@ -233,6 +233,9 @@ func provisionBridge(db *storage.DB, bridgeCfg config.BridgeConfig) (uint, error
 	if bridgeCfg.ConnectionTimeout == 0 {
 		bridgeCfg.ConnectionTimeout = 30
 	}
+	if bridgeCfg.MQTTVersion == "" {
+		bridgeCfg.MQTTVersion = "5" // Default to MQTT v5
+	}
 
 	// Convert metadata map to JSON
 	var metadataJSON []byte
@@ -267,6 +270,7 @@ func provisionBridge(db *storage.DB, bridgeCfg config.BridgeConfig) (uint, error
 			"username":                bridgeCfg.Username,
 			"password":                bridgeCfg.Password,
 			"client_id":               bridgeCfg.ClientID,
+			"mqtt_version":            bridgeCfg.MQTTVersion,
 			"clean_session":           bridgeCfg.CleanSession,
 			"keep_alive":              bridgeCfg.KeepAlive,
 			"connection_timeout":      bridgeCfg.ConnectionTimeout,
@@ -301,6 +305,7 @@ func provisionBridge(db *storage.DB, bridgeCfg config.BridgeConfig) (uint, error
 		bridgeCfg.Username,
 		bridgeCfg.Password,
 		bridgeCfg.ClientID,
+		bridgeCfg.MQTTVersion,
 		bridgeCfg.CleanSession,
 		bridgeCfg.KeepAlive,
 		bridgeCfg.ConnectionTimeout,
