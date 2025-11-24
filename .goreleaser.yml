@@ -46,12 +46,6 @@ archives:
       - README.md
       - examples/config/*.yml
 
-# Upload config schema as separate uncompressed release asset for IDE autocomplete
-blobs:
-  - provider: github
-    extra_files:
-      - glob: schema/bromq-config.schema.json
-
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256
