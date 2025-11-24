@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../../schema/bromq-config.schema.json
+
+users:
+  - username: admin
+    password: admin
+  - username: bridge
+    password: bridge
+
+acl_rules:
+  - username: admin
+    topic: "#"
+    permission: pubsub
+  - username: bridge
+    topic: "$$bridge/#"
+    permission: pubsub

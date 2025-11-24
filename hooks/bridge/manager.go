@@ -1,6 +1,8 @@
 package bridge
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -8,6 +10,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	mqttServer "github.com/mochi-mqtt/server/v2"
+	"github.com/mochi-mqtt/server/v2/packets"
 	"github/bherbruck/bromq/internal/storage"
 )
 
@@ -22,7 +25,9 @@ type Manager struct {
 // BridgeConnection represents an active bridge connection
 type BridgeConnection struct {
 	bridge       *storage.Bridge
-	client       mqtt.Client
+	client       mqtt.Client               // Paho client connected to remote broker
+	inlineClient *mqttServer.Client        // Inline client on local server for inbound messages
+	clientID     string                    // MQTT client ID for this bridge connection
 	manager      *Manager
 	reconnecting bool
 	mu           sync.Mutex
@@ -35,6 +40,16 @@ func NewManager(db *storage.DB, server *mqttServer.Server) *Manager {
 		server:  server,
 		bridges: make(map[uint]*BridgeConnection),
 	}
+}
+
+// generateShortID generates a random 8-character hex ID for uniqueness
+func generateShortID() string {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based ID if crypto/rand fails (extremely rare)
+		return fmt.Sprintf("%08x", time.Now().UnixNano()&0xffffffff)
+	}
+	return hex.EncodeToString(b)
 }
 
 // Start loads all bridges from database and connects them
@@ -70,17 +85,29 @@ func (m *Manager) connectBridge(bridge *storage.Bridge) error {
 	// Create paho MQTT client options
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", bridge.Host, bridge.Port))
-	opts.SetClientID(bridge.ClientID)
+
+	// Ensure bridge client ID has identifying prefix for loop prevention
+	// Each bridge gets a unique random ID to prevent conflicts
+	clientID := bridge.ClientID
+	if clientID == "" {
+		clientID = fmt.Sprintf("bridge-%s", generateShortID())
+	} else if len(clientID) < 7 || clientID[:7] != "bridge-" {
+		clientID = fmt.Sprintf("bridge-%s", clientID)
+	}
+	opts.SetClientID(clientID)
 	opts.SetUsername(bridge.Username)
 	opts.SetPassword(bridge.Password)
 	opts.SetCleanSession(bridge.CleanSession)
 	opts.SetKeepAlive(time.Duration(bridge.KeepAlive) * time.Second)
 	opts.SetConnectTimeout(time.Duration(bridge.ConnectionTimeout) * time.Second)
-	opts.SetAutoReconnect(false) // We handle reconnection ourselves
+	opts.SetAutoReconnect(true) // Paho handles reconnection and keep-alive
+	opts.SetMaxReconnectInterval(time.Minute)
+	opts.SetResumeSubs(true) // Resume subscriptions after reconnect
 
 	bc := &BridgeConnection{
-		bridge:  bridge,
-		manager: m,
+		bridge:   bridge,
+		clientID: clientID, // Store for loop prevention
+		manager:  m,
 	}
 
 	// Set connection callbacks
@@ -91,9 +118,15 @@ func (m *Manager) connectBridge(bridge *storage.Bridge) error {
 		bc.onConnectionLost(err)
 	})
 
-	// Create client
+	// Create Paho client for connecting to remote broker
 	client := mqtt.NewClient(opts)
 	bc.client = client
+
+	// Create inline client on local server to represent bridge for inbound messages
+	// This allows InjectPacket to work with proper client ID for loop prevention
+	inlineClient := m.server.NewClient(nil, "bridge", clientID, true)
+	m.server.Clients.Add(inlineClient)
+	bc.inlineClient = inlineClient
 
 	// Store connection
 	m.bridges[bridge.ID] = bc
@@ -197,10 +230,21 @@ func (bc *BridgeConnection) handleInboundMessage(msg mqtt.Message, topicMapping 
 		"remote_topic", msg.Topic(),
 		"local_topic", localTopic)
 
-	// Publish to local broker using server.Publish()
-	err := bc.manager.server.Publish(localTopic, msg.Payload(), msg.Retained(), msg.Qos())
+	// Create MQTT packet for injection
+	pk := packets.Packet{
+		FixedHeader: packets.FixedHeader{
+			Type:   packets.Publish,
+			Qos:    msg.Qos(),
+			Retain: msg.Retained(),
+		},
+		TopicName: localTopic,
+		Payload:   msg.Payload(),
+	}
+
+	// Inject packet using bridge's inline client for proper loop prevention
+	err := bc.manager.server.InjectPacket(bc.inlineClient, pk)
 	if err != nil {
-		slog.Error("Failed to publish inbound message",
+		slog.Error("Failed to inject inbound message",
 			"bridge", bc.bridge.Name,
 			"topic", localTopic,
 			"error", err)
@@ -256,6 +300,7 @@ func (m *Manager) Stop() {
 
 	for _, bc := range m.bridges {
 		bc.client.Disconnect(250) // 250ms grace period
+		m.server.Clients.Delete(bc.clientID) // Remove inline client
 		slog.Info("Bridge disconnected", "name", bc.bridge.Name)
 	}
 
