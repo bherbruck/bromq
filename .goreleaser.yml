@@ -47,8 +47,10 @@ archives:
       - examples/config/*.yml
 
 # Upload config schema as separate uncompressed release asset for IDE autocomplete
-extra_files:
-  - glob: schema/bromq-config.schema.json
+blobs:
+  - provider: github
+    extra_files:
+      - glob: schema/bromq-config.schema.json
 
 checksum:
   name_template: "checksums.txt"
@@ -98,12 +100,12 @@ signs:
   - cmd: cosign
     env:
       - COSIGN_EXPERIMENTAL=1
-    certificate: '${artifact}.pem'
+    certificate: "${artifact}.pem"
     args:
       - sign-blob
-      - '--output-certificate=${certificate}'
-      - '--output-signature=${signature}'
-      - '${artifact}'
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
       - "--yes"
     artifacts: checksum
     output: true
@@ -114,8 +116,8 @@ docker_signs:
       - COSIGN_EXPERIMENTAL=1
     output: true
     args:
-      - 'sign'
-      - '${artifact}'
+      - "sign"
+      - "${artifact}"
       - "--yes"
 
 release:
