@@ -44,8 +44,11 @@ archives:
     files:
       - LICENSE
       - README.md
-      - schema/bromq-config.schema.json
       - examples/config/*.yml
+
+# Upload config schema as separate uncompressed release asset for IDE autocomplete
+extra_files:
+  - glob: schema/bromq-config.schema.json
 
 checksum:
   name_template: "checksums.txt"
