@@ -288,7 +288,7 @@ scripts:
 			},
 		},
 		{
-			name: "valid script with script_content",
+			name: "valid script with content",
 			configYAML: `
 users: []
 acl_rules: []
@@ -310,7 +310,7 @@ scripts:
 					t.Fatalf("expected 1 script, got %d", len(cfg.Scripts))
 				}
 				if cfg.Scripts[0].Content == "" {
-					t.Error("expected script_content to be set")
+					t.Error("expected content to be set")
 				}
 				if cfg.Scripts[0].File != "" {
 					t.Error("expected script_file to be empty")
@@ -318,7 +318,7 @@ scripts:
 			},
 		},
 		{
-			name: "script with both script_file and script_content (invalid)",
+			name: "script with both script_file and content (invalid)",
 			configYAML: `
 users: []
 acl_rules: []
@@ -337,7 +337,7 @@ scripts:
 			errContains: "cannot have both file and content",
 		},
 		{
-			name: "script with neither script_file nor script_content (invalid)",
+			name: "script with neither script_file nor content (invalid)",
 			configYAML: `
 users: []
 acl_rules: []
@@ -814,7 +814,7 @@ scripts:
 }
 
 func TestReservedPlaceholdersStillWork(t *testing.T) {
-	os.Setenv("username", "SHOULD_NOT_EXPAND")  // Set conflicting env var
+	os.Setenv("username", "SHOULD_NOT_EXPAND") // Set conflicting env var
 	os.Setenv("clientid", "SHOULD_NOT_EXPAND")
 	defer os.Unsetenv("username")
 	defer os.Unsetenv("clientid")

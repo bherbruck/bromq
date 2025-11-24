@@ -28,7 +28,7 @@ describe('API Client', () => {
             id: 1,
             name: 'test-script',
             description: 'Test',
-            script_content: 'log.info("test");',
+            content: 'log.info("test");',
             enabled: true,
             provisioned_from_config: false,
             created_at: '2025-01-01T00:00:00Z',
@@ -132,7 +132,7 @@ describe('API Client', () => {
       const createRequest = {
         name: 'new-script',
         description: 'Test script',
-        script_content: 'log.info("test");',
+        content: 'log.info("test");',
         enabled: true,
         triggers: [
           {
@@ -167,7 +167,7 @@ describe('API Client', () => {
       const updateRequest = {
         name: 'updated-script',
         description: 'Updated',
-        script_content: 'log.info("updated");',
+        content: 'log.info("updated");',
         enabled: false,
         triggers: [],
       }
@@ -190,7 +190,7 @@ describe('API Client', () => {
 
     it('should test script with correct event data', async () => {
       const testRequest = {
-        script_content: 'log.info(event.topic);',
+        content: 'log.info(event.topic);',
         trigger_type: 'on_publish',
         event_data: {
           topic: 'test/topic',
