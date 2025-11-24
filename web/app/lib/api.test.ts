@@ -80,7 +80,7 @@ describe('API Client', () => {
           {
             id: 1,
             script_id: 1,
-            trigger_type: 'on_publish',
+            type: 'on_publish',
             level: 'info',
             message: 'Test log',
             execution_time_ms: 10,
@@ -136,8 +136,8 @@ describe('API Client', () => {
         enabled: true,
         triggers: [
           {
-            trigger_type: 'on_publish' as const,
-            topic_filter: '#',
+            type: 'on_publish' as const,
+            topic: '#',
             priority: 100,
             enabled: true,
           },
@@ -191,7 +191,7 @@ describe('API Client', () => {
     it('should test script with correct event data', async () => {
       const testRequest = {
         content: 'log.info(event.topic);',
-        trigger_type: 'on_publish',
+        type: 'on_publish',
         event_data: {
           topic: 'test/topic',
           payload: 'test',

@@ -47,8 +47,8 @@ export interface ACLRule {
 export interface BridgeTopic {
   id: number
   bridge_id: number
-  local_pattern: string
-  remote_pattern: string
+  local: string
+  remote: string
   direction: 'in' | 'out' | 'both'
   qos: number
   created_at: string
@@ -56,8 +56,8 @@ export interface BridgeTopic {
 
 // BridgeTopicRequest - Topic mapping for create/update requests
 export interface BridgeTopicRequest {
-  local_pattern: string
-  remote_pattern: string
+  local: string
+  remote: string
   direction: 'in' | 'out' | 'both'
   qos: number
 }
@@ -66,9 +66,9 @@ export interface BridgeTopicRequest {
 export interface Bridge {
   id: number
   name: string
-  remote_host: string
-  remote_port: number
-  remote_username?: string
+  host: string
+  port: number
+  username?: string
   client_id: string
   clean_session: boolean
   keep_alive: number
@@ -83,10 +83,10 @@ export interface Bridge {
 // CreateBridgeRequest - Request to create a bridge
 export interface CreateBridgeRequest {
   name: string
-  remote_host: string
-  remote_port: number
-  remote_username?: string
-  remote_password?: string
+  host: string
+  port: number
+  username?: string
+  password?: string
   client_id?: string
   clean_session: boolean
   keep_alive: number
@@ -98,10 +98,10 @@ export interface CreateBridgeRequest {
 // UpdateBridgeRequest - Request to update a bridge
 export interface UpdateBridgeRequest {
   name: string
-  remote_host: string
-  remote_port: number
-  remote_username?: string
-  remote_password?: string
+  host: string
+  port: number
+  username?: string
+  password?: string
   client_id?: string
   clean_session: boolean
   keep_alive: number
@@ -162,7 +162,7 @@ export interface UpdateScriptRequest {
 export interface ScriptLog {
   id: number
   script_id: number
-  trigger_type: string
+  type: string
   level: 'debug' | 'info' | 'warn' | 'error'
   message: string
   context?: Record<string, any>
@@ -172,7 +172,7 @@ export interface ScriptLog {
 
 export interface TestScriptRequest {
   content: string
-  trigger_type: string
+  type: string
   event_data: Record<string, any>
 }
 
