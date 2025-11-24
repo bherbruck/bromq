@@ -1,0 +1,46 @@
+services:
+  hub:
+    container_name: bromq-hub
+    image: ghcr.io/bherbruck/bromq:latest
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+      - 1883:1883
+    environment:
+      - CONFIG_FILE=/app/config.yml
+    volumes:
+      - ./config/bridge/hub.yml:/app/config.yml:ro
+
+  spoke1:
+    container_name: bromq-spoke1
+    image: ghcr.io/bherbruck/bromq:latest
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    ports:
+      - 11883:1883
+    environment:
+      - CONFIG_FILE=/app/config.yml
+    volumes:
+      - ./config/bridge/spoke.yml:/app/config.yml:ro
+    depends_on:
+      hub:
+        condition: service_healthy
+
+  spoke2:
+    container_name: bromq-spoke2
+    image: ghcr.io/bherbruck/bromq:latest
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    ports:
+      - 12883:1883
+    environment:
+      - CONFIG_FILE=/app/config.yml
+    volumes:
+      - ./config/bridge/spoke.yml:/app/config.yml:ro
+    depends_on:
+      hub:
+        condition: service_healthy
