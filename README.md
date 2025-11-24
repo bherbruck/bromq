@@ -1,6 +1,12 @@
 # BroMQ
 
-A high-performance, single-node MQTT broker with embedded web UI built on mochi-mqtt/server.
+[![CI](https://github.com/bherbruck/bromq/workflows/CI/badge.svg)](https://github.com/bherbruck/bromq/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bherbruck/bromq)](https://goreportcard.com/report/github.com/bherbruck/bromq)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/bherbruck/bromq)](go.mod)
+[![Latest Release](https://img.shields.io/github/v/release/bherbruck/bromq)](https://github.com/bherbruck/bromq/releases)
+
+Batteries-included, production-ready MQTT broker.
 
 ## Why BroMQ?
 
@@ -8,38 +14,46 @@ A high-performance, single-node MQTT broker with embedded web UI built on mochi-
 
 **Batteries-included, single binary.** Web dashboard, REST API, user management, ACL system, client tracking, MQTT bridging, and Prometheus metrics in one small binary. No plugins required.
 
-**Production-ready for:**
+## Use Cases
 
-- Self-hosted IoT infrastructure
+- IoT infrastructure and device management
+- Smart home automation
+- Industrial monitoring and control (IIoT)
 - Edge-to-cloud architectures via MQTT bridging
-- Multi-tenant SaaS with per-user topic isolation
-- Kubernetes/Docker deployments
+- Real-time data streaming and telemetry
+- Multi-tenant SaaS platforms with topic isolation
+- Vehicle telematics and fleet management
+- Building automation and energy management
+- Mobile and web application backends
+- Kubernetes and Docker deployments
 - Development and testing environments
 
 ## Comparisons
 
-**vs. Open-core brokers:** No feature paywalls, license pop-ups, or artificial connection limits  
-**vs. Mosquitto:** Includes web UI, REST API, and database-backed authentication  
-**vs. Cloud platforms:** Self-hosted control, no per-connection pricing  
+**vs. Open-core brokers:** No feature paywalls, license pop-ups, or artificial connection limits
+**vs. Mosquitto:** Includes web UI, REST API, and database-backed authentication
+**vs. Cloud platforms:** No per-connection pricing, deploy anywhere
 **vs. Enterprise solutions:** Simpler deployment, no support contracts required
 
 ## Feature Comparison
 
-| Feature          | BroMQ                    | EMQX 5.9+     | VerneMQ           | Mosquitto     | HiveMQ        |
-| ---------------- | ------------------------ | ------------- | ----------------- | ------------- | ------------- |
-| License          | Apache 2.0               | BSL 1.1\*     | Apache 2.0\*\*    | EPL 2.0/EDL   | Commercial    |
-| Clustering       | ✅ Bridging              | 💰 Licensed   | ✅ Masterless     | ✅ Bridging   | ⚠️ Enterprise |
-| Web Dashboard    | ✅ Built-in              | ✅ Built-in   | ❌ Community only | ❌            | ⚠️ Enterprise |
-| REST API         | ✅ Full CRUD             | ✅ Full       | ✅ CLI wrapper    | ❌            | ⚠️ Enterprise |
-| Database Auth    | ✅ SQLite/Postgres/MySQL | ✅ Built-in   | ✅ Plugins        | ❌ File-based | ⚠️ Enterprise |
-| Connection Limit | ∞ Unlimited              | ∞ Single-node | ∞ Unlimited       | ∞ Unlimited   | 💰 Licensed   |
+| Feature                | BroMQ                         | EMQX 5.9+       | VerneMQ           | Mosquitto         | HiveMQ            |
+| ---------------------- | ----------------------------- | --------------- | ----------------- | ----------------- | ----------------- |
+| License                | Apache 2.0                    | BSL 1.1\*       | Apache 2.0\*\*    | EPL 2.0/EDL       | Commercial        |
+| Distributed Topologies | ✅ Bridges                    | 💰 Licensed     | ✅ Masterless     | ✅ Bridges        | ⚠️ Enterprise     |
+| Web Dashboard          | ✅ Built-in                   | ✅ Built-in     | ❌ Community only | ❌                | ⚠️ Enterprise     |
+| REST API               | ✅ Full                       | ✅ Full         | ✅ CLI wrapper    | ❌                | ⚠️ Enterprise     |
+| Database Auth          | ✅ Built-in                   | ✅ Built-in     | ✅ Plugins        | ❌ File-based     | ⚠️ Enterprise     |
+| Access Control         | ✅ Granular DB-backed         | 💰 Advanced ACL | ⚠️ Plugins only   | ⚠️ Basic file ACL | 💰 Enterprise ACL |
+| Automation / Scripting | ✅ Embedded javascript engine | 💰 Rules engine | ⚠️ Lua plugins    | ❌                | 💰 Extensions     |
+| Connection Limit       | ∞ Unlimited                   | ∞ Single-node   | ∞ Unlimited       | ∞ Unlimited       | 💰 Licensed       |
 
 \*BSL 1.1: Single-node free, clustering requires license, converts to Apache 2.0 after 4 years
 \*\*Source code Apache 2.0, official packages/Docker images under EULA
 
 **When BroMQ is the right choice:**
 
-- You want batteries-included (web UI, REST API, auth, ACL) without enterprise licensing
+- You want batteries-included (web UI, REST API, auth, ACL, scripting) without enterprise licensing
 - You want GitOps-friendly declarative YAML config for bridges, users, ACL, and more
 - You're deploying to VPS/cloud/edge with bridging support (works as edge OR cloud broker)
 - You're deploying to Kubernetes/Docker
@@ -50,25 +64,100 @@ A high-performance, single-node MQTT broker with embedded web UI built on mochi-
 - **Ultra-lightweight** (<5MB): Mosquitto
 - **Enterprise support contracts**: HiveMQ, EMQX Enterprise
 
+> **Note:** Performance benchmarks (concurrent connections, message throughput, latency, memory footprint) are currently being prepared and will be published soon to help users evaluate BroMQ for their specific workloads.
+
 ## Features
 
-- **Full MQTT v3/v5 support** via mochi-mqtt
+- **Full MQTT v3/v5 support** with NoLocal subscriptions for loop-free bridges
 - **Multi-database support** - SQLite (default), PostgreSQL, MySQL
-- **Three-table architecture** - Separate dashboard users, MQTT credentials, and client tracking
-- **Database-backed authentication** with bcrypt password hashing
-- **Granular ACL permissions** with MQTT wildcard support (`+`, `#`)
+- **Separate user types** - Dashboard admins and MQTT device credentials managed independently
+- **Secure authentication** with database-backed password storage
+- **Granular ACL permissions** - Per-user topic access control for publish/subscribe with wildcard support (`+`, `#`) and dynamic placeholders (`${username}`, `${clientid}`)
 - **MQTT Bridging** - Connect to remote brokers with bidirectional topic routing
-- **REST API** for comprehensive management (users, credentials, clients, ACL, bridges)
-- **Modern Web Dashboard** - React Router v7 + shadcn/ui
+- **JavaScript scripting engine** - Custom automation and message processing on MQTT events
+- **REST API** for comprehensive management (users, credentials, clients, ACL, bridges, scripts)
+- **Modern Web Dashboard** with real-time monitoring and management
 - **Client connection tracking** - Monitor individual devices with metadata
-- **Configuration provisioning** - YAML-based configuration with auto-sync
-- **Single binary deployment** (~19MB) with embedded frontend
-- **Docker support** with multi-stage builds and hot reload dev mode
+- **Configuration provisioning** - YAML-based configuration with auto-sync - ideal for GitOps deployments
+- **Single binary deployment** with embedded frontend
+- **Full Docker support** with multi-platform images
 - **Prometheus metrics** endpoint for monitoring
+
+## Distributed Topologies
+
+**Architecture Model:** BroMQ uses an explicit hub-spoke architecture based on MQTT bridging. Spoke brokers scale horizontally for client connections; hub brokers aggregate and route messages.
+
+```
+MQTT Clients
+     │
+     ├──► Spoke Broker (Region A) ───┐
+     ├──► Spoke Broker (Region B) ───┼──► Hub Broker ◄──► External Systems
+     └──► Spoke Broker (Region C) ───┘
+```
+
+BroMQ supports distributed MQTT deployments using **MQTT v5 NoLocal bridging**:
+
+- **Hub-and-spoke architectures** - Central hub with multiple edge brokers
+- **Edge-to-cloud synchronization** - Reliable data forwarding with automatic reconnection
+- **Multi-site aggregation** - Connect brokers across locations with topic routing
+- **Regional distribution** - Deploy spoke brokers per region/datacenter, bridge to central hub
+- **Bidirectional bridges** - Loop-free message routing with NoLocal subscriptions
+
+BroMQ focuses on clarity and explicitness: multi-node deployments use declarative, configurable bridging rather than opaque automatic clustering. This provides full operational transparency and avoids the complexity and brittleness of distributed cluster protocols.
+
+Enterprise topologies such as multi-hub deployments are supported through explicit bridging configurations. BroMQ intentionally avoids hidden or proprietary clustering, giving you full control over how nodes route traffic.
+
+**Note:** BroMQ nodes do not share session or routing state. Distributed deployments route through one or more explicit hub brokers configured via MQTT bridging.
+
+**BroMQ does not implement:**
+
+- Automatic clustering with shared state
+- Distributed session synchronization
+- Multi-node routing table coordination
+
+For these use cases, consider VerneMQ or EMQX Enterprise.
+
+See [examples/config/bridge/](examples/config/bridge/) for hub-and-spoke configuration examples.
+
+## Technology Stack
+
+BroMQ is built in **Go** for modern cloud-native environments:
+
+- **Go** - Minimal memory footprint, excellent concurrency, fast startup times
+- **Single static binary** - No runtime dependencies, simple deployment
+- **Cross-platform** - Linux, macOS, Windows (amd64, arm64, armv7)
+- **Multi-database support** - SQLite, PostgreSQL, MySQL with GORM
+- **Container-native** - Official multi-platform Docker images
+- **Prometheus integration** - Standard metrics format for observability
+
+Go's simplicity and performance make BroMQ easy to deploy, extend, and integrate compared to Erlang/Java-based brokers.
+
+## Screenshots
+
+### Dashboard Overview
+
+![Dashboard](docs/media/screenshots/01-dashboard.png)
+
+### MQTT Client Management
+
+![Client List](docs/media/screenshots/02-mqtt-client-list.png)
+![Client Detail](docs/media/screenshots/03-mqtt-client-detail.png)
+
+### User Management
+
+![User Detail](docs/media/screenshots/05-mqtt-user-detail.png)
+
+### ACL Rules
+
+![ACL Rules](docs/media/screenshots/06-acl-rule-list.png)
+
+### JavaScript Scripting
+
+![Script Detail](docs/media/screenshots/08-mqtt-script-detail.png)
 
 ## Quick Start
 
-### 🐳 Docker Compose (Recommended)
+### Docker Compose (Recommended)
 
 **Production (single binary with embedded UI):**
 
@@ -83,14 +172,14 @@ docker compose logs -f
 docker compose down
 ```
 
-### 📍 Access Points
+### Access Points
 
 After starting:
 
 - **MQTT TCP:** `localhost:1883`
 - **MQTT WebSocket:** `localhost:8883`
 - **Web Dashboard:** `http://localhost:8080`
-- **Default Login:** `admin` / `admin` ⚠️ Change immediately!
+- **Default Login:** `admin` / `admin` (Change immediately in production)
 
 ## Configuration Example
 
@@ -169,31 +258,13 @@ BroMQ provides a JSON Schema for YAML configuration files, enabling IDE autocomp
 # yaml-language-server: $schema=https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json
 
 users:
-  - username: sensor_user  # IDE will show autocomplete here!
+  - username: sensor_user # IDE will show autocomplete here!
     password: ${PASSWORD}
 ```
 
-**Supported editors:** VS Code, IntelliJ IDEA, WebStorm, PyCharm, and any editor with YAML Language Server support.
-
 **Schema URLs:**
+
 - Latest: `https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json`
-- Version-specific: `https://github.com/bherbruck/bromq/releases/download/v0.0.3/bromq-config.schema.json`
-
-## Architecture
-
-- **Backend:** Go 1.22+ with stdlib net/http, GORM, mochi-mqtt/server v2
-- **Database:** SQLite (default), PostgreSQL, or MySQL with auto-migration
-- **Frontend:** React Router v7 (SPA mode) + shadcn/ui + Tailwind CSS
-- **Authentication:** JWT tokens with bcrypt password hashing
-- **User System:** Three-table architecture
-  - `dashboard_users` - Web UI administrators
-  - `mqtt_users` - MQTT credentials (shared by devices)
-  - `mqtt_clients` - Individual device tracking
-- **ACL:** Topic-level permissions with MQTT wildcard support (`+`, `#`)
-- **Hooks:** Authentication, ACL, client tracking, metrics, retained messages
-- **Deployment:** Single binary (~19MB) with embedded frontend
-
-For detailed architecture documentation, see [CLAUDE.md](CLAUDE.md).
 
 ## License
 

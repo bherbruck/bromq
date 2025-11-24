@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../schema/bromq-config.schema.json
+# yaml-language-server: $schema=https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json
 
 users:
   - username: admin
