@@ -160,6 +160,25 @@ docker run \
 
 See [examples/config/](examples/config/) for more examples.
 
+### IDE Autocomplete Support
+
+BroMQ provides a JSON Schema for YAML configuration files, enabling IDE autocomplete and validation:
+
+```yaml
+# Add this line to the top of your config.yml
+# yaml-language-server: $schema=https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json
+
+users:
+  - username: sensor_user  # IDE will show autocomplete here!
+    password: ${PASSWORD}
+```
+
+**Supported editors:** VS Code, IntelliJ IDEA, WebStorm, PyCharm, and any editor with YAML Language Server support.
+
+**Schema URLs:**
+- Latest: `https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json`
+- Version-specific: `https://github.com/bherbruck/bromq/releases/download/v0.0.3/bromq-config.schema.json`
+
 ## Architecture
 
 - **Backend:** Go 1.22+ with stdlib net/http, GORM, mochi-mqtt/server v2
