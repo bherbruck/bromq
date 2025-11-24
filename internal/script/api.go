@@ -97,7 +97,7 @@ type ScriptAPI struct {
 	scriptID     uint
 	scriptName   string
 	triggerType  string
-	state        *StateManager
+	state        StateStore
 	mqttServer   *mqtt.Server
 	logs         []ScriptLogEntry
 	publishCount int // Track publishes in this execution
@@ -111,7 +111,7 @@ type ScriptLogEntry struct {
 }
 
 // NewScriptAPI creates a new script API instance
-func NewScriptAPI(vm *goja.Runtime, scriptID uint, scriptName, triggerType string, state *StateManager, mqttServer *mqtt.Server, maxPublishes int) *ScriptAPI {
+func NewScriptAPI(vm *goja.Runtime, scriptID uint, scriptName, triggerType string, state StateStore, mqttServer *mqtt.Server, maxPublishes int) *ScriptAPI {
 	api := &ScriptAPI{
 		vm:           vm,
 		scriptID:     scriptID,

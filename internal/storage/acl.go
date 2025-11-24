@@ -194,7 +194,7 @@ func (db *DB) CheckACL(username, clientID, topic, action string) (bool, error) {
 		// Replace placeholders in the pattern before matching
 		expandedPattern := replacePlaceholders(rule.Topic, username, clientID)
 
-		if matchTopic(expandedPattern, topic) {
+		if MatchTopic(expandedPattern, topic) {
 			// Check if permission matches action
 			switch action {
 			case "pub":
@@ -221,8 +221,8 @@ func replacePlaceholders(pattern, username, clientID string) string {
 	return result
 }
 
-// matchTopic checks if a topic matches a pattern with MQTT wildcards (+ and #)
-func matchTopic(pattern, topic string) bool {
+// MatchTopic checks if a topic matches a pattern with MQTT wildcards (+ and #)
+func MatchTopic(pattern, topic string) bool {
 	patternLevels := strings.Split(pattern, "/")
 	topicLevels := strings.Split(topic, "/")
 

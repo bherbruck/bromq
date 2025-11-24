@@ -464,9 +464,9 @@ func TestMatchTopic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchTopic(tt.pattern, tt.topic)
+			got := MatchTopic(tt.pattern, tt.topic)
 			if got != tt.want {
-				t.Errorf("matchTopic(%q, %q) = %v, want %v", tt.pattern, tt.topic, got, tt.want)
+				t.Errorf("MatchTopic(%q, %q) = %v, want %v", tt.pattern, tt.topic, got, tt.want)
 			}
 		})
 	}

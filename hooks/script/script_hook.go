@@ -119,3 +119,8 @@ func (h *ScriptHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet, reasonCode
 	// This fires after subscription is confirmed
 	// We already handled it in OnSubscribe, but keeping this for completeness
 }
+
+// ReloadScripts reloads the script cache (for tests)
+func (h *ScriptHook) ReloadScripts() error {
+	return h.engine.ReloadScripts()
+}
