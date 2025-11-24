@@ -97,10 +97,23 @@
             "edge-broker-001"
           ]
         },
+        "mqtt_version": {
+          "type": "string",
+          "enum": [
+            "3",
+            "5"
+          ],
+          "title": "MQTT Version",
+          "description": "MQTT protocol version: 3 (v3.1.1) or 5 (v5.0). Version 5 enables NoLocal subscriptions for loop prevention",
+          "default": "5",
+          "examples": [
+            "5"
+          ]
+        },
         "clean_session": {
           "type": "boolean",
           "title": "Clean Session",
-          "description": "Start with clean session (true) or resume previous session (false)",
+          "description": "Start with clean session (true) or resume previous session (false). For MQTT v5 this maps to CleanStart",
           "default": true
         },
         "keep_alive": {

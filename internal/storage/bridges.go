@@ -13,6 +13,7 @@ func (db *DB) CreateBridge(
 	port int,
 	username, password string,
 	clientID string,
+	mqttVersion string,
 	cleanSession bool,
 	keepAlive, connectionTimeout int,
 	metadata datatypes.JSON,
@@ -24,6 +25,11 @@ func (db *DB) CreateBridge(
 
 	if port <= 0 || port > 65535 {
 		return nil, fmt.Errorf("invalid port: %d", port)
+	}
+
+	// Validate MQTT version
+	if mqttVersion != "3" && mqttVersion != "5" {
+		return nil, fmt.Errorf("invalid mqtt_version: %s (must be '3' or '5')", mqttVersion)
 	}
 
 	// Validate topics
@@ -43,6 +49,7 @@ func (db *DB) CreateBridge(
 		Username:          username,
 		Password:          password, // Stored in plain text for outbound connections
 		ClientID:          clientID,
+		MQTTVersion:       mqttVersion,
 		CleanSession:      cleanSession,
 		KeepAlive:         keepAlive,
 		ConnectionTimeout: connectionTimeout,

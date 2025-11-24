@@ -12,6 +12,7 @@ acl_rules:
 bridges:
   - name: hub
     host: hub
+    mqtt_version: "5"  # Use MQTT v5 for NoLocal subscriptions (prevents duplicate messages)
     username: bridge
     password: bridge
     topics:
