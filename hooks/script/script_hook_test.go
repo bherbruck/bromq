@@ -1,13 +1,14 @@
 package script
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
 
+	"github/bherbruck/bromq/internal/badgerstore"
 	internalscript "github/bherbruck/bromq/internal/script"
 	"github/bherbruck/bromq/internal/storage"
 )
@@ -35,8 +36,11 @@ func setupTestHook(t *testing.T) (*storage.DB, *ScriptHook, *mqtt.Server) {
 		t.Fatalf("failed to start MQTT server: %v", err)
 	}
 
+	// Setup BadgerDB for state
+	badger := badgerstore.OpenInMemory(t)
+
 	// Setup script engine and hook
-	engine := internalscript.NewEngine(db, mqttServer)
+	engine := internalscript.NewEngine(db, badger, mqttServer)
 	engine.Start()
 
 	hook := NewScriptHook(engine)
@@ -107,6 +111,9 @@ func TestScriptHookOnPublish(t *testing.T) {
 		{Type: "on_publish", Topic: "test/#", Priority: 100, Enabled: true},
 	})
 
+	// Reload cache after creating scripts
+	hook.ReloadScripts()
+
 	// Create mock client
 	cl := &mqtt.Client{
 		ID: "test-client",
@@ -158,6 +165,9 @@ func TestScriptHookOnConnect(t *testing.T) {
 		{Type: "on_connect", Topic: "", Priority: 100, Enabled: true},
 	})
 
+	// Reload cache after creating scripts
+	hook.ReloadScripts()
+
 	// Create mock client
 	cl := &mqtt.Client{
 		ID: "client-123",
@@ -208,6 +218,9 @@ func TestScriptHookOnDisconnect(t *testing.T) {
 		{Type: "on_disconnect", Topic: "", Priority: 100, Enabled: true},
 	})
 
+	// Reload cache after creating scripts
+	hook.ReloadScripts()
+
 	// Create mock client
 	cl := &mqtt.Client{
 		ID: "client-123",
@@ -246,6 +259,9 @@ func TestScriptHookOnSubscribe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create script: %v", err)
 	}
+
+	// Reload cache after creating scripts
+	hook.ReloadScripts()
 
 	// Create mock client
 	cl := &mqtt.Client{
@@ -300,6 +316,9 @@ func TestScriptHookMultipleScripts(t *testing.T) {
 	script3, _ := db.CreateScript("script-3", "", `state.set("ran", true);`, true, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_publish", Topic: "test/#", Priority: 150, Enabled: true},
 	})
+
+	// Reload cache after creating scripts
+	hook.ReloadScripts()
 
 	// Create mock client and packet
 	cl := &mqtt.Client{
@@ -357,6 +376,9 @@ func TestScriptHookTopicing(t *testing.T) {
 	scriptNoMatch, _ := db.CreateScript("no-match", "", `state.set("matched", true);`, true, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_publish", Topic: "other/#", Priority: 100, Enabled: true},
 	})
+
+	// Reload cache after creating scripts
+	hook.ReloadScripts()
 
 	// Create mock client
 	cl := &mqtt.Client{

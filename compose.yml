@@ -21,6 +21,7 @@ services:
       # Database configuration (SQLite by default)
       DB_TYPE: sqlite
       DB_PATH: /app/data/bromq.db
+      BADGER_PATH: /app/data/badger
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

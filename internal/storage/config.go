@@ -44,13 +44,16 @@ func (c *DatabaseConfig) PostParse() error {
 func (c *DatabaseConfig) ConnectionString() (string, error) {
 	switch c.Type {
 	case "sqlite":
-		// WAL mode is incompatible with in-memory databases (used in tests)
-		// For file-based SQLite, enable WAL mode for better read concurrency
-		// With MaxOpenConns=1, WAL allows concurrent readers while single writer writes
+		// For in-memory databases (tests), no pragmas needed
 		if c.FilePath == ":memory:" || strings.HasPrefix(c.FilePath, "file::memory:") {
-			return c.FilePath, nil // No WAL for in-memory databases
+			return c.FilePath, nil
 		}
-		return c.FilePath + "?_journal_mode=WAL&_busy_timeout=5000", nil
+		// For file-based SQLite: Only enable foreign keys
+		// With MaxOpenConns=1:
+		// - WAL mode unnecessary (no concurrent readers)
+		// - busy_timeout unnecessary (no lock contention)
+		// - Simple DELETE mode = one file, easy backups
+		return c.FilePath + "?_pragma=foreign_keys(1)", nil
 
 	case "postgres":
 		return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s",

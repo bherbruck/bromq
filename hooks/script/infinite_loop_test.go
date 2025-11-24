@@ -1,12 +1,14 @@
 package script
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"context"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	mqtt "github.com/mochi-mqtt/server/v2"
+
+	"github/bherbruck/bromq/internal/badgerstore"
 	internalscript "github/bherbruck/bromq/internal/script"
 	"github/bherbruck/bromq/internal/storage"
 )
@@ -34,8 +36,11 @@ func setupTestEngine(t *testing.T) (*storage.DB, *internalscript.Engine, *mqtt.S
 		t.Fatalf("failed to start MQTT server: %v", err)
 	}
 
+	// Setup BadgerDB for state
+	badger := badgerstore.OpenInMemory(t)
+
 	// Setup script engine
-	engine := internalscript.NewEngine(db, mqttServer)
+	engine := internalscript.NewEngine(db, badger, mqttServer)
 	engine.Start()
 
 	// Add script hook (critical for script-to-script communication)
@@ -58,6 +63,9 @@ func TestPreventSelfTriggering(t *testing.T) {
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_publish", Topic: "test/#", Priority: 100, Enabled: true},
 	})
+
+	// Reload cache after creating scripts
+	engine.ReloadScripts()
 
 	message := &internalscript.Message{
 		Type:     "publish",
@@ -116,6 +124,9 @@ func TestAllowScriptChaining(t *testing.T) {
 	`, true, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_publish", Topic: "topic/b", Priority: 100, Enabled: true},
 	})
+
+	// Reload cache after creating scripts
+	engine.ReloadScripts()
 
 	// Trigger Script A
 	message := &internalscript.Message{

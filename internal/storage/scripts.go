@@ -201,7 +201,7 @@ func (db *DB) GetEnabledScriptsForTrigger(triggerType, topic string) ([]Script, 
 			for _, trigger := range script.Triggers {
 				if trigger.Type == triggerType && trigger.Enabled {
 					// Empty topic filter matches all topics
-					if trigger.Topic == "" || matchTopic(trigger.Topic, topic) {
+					if trigger.Topic == "" || MatchTopic(trigger.Topic, topic) {
 						filtered = append(filtered, script)
 						break // Only add script once even if multiple triggers match
 					}
