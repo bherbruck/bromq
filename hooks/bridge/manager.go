@@ -76,7 +76,9 @@ func (m *Manager) connectBridge(bridge *storage.Bridge) error {
 	opts.SetCleanSession(bridge.CleanSession)
 	opts.SetKeepAlive(time.Duration(bridge.KeepAlive) * time.Second)
 	opts.SetConnectTimeout(time.Duration(bridge.ConnectionTimeout) * time.Second)
-	opts.SetAutoReconnect(false) // We handle reconnection ourselves
+	opts.SetAutoReconnect(true) // Paho handles reconnection and keep-alive
+	opts.SetMaxReconnectInterval(time.Minute)
+	opts.SetResumeSubs(true) // Resume subscriptions after reconnect
 
 	bc := &BridgeConnection{
 		bridge:  bridge,
