@@ -220,7 +220,7 @@ scripts:
   - name: temp-alert
     description: "Temperature monitoring"
     enabled: true
-    script_content: |
+    content: |
       const temp = parseFloat(msg.payload);
       if (temp > 30) {
         mqtt.publish('alerts/temp', 'HIGH: ' + temp, 1, false);
@@ -267,7 +267,7 @@ curl -X POST http://localhost:8080/api/scripts/test \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "script_content": "log.info(\"Test:\", msg.payload)",
+    "content": "log.info(\"Test:\", msg.payload)",
     "trigger_type": "on_publish",
     "event_data": {
       "topic": "test/topic",
