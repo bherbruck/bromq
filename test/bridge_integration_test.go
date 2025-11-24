@@ -68,6 +68,7 @@ func TestBridgeIntegration(t *testing.T) {
 		"",
 		"",
 		"test-bridge-client",
+		"5", // MQTT v5
 		true,
 		30,
 		10,

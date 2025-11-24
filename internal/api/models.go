@@ -105,6 +105,7 @@ type CreateBridgeRequest struct {
 	Username          string                 `json:"username,omitempty"`
 	Password          string                 `json:"password,omitempty"`
 	ClientID          string                 `json:"client_id,omitempty"`
+	MQTTVersion       string                 `json:"mqtt_version,omitempty"` // "3" or "5", defaults to "5"
 	CleanSession      bool                   `json:"clean_session"`
 	KeepAlive         int                    `json:"keep_alive"`
 	ConnectionTimeout int                    `json:"connection_timeout"`
@@ -120,6 +121,7 @@ type UpdateBridgeRequest struct {
 	Username          string                 `json:"username,omitempty"`
 	Password          string                 `json:"password,omitempty"`
 	ClientID          string                 `json:"client_id,omitempty"`
+	MQTTVersion       string                 `json:"mqtt_version,omitempty"` // "3" or "5"
 	CleanSession      bool                   `json:"clean_session"`
 	KeepAlive         int                    `json:"keep_alive"`
 	ConnectionTimeout int                    `json:"connection_timeout"`

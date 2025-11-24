@@ -124,9 +124,10 @@ type Bridge struct {
 	Username              string         `gorm:"default:''" json:"username"`
 	Password              string         `gorm:"default:''" json:"-"` // Plain text, needed for outbound connections
 	ClientID              string         `gorm:"default:''" json:"client_id"`
-	CleanSession          bool           `gorm:"default:true" json:"clean_session"`
-	KeepAlive             int            `gorm:"default:60" json:"keep_alive"`         // seconds
-	ConnectionTimeout     int            `gorm:"default:30" json:"connection_timeout"` // seconds
+	MQTTVersion           string         `gorm:"default:'5';check:mqtt_version IN ('3', '5')" json:"mqtt_version"` // MQTT protocol version: "3" (3.1.1) or "5"
+	CleanSession          bool           `gorm:"default:true" json:"clean_session"`                                 // v3: CleanSession, v5: CleanStart
+	KeepAlive             int            `gorm:"default:60" json:"keep_alive"`                                      // seconds
+	ConnectionTimeout     int            `gorm:"default:30" json:"connection_timeout"`                              // seconds
 	ProvisionedFromConfig bool           `gorm:"default:false" json:"provisioned_from_config"`
 	Metadata              datatypes.JSON `gorm:"type:jsonb" json:"metadata,omitempty"`
 	CreatedAt             time.Time      `json:"created_at"`
