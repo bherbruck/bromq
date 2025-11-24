@@ -295,7 +295,7 @@ func (db *DB) UpdateProvisionedScript(id uint, name, description, scriptContent 
 		updates := map[string]interface{}{
 			"name":                    name,
 			"description":             description,
-			"script_content":          scriptContent,
+			"content":                 scriptContent,
 			"enabled":                 enabled,
 			"provisioned_from_config": true,
 		}

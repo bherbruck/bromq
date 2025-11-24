@@ -106,7 +106,7 @@ bromq/
 - **`acl_rules`** - Topic permissions (`mqtt_user_id`, `topic_pattern`, `permission`)
 - **`bridges`** - Bridge configs (`name`, `remote_host`, `remote_port`, auth, timeouts)
 - **`bridge_topics`** - Topic mappings (`bridge_id`, `local_pattern`, `remote_pattern`, `direction`)
-- **`scripts`** - JavaScript scripts (`name`, `script_content`, `enabled`, `timeout_seconds`)
+- **`scripts`** - JavaScript scripts (`name`, `content`, `enabled`, `timeout_seconds`)
 - **`script_triggers`** - When to run scripts (`script_id`, `trigger_type`, `topic_filter`)
 - **`script_state`** - Persistent key-value store for scripts
 - **`script_logs`** - Execution logs
