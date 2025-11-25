@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
+
 	"gorm.io/datatypes"
 )
 
@@ -158,10 +159,10 @@ func (h *Handler) CreateBridge(w http.ResponseWriter, r *http.Request) {
 	topics := make([]storage.BridgeTopic, len(req.Topics))
 	for i, t := range req.Topics {
 		topics[i] = storage.BridgeTopic{
-			Local:  t.Local,
-			Remote: t.Remote,
-			Direction:     t.Direction,
-			QoS:           t.QoS,
+			Local:     t.Local,
+			Remote:    t.Remote,
+			Direction: t.Direction,
+			QoS:       t.QoS,
 		}
 	}
 
@@ -303,11 +304,11 @@ func (h *Handler) UpdateBridge(w http.ResponseWriter, r *http.Request) {
 	topics := make([]storage.BridgeTopic, len(req.Topics))
 	for i, t := range req.Topics {
 		topics[i] = storage.BridgeTopic{
-			BridgeID: id,
-			Local:    t.Local,
-			Remote: t.Remote,
-			Direction:     t.Direction,
-			QoS:           t.QoS,
+			BridgeID:  id,
+			Local:     t.Local,
+			Remote:    t.Remote,
+			Direction: t.Direction,
+			QoS:       t.QoS,
 		}
 	}
 

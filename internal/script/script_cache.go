@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // ScriptCache caches enabled scripts in memory to avoid repeated database queries
@@ -102,4 +102,3 @@ func (c *ScriptCache) Reload() error {
 	slog.Debug("Reloading script cache")
 	return c.Load()
 }
-

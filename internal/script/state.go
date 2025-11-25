@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // StateValue represents a cached state value
@@ -20,12 +20,12 @@ type StateValue struct {
 
 // StateManager manages script state with in-memory caching and periodic DB persistence
 type StateManager struct {
-	db          *storage.DB
-	cache       sync.Map // key -> *StateValue
-	flushTicker *time.Ticker
+	db           *storage.DB
+	cache        sync.Map // key -> *StateValue
+	flushTicker  *time.Ticker
 	expireTicker *time.Ticker
-	stopChan    chan struct{}
-	wg          sync.WaitGroup
+	stopChan     chan struct{}
+	wg           sync.WaitGroup
 }
 
 // NewStateManager creates a new state manager

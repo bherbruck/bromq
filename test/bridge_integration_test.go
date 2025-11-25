@@ -1,7 +1,6 @@
 package test
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"context"
 	"fmt"
 	"os"
@@ -9,12 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github/bromq-dev/bromq/hooks/bridge"
+	"github/bromq-dev/bromq/internal/storage"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	mqttServer "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/mochi-mqtt/server/v2/packets"
-	"github/bherbruck/bromq/hooks/bridge"
-	"github/bherbruck/bromq/internal/storage"
 )
 
 // TestBridgeIntegration tests end-to-end bridge functionality
@@ -48,16 +50,16 @@ func TestBridgeIntegration(t *testing.T) {
 	// Create bridge configuration in database
 	bridgeTopics := []storage.BridgeTopic{
 		{
-			Local:  "local/#",
-			Remote: "remote/#",
-			Direction:     "out",
-			QoS:           0,
+			Local:     "local/#",
+			Remote:    "remote/#",
+			Direction: "out",
+			QoS:       0,
 		},
 		{
-			Local:  "inbound/#",
-			Remote: "from-remote/#",
-			Direction:     "in",
-			QoS:           0,
+			Local:     "inbound/#",
+			Remote:    "from-remote/#",
+			Direction: "in",
+			QoS:       0,
 		},
 	}
 

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github/bherbruck/bromq/internal/config"
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/config"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // Provision syncs the configuration file to the database

@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github/bromq-dev/bromq/internal/storage"
+
 	"github.com/dgraph-io/badger/v4"
-	"github/bherbruck/bromq/internal/storage"
 )
 
 // retainedMessageData represents the JSON structure stored in BadgerDB

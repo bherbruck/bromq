@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"time"
 
+	"github/bromq-dev/bromq/internal/api/swagger"
+	"github/bromq-dev/bromq/internal/mqtt"
+	"github/bromq-dev/bromq/internal/script"
+	"github/bromq-dev/bromq/internal/storage"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
-	"github/bherbruck/bromq/internal/api/swagger"
-	"github/bherbruck/bromq/internal/mqtt"
-	"github/bherbruck/bromq/internal/script"
-	"github/bherbruck/bromq/internal/storage"
 )
 
 // Server represents the HTTP API server

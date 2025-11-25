@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 func TestScriptAPIMqttPublish(t *testing.T) {

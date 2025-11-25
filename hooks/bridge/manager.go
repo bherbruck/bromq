@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github/bromq-dev/bromq/internal/storage"
+
 	mqttServer "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
-	"github/bherbruck/bromq/internal/storage"
 )
 
 // Manager handles MQTT bridge connections to remote brokers
@@ -27,9 +28,9 @@ type Manager struct {
 // BridgeConnection represents an active bridge connection
 type BridgeConnection struct {
 	bridge       *storage.Bridge
-	client       BridgeClient        // Abstracted MQTT client (v3 or v5)
+	client       BridgeClient       // Abstracted MQTT client (v3 or v5)
 	inlineClient *mqttServer.Client // Inline client on local server for inbound messages
-	clientID     string              // MQTT client ID for this bridge connection
+	clientID     string             // MQTT client ID for this bridge connection
 	manager      *Manager
 }
 
