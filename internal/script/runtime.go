@@ -9,7 +9,7 @@ import (
 	"github.com/dop251/goja"
 	mqtt "github.com/mochi-mqtt/server/v2"
 
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // ExecutionResult contains the result of script execution
@@ -36,7 +36,7 @@ func NewRuntime(db *storage.DB, state StateStore, mqttServer *mqtt.Server) *Runt
 		state:          state,
 		mqttServer:     mqttServer,
 		defaultTimeout: 5 * time.Second, // Default 5 seconds timeout (will be overridden by engine)
-		maxPublishes:   100,              // Default 100 publishes per execution (will be overridden by engine)
+		maxPublishes:   100,             // Default 100 publishes per execution (will be overridden by engine)
 	}
 }
 

@@ -6,7 +6,7 @@ import (
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
 
-	internalscript "github/bherbruck/bromq/internal/script"
+	internalscript "github/bromq-dev/bromq/internal/script"
 )
 
 // ScriptHook executes JavaScript scripts on MQTT events

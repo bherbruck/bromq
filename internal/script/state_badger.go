@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github/bherbruck/bromq/internal/badgerstore"
+	"github/bromq-dev/bromq/internal/badgerstore"
 )
 
 // StateManagerBadger manages script state using BadgerDB (no caching needed)

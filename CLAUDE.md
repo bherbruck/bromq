@@ -147,10 +147,10 @@ bromq/
 **IDE Autocomplete:**
 
 - JSON Schema available for YAML validation and autocomplete
-- Add to top of config file: `# yaml-language-server: $schema=https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json`
+- Add to top of config file: `# yaml-language-server: $schema=https://github.com/bromq-dev/bromq/releases/latest/download/bromq-config.schema.json`
 - Schema URLs:
-  - Latest: `https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json`
-  - Version-specific: `https://github.com/bherbruck/bromq/releases/download/v{version}/bromq-config.schema.json`
+  - Latest: `https://github.com/bromq-dev/bromq/releases/latest/download/bromq-config.schema.json`
+  - Version-specific: `https://github.com/bromq-dev/bromq/releases/download/v{version}/bromq-config.schema.json`
 - Auto-generated from Go struct tags before each release
 - Supports: VS Code, IntelliJ IDEA, WebStorm, PyCharm, and any YAML Language Server
 

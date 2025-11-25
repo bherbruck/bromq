@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json
+# yaml-language-server: $schema=https://github.com/bromq-dev/bromq/releases/latest/download/bromq-config.schema.json
 # Multi-tenant MQTT Configuration Example
 # For SaaS IoT platforms with isolated tenant namespaces
 

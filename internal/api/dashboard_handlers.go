@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // === Admin User Management Handlers ===

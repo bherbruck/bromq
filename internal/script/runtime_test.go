@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	mqtt "github.com/mochi-mqtt/server/v2"
+	"github.com/prometheus/client_golang/prometheus"
 
-	"github/bherbruck/bromq/internal/badgerstore"
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/badgerstore"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 func setupTestRuntime(t *testing.T) (*storage.DB, *Runtime, *mqtt.Server) {
@@ -197,8 +197,8 @@ func TestRuntimeExecuteWithPanic(t *testing.T) {
 	defer mqttServer.Close()
 
 	script := &storage.Script{
-		ID:            1,
-		Name:          "panic-script",
+		ID:      1,
+		Name:    "panic-script",
 		Content: `var x = undefined.property;`, // This will cause a panic
 	}
 
@@ -305,8 +305,8 @@ func TestRuntimeCompilationError(t *testing.T) {
 	defer mqttServer.Close()
 
 	script := &storage.Script{
-		ID:            1,
-		Name:          "syntax-error",
+		ID:      1,
+		Name:    "syntax-error",
 		Content: `var x = ;`, // Invalid syntax
 	}
 

@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
+
 	"gorm.io/datatypes"
 )
 
@@ -137,10 +138,10 @@ func (h *Handler) CreateScript(w http.ResponseWriter, r *http.Request) {
 	triggers := make([]storage.ScriptTrigger, len(req.Triggers))
 	for i, t := range req.Triggers {
 		triggers[i] = storage.ScriptTrigger{
-			Type: t.Type,
-			Topic: t.Topic,
-			Priority:    t.Priority,
-			Enabled:     t.Enabled,
+			Type:     t.Type,
+			Topic:    t.Topic,
+			Priority: t.Priority,
+			Enabled:  t.Enabled,
 		}
 	}
 
@@ -213,10 +214,10 @@ func (h *Handler) UpdateScript(w http.ResponseWriter, r *http.Request) {
 	triggers := make([]storage.ScriptTrigger, len(req.Triggers))
 	for i, t := range req.Triggers {
 		triggers[i] = storage.ScriptTrigger{
-			Type: t.Type,
-			Topic: t.Topic,
-			Priority:    t.Priority,
-			Enabled:     t.Enabled,
+			Type:     t.Type,
+			Topic:    t.Topic,
+			Priority: t.Priority,
+			Enabled:  t.Enabled,
 		}
 	}
 

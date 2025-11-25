@@ -1,4 +1,4 @@
-module github/bherbruck/bromq
+module github/bromq-dev/bromq
 
 go 1.25.3
 

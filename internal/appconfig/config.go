@@ -1,9 +1,9 @@
 package appconfig
 
 import (
-	"github/bherbruck/bromq/internal/api"
-	"github/bherbruck/bromq/internal/mqtt"
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/api"
+	"github/bromq-dev/bromq/internal/mqtt"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // Config holds all application configuration

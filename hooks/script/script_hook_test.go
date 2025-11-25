@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
+	"github.com/prometheus/client_golang/prometheus"
 
-	"github/bherbruck/bromq/internal/badgerstore"
-	internalscript "github/bherbruck/bromq/internal/script"
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/badgerstore"
+	internalscript "github/bromq-dev/bromq/internal/script"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 func setupTestHook(t *testing.T) (*storage.DB, *ScriptHook, *mqtt.Server) {

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github/bherbruck/bromq/internal/mqtt"
-	"github/bherbruck/bromq/internal/script"
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/mqtt"
+	"github/bromq-dev/bromq/internal/script"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // Handler holds dependencies for API handlers

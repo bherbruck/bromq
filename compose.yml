@@ -1,6 +1,6 @@
 services:
   bromq:
-    image: ghcr.io/bherbruck/bromq:latest
+    image: ghcr.io/bromq-dev/bromq:latest
     build:
       context: .
       dockerfile: Dockerfile

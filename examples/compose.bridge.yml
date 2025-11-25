@@ -1,7 +1,7 @@
 services:
   hub:
     container_name: bromq-hub
-    image: ghcr.io/bherbruck/bromq:latest
+    image: ghcr.io/bromq-dev/bromq:latest
     build:
       context: ../
       dockerfile: Dockerfile
@@ -15,7 +15,7 @@ services:
 
   spoke1:
     container_name: bromq-spoke1
-    image: ghcr.io/bherbruck/bromq:latest
+    image: ghcr.io/bromq-dev/bromq:latest
     build:
       context: ../
       dockerfile: Dockerfile
@@ -31,7 +31,7 @@ services:
 
   spoke2:
     container_name: bromq-spoke2
-    image: ghcr.io/bherbruck/bromq:latest
+    image: ghcr.io/bromq-dev/bromq:latest
     build:
       context: ../
       dockerfile: Dockerfile

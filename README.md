@@ -1,10 +1,10 @@
 # BroMQ
 
-[![CI](https://github.com/bherbruck/bromq/workflows/CI/badge.svg)](https://github.com/bherbruck/bromq/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/bherbruck/bromq)](https://goreportcard.com/report/github.com/bherbruck/bromq)
+[![CI](https://github.com/bromq-dev/bromq/workflows/CI/badge.svg)](https://github.com/bromq-dev/bromq/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bromq-dev/bromq)](https://goreportcard.com/report/github.com/bromq-dev/bromq)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/bherbruck/bromq)](go.mod)
-[![Latest Release](https://img.shields.io/github/v/release/bherbruck/bromq)](https://github.com/bherbruck/bromq/releases)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/bromq-dev/bromq)](go.mod)
+[![Latest Release](https://img.shields.io/github/v/release/bromq-dev/bromq)](https://github.com/bromq-dev/bromq/releases)
 
 Batteries-included, production-ready MQTT broker.
 
@@ -255,7 +255,7 @@ BroMQ provides a JSON Schema for YAML configuration files, enabling IDE autocomp
 
 ```yaml
 # Add this line to the top of your config.yml
-# yaml-language-server: $schema=https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json
+# yaml-language-server: $schema=https://github.com/bromq-dev/bromq/releases/latest/download/bromq-config.schema.json
 
 users:
   - username: sensor_user # IDE will show autocomplete here!
@@ -264,7 +264,7 @@ users:
 
 **Schema URLs:**
 
-- Latest: `https://github.com/bherbruck/bromq/releases/latest/download/bromq-config.schema.json`
+- Latest: `https://github.com/bromq-dev/bromq/releases/latest/download/bromq-config.schema.json`
 
 ## License
 

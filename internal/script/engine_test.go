@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github/bherbruck/bromq/internal/badgerstore"
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/badgerstore"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 func TestEngineExecuteForTrigger(t *testing.T) {

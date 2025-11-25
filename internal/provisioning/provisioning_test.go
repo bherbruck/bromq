@@ -3,9 +3,10 @@ package provisioning
 import (
 	"testing"
 
+	"github/bromq-dev/bromq/internal/config"
+	"github/bromq-dev/bromq/internal/storage"
+
 	"github.com/prometheus/client_golang/prometheus"
-	"github/bherbruck/bromq/internal/config"
-	"github/bherbruck/bromq/internal/storage"
 )
 
 // setupTestDB creates an in-memory SQLite database for testing
@@ -34,9 +35,9 @@ func TestProvision_NewUsers(t *testing.T) {
 		},
 		ACLRules: []config.ACLRuleConfig{
 			{
-				Username: "test_user",
-				Topic: "test/#",
-				Permission:   "pubsub",
+				Username:   "test_user",
+				Topic:      "test/#",
+				Permission: "pubsub",
 			},
 		},
 	}
@@ -92,9 +93,9 @@ func TestProvision_UpdateExistingUser(t *testing.T) {
 		},
 		ACLRules: []config.ACLRuleConfig{
 			{
-				Username: "test_user",
-				Topic: "test/#",
-				Permission:   "pub",
+				Username:   "test_user",
+				Topic:      "test/#",
+				Permission: "pub",
 			},
 		},
 	}
@@ -118,9 +119,9 @@ func TestProvision_UpdateExistingUser(t *testing.T) {
 		},
 		ACLRules: []config.ACLRuleConfig{
 			{
-				Username: "test_user",
-				Topic: "updated/#",
-				Permission:   "pubsub",
+				Username:   "test_user",
+				Topic:      "updated/#",
+				Permission: "pubsub",
 			},
 		},
 	}
@@ -236,9 +237,9 @@ func TestProvision_ManualUsersNotTouched(t *testing.T) {
 		},
 		ACLRules: []config.ACLRuleConfig{
 			{
-				Username: "provisioned_user",
-				Topic: "provisioned/#",
-				Permission:   "pub",
+				Username:   "provisioned_user",
+				Topic:      "provisioned/#",
+				Permission: "pub",
 			},
 		},
 	}

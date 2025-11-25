@@ -11,8 +11,8 @@ import (
 
 	mqtt "github.com/mochi-mqtt/server/v2"
 
-	"github/bherbruck/bromq/internal/badgerstore"
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/badgerstore"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // Engine manages script execution, state, and lifecycle
@@ -22,7 +22,7 @@ type Engine struct {
 	mqttServer      *mqtt.Server
 	state           *StateManagerBadger
 	runtime         *Runtime
-	scriptCache     *ScriptCache      // Cache enabled scripts to avoid DB queries on every event
+	scriptCache     *ScriptCache  // Cache enabled scripts to avoid DB queries on every event
 	defaultTimeout  time.Duration // Default script execution timeout
 	maxPublishes    int           // Max publishes per script execution
 	logRetention    time.Duration // How long to keep logs (0 = forever)

@@ -1,7 +1,8 @@
 package api
 
 import (
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
+
 	"gorm.io/datatypes"
 )
 
@@ -13,7 +14,7 @@ type LoginRequest struct {
 
 // LoginResponse represents a login response with JWT token
 type LoginResponse struct {
-	Token string              `json:"token"`
+	Token string                 `json:"token"`
 	User  *storage.DashboardUser `json:"user"`
 }
 
@@ -131,25 +132,25 @@ type UpdateBridgeRequest struct {
 
 // PaginationQuery represents pagination query parameters
 type PaginationQuery struct {
-	Page     int    `json:"page"`
-	PageSize int    `json:"page_size"`
-	Search   string `json:"search"`
-	SortBy   string `json:"sort_by"`
+	Page      int    `json:"page"`
+	PageSize  int    `json:"page_size"`
+	Search    string `json:"search"`
+	SortBy    string `json:"sort_by"`
 	SortOrder string `json:"sort_order"` // "asc" or "desc"
 }
 
 // PaginationMetadata represents pagination metadata in responses
 type PaginationMetadata struct {
-	Total       int64 `json:"total"`
-	Page        int   `json:"page"`
-	PageSize    int   `json:"page_size"`
-	TotalPages  int   `json:"total_pages"`
+	Total      int64 `json:"total"`
+	Page       int   `json:"page"`
+	PageSize   int   `json:"page_size"`
+	TotalPages int   `json:"total_pages"`
 }
 
 // PaginatedResponse represents a paginated response
 type PaginatedResponse struct {
-	Data       interface{}         `json:"data"`
-	Pagination PaginationMetadata  `json:"pagination"`
+	Data       interface{}        `json:"data"`
+	Pagination PaginationMetadata `json:"pagination"`
 }
 
 // ErrorResponse represents an error response
@@ -167,8 +168,8 @@ type SuccessResponse struct {
 
 // ScriptTriggerRequest represents a trigger for a script
 type ScriptTriggerRequest struct {
-	Type     string `json:"type"` // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
-	Topic    string `json:"topic"` // MQTT topic pattern (empty for non-topic events)
+	Type     string `json:"type"`     // "on_publish", "on_connect", "on_disconnect", "on_subscribe"
+	Topic    string `json:"topic"`    // MQTT topic pattern (empty for non-topic events)
 	Priority int    `json:"priority"` // Execution order (lower = earlier)
 	Enabled  bool   `json:"enabled"`
 }
@@ -195,7 +196,7 @@ type UpdateScriptRequest struct {
 
 // TestScriptRequest represents a request to test a script
 type TestScriptRequest struct {
-	Content     string                 `json:"content"`
-	Type        string                 `json:"type"`
-	EventData   map[string]interface{} `json:"event_data"` // Mock message data (kept as event_data for backward compatibility)
+	Content   string                 `json:"content"`
+	Type      string                 `json:"type"`
+	EventData map[string]interface{} `json:"event_data"` // Mock message data (kept as event_data for backward compatibility)
 }

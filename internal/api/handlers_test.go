@@ -8,8 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github/bromq-dev/bromq/internal/storage"
+
 	"github.com/prometheus/client_golang/prometheus"
-	"github/bherbruck/bromq/internal/storage"
 )
 
 // MockMQTTServer is a simple mock for testing
@@ -278,36 +279,36 @@ func TestCreateACL(t *testing.T) {
 		{
 			name: "create valid ACL rule",
 			request: CreateACLRequest{
-				MQTTUserID:   mqttUser.ID,
-				Topic: "sensor/temperature",
-				Permission:   "pubsub",
+				MQTTUserID: mqttUser.ID,
+				Topic:      "sensor/temperature",
+				Permission: "pubsub",
 			},
 			wantStatusCode: http.StatusCreated,
 		},
 		{
 			name: "create pub-only rule",
 			request: CreateACLRequest{
-				MQTTUserID:   mqttUser.ID,
-				Topic: "device/status",
-				Permission:   "pub",
+				MQTTUserID: mqttUser.ID,
+				Topic:      "device/status",
+				Permission: "pub",
 			},
 			wantStatusCode: http.StatusCreated,
 		},
 		{
 			name: "create sub-only rule",
 			request: CreateACLRequest{
-				MQTTUserID:   mqttUser.ID,
-				Topic: "command/#",
-				Permission:   "sub",
+				MQTTUserID: mqttUser.ID,
+				Topic:      "command/#",
+				Permission: "sub",
 			},
 			wantStatusCode: http.StatusCreated,
 		},
 		{
 			name: "create with wildcard topic",
 			request: CreateACLRequest{
-				MQTTUserID:   mqttUser.ID,
-				Topic: "sensor/+/temp",
-				Permission:   "pubsub",
+				MQTTUserID: mqttUser.ID,
+				Topic:      "sensor/+/temp",
+				Permission: "pubsub",
 			},
 			wantStatusCode: http.StatusCreated,
 		},
@@ -620,9 +621,9 @@ func TestHandlerCRUD_ACL_Integration(t *testing.T) {
 
 	// 2. Create ACL rule
 	createReq := CreateACLRequest{
-		MQTTUserID:   mqttUser.ID,
-		Topic: "sensor/#",
-		Permission:   "pubsub",
+		MQTTUserID: mqttUser.ID,
+		Topic:      "sensor/#",
+		Permission: "pubsub",
 	}
 	body, _ := json.Marshal(createReq)
 	req = httptest.NewRequest(http.MethodPost, "/api/acl", bytes.NewReader(body))

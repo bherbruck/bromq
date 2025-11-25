@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github/bromq-dev/bromq/internal/config"
+
 	"github.com/invopop/jsonschema"
-	"github/bherbruck/bromq/internal/config"
 )
 
 func main() {

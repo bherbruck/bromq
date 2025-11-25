@@ -8,9 +8,9 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/prometheus/client_golang/prometheus"
 
-	mqttserver "github/bherbruck/bromq/internal/mqtt"
-	"github/bherbruck/bromq/internal/storage"
-	"github/bherbruck/bromq/hooks/auth"
+	"github/bromq-dev/bromq/hooks/auth"
+	mqttserver "github/bromq-dev/bromq/internal/mqtt"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // setupMQTTTestServer creates an MQTT server with authentication and ACL for testing
@@ -43,7 +43,7 @@ func setupMQTTTestServer(t *testing.T) (*mqttserver.Server, *storage.DB, func())
 	// Create MQTT server with test port
 	cfg := &mqttserver.Config{
 		TCPAddr:         ":11883", // Use different port for testing
-		WSAddr:          "",        // Disable websocket for simplicity
+		WSAddr:          "",       // Disable websocket for simplicity
 		RetainAvailable: true,
 	}
 
@@ -315,7 +315,6 @@ func TestMQTTIntegration_WildcardTopics(t *testing.T) {
 		}
 	})
 }
-
 
 func TestMQTTIntegration_ClientDisconnection(t *testing.T) {
 	server, _, cleanup := setupMQTTTestServer(t)

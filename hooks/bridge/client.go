@@ -8,10 +8,11 @@ import (
 	"sync"
 	"time"
 
-	pahoV3 "github.com/eclipse/paho.mqtt.golang"
+	"github/bromq-dev/bromq/internal/storage"
+
 	pahoV5 "github.com/eclipse/paho.golang/autopaho"
 	pahoV5Client "github.com/eclipse/paho.golang/paho"
-	"github/bherbruck/bromq/internal/storage"
+	pahoV3 "github.com/eclipse/paho.mqtt.golang"
 )
 
 // MessageHandler is called when a message is received from remote broker
@@ -127,11 +128,11 @@ func (c *v3Client) IsConnected() bool {
 // ============================================================================
 
 type v5Client struct {
-	cm              *pahoV5.ConnectionManager
-	ctx             context.Context
-	clientID        string
-	subscriptions   map[string]MessageHandler // topic -> handler
-	mu              sync.RWMutex
+	cm            *pahoV5.ConnectionManager
+	ctx           context.Context
+	clientID      string
+	subscriptions map[string]MessageHandler // topic -> handler
+	mu            sync.RWMutex
 }
 
 func newV5Client(ctx context.Context, bridge *storage.Bridge, clientID string) (*v5Client, error) {
@@ -153,12 +154,12 @@ func newV5Client(ctx context.Context, bridge *storage.Bridge, clientID string) (
 	}
 
 	cfg := pahoV5.ClientConfig{
-		ServerUrls: []*url.URL{serverURL},
-		KeepAlive:  uint16(keepAlive), // #nosec G115 - validated above
-		ConnectTimeout: time.Duration(bridge.ConnectionTimeout) * time.Second,
+		ServerUrls:                    []*url.URL{serverURL},
+		KeepAlive:                     uint16(keepAlive), // #nosec G115 - validated above
+		ConnectTimeout:                time.Duration(bridge.ConnectionTimeout) * time.Second,
 		CleanStartOnInitialConnection: bridge.CleanSession,
-		ConnectUsername: bridge.Username,
-		ConnectPassword: []byte(bridge.Password),
+		ConnectUsername:               bridge.Username,
+		ConnectPassword:               []byte(bridge.Password),
 
 		ConnectPacketBuilder: func(p *pahoV5Client.Connect, u *url.URL) (*pahoV5Client.Connect, error) {
 			p.ClientID = clientID

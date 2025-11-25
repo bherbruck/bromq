@@ -7,16 +7,16 @@ import (
 	"net/http"
 	"strconv"
 
-	"github/bherbruck/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/storage"
 )
 
 // parsePaginationParams parses pagination parameters from request
 func parsePaginationParams(r *http.Request) PaginationQuery {
 	query := PaginationQuery{
-		Page:     1,
-		PageSize: 25, // Default page size
-		Search:   "",
-		SortBy:   "",
+		Page:      1,
+		PageSize:  25, // Default page size
+		Search:    "",
+		SortBy:    "",
 		SortOrder: "desc",
 	}
 
