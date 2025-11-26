@@ -384,7 +384,7 @@ func (h *Handler) TestScript(w http.ResponseWriter, r *http.Request) {
 // @Param page query int false "Page number" default(1)
 // @Param pageSize query int false "Items per page" default(25)
 // @Param level query string false "Filter by log level (debug, info, warn, error)"
-// @Success 200 {object} PaginatedResponse{data=[]storage.ScriptLog}
+// @Success 200 {object} PaginatedResponse{data=[]badgerstore.ScriptLogEntry}
 // @Failure 400 {object} ErrorResponse "Invalid script ID"
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
