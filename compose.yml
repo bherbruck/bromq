@@ -7,7 +7,7 @@ services:
     container_name: bromq
     restart: unless-stopped
     ports:
-      - "1883:1883" # MQTT TCP
+      - "9883:1883" # MQTT TCP
       - "8883:8883" # MQTT WebSocket
       - "8080:8080" # HTTP API & Web UI
     volumes:

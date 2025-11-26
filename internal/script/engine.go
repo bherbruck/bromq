@@ -114,7 +114,7 @@ func loadTimeoutConfig() time.Duration {
 func loadLogRetentionConfig() time.Duration {
 	retentionStr := os.Getenv("SCRIPT_LOG_RETENTION")
 	if retentionStr == "" {
-		retentionStr = "30d" // Default: 30 days
+		retentionStr = "1d" // Default: 1 day
 	}
 
 	retention, err := ParseDurationWithDays(retentionStr)
@@ -122,8 +122,8 @@ func loadLogRetentionConfig() time.Duration {
 		slog.Warn("Invalid SCRIPT_LOG_RETENTION, using default",
 			"value", retentionStr,
 			"error", err,
-			"default", "30d")
-		return 30 * 24 * time.Hour
+			"default", "1d")
+		return 24 * time.Hour
 	}
 
 	return retention

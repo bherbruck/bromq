@@ -48,6 +48,8 @@ Stores append-only, time-series data with heavy write volume:
 - **Time-series optimized**: Efficient range scans for time-based queries/cleanup
 - **Embedded**: No external dependencies, automatic GC and compaction
 
+**Default retention:** Script logs are kept for 1 day by default (configurable via `SCRIPT_LOG_RETENTION`)
+
 **Performance Example:**
 - Script logging 1000 events/sec on SQLite → write contention, lock timeouts
 - Script logging 1000 events/sec on BadgerDB → smooth, no blocking
@@ -229,7 +231,7 @@ LOG_FORMAT=text            # text, json
 # Scripts
 SCRIPT_TIMEOUT=5s                        # Global timeout (100ms-5m)
 SCRIPT_MAX_PUBLISHES_PER_EXECUTION=100   # Max publishes per execution (1-10000)
-SCRIPT_LOG_RETENTION=30d                 # Log retention period
+SCRIPT_LOG_RETENTION=1d                  # Log retention period (default: 1d)
 
 # Config file
 CONFIG_FILE=config.yml     # Path to YAML config
