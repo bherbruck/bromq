@@ -52,8 +52,8 @@ func setupTestHook(t *testing.T) (*storage.DB, *badgerstore.BadgerStore, *Script
 func ensureScriptTablesExist(t *testing.T, db *storage.DB) {
 	t.Helper()
 
-	// Verify all script tables exist (script_logs now in BadgerDB)
-	requiredTables := []string{"scripts", "script_triggers", "script_state"}
+	// Verify RDBMS script tables exist (script_logs and script_state now in BadgerDB)
+	requiredTables := []string{"scripts", "script_triggers"}
 	for _, tableName := range requiredTables {
 		var exists int64
 		err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", tableName).Scan(&exists).Error

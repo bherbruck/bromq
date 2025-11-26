@@ -49,10 +49,10 @@ func setupTestRuntime(t *testing.T) (*storage.DB, *badgerstore.BadgerStore, *Run
 func ensureScriptTablesExist(t *testing.T, db *storage.DB) {
 	t.Helper()
 
-	// Note: script_logs table is no longer required - logs are now in BadgerDB
+	// Note: script_logs and script_state tables are no longer required - now in BadgerDB
 
-	// Also verify other script tables (except script_logs which is now in BadgerDB)
-	requiredTables := []string{"scripts", "script_triggers", "script_state"}
+	// Verify RDBMS script tables (script_logs and script_state now in BadgerDB)
+	requiredTables := []string{"scripts", "script_triggers"}
 	for _, tableName := range requiredTables {
 		var exists int64
 		err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", tableName).Scan(&exists).Error

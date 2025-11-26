@@ -97,7 +97,6 @@ bromq/
 - **`acl_rules`** - Topic permissions per MQTT user
 - **`bridges`** + **`bridge_topics`** - MQTT bridge configurations
 - **`scripts`** + **`script_triggers`** - JavaScript script definitions
-- **`script_state`** - Legacy script state (being migrated to BadgerDB)
 
 ### BadgerDB Keys (Embedded Key-Value Store)
 

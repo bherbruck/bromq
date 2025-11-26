@@ -225,9 +225,12 @@ func TestEngineShutdown(t *testing.T) {
 	engine.Start()
 
 	// Create and execute a script that sets state
-	script, _ := db.CreateScript("state-script", "", `state.set("key", "value");`, true, []byte("{}"), []storage.ScriptTrigger{
+	_, err := db.CreateScript("state-script", "", `state.set("key", "value");`, true, []byte("{}"), []storage.ScriptTrigger{
 		{Type: "on_publish", Topic: "#", Priority: 100, Enabled: true},
 	})
+	if err != nil {
+		t.Fatalf("Failed to create script: %v", err)
+	}
 
 	message := &Message{
 		Type:     "publish",
@@ -243,16 +246,14 @@ func TestEngineShutdown(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err := engine.Shutdown(ctx)
+	err = engine.Shutdown(ctx)
 	if err != nil {
 		t.Errorf("Shutdown failed: %v", err)
 	}
 
-	// Verify state was flushed to database
-	stateKey := "script:" + string(rune(script.ID)) + ":key"
-	_, err = db.GetScriptState(stateKey)
-	// Note: This might not exist if it was flushed and cleared, which is acceptable
-	// The important thing is shutdown didn't error
+	// Verify state was flushed to BadgerDB
+	// Note: We just verify shutdown didn't error - state flush is tested separately
+	// in state_badger_test.go
 }
 
 func TestEngineShutdownDuringExecution(t *testing.T) {

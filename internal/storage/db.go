@@ -125,13 +125,11 @@ func (db *DB) autoMigrate() error {
 		&MQTTUser{},
 		&MQTTClient{},
 		&ACLRule{},
-		&RetainedMessage{},
 		&Bridge{},
 		&BridgeTopic{},
 		&Script{},
 		&ScriptTrigger{},
-		&ScriptState{},
-		// Note: ScriptLog removed - now stored in BadgerDB for better write performance
+		// Note: RetainedMessage, ScriptLog, and ScriptState now stored in BadgerDB for better write performance
 	)
 }
 
