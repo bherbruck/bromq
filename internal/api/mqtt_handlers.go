@@ -357,16 +357,22 @@ func (h *Handler) ListMQTTClients(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sync is_active status from broker memory (source of truth)
-	connectedClients := h.mqtt.GetClients()
-	connectedMap := make(map[string]bool, len(connectedClients))
-	for _, c := range connectedClients {
-		connectedMap[c.ID] = true
+	connectedMap := make(map[string]bool)
+	if h.mqtt != nil {
+		connectedClients := h.mqtt.GetClients()
+		for _, c := range connectedClients {
+			connectedMap[c.ID] = true
+		}
 	}
 
 	// Update is_active based on actual broker state and filter if needed
 	filteredClients := make([]storage.MQTTClient, 0, len(clients))
 	for i := range clients {
-		clients[i].IsActive = connectedMap[clients[i].ClientID]
+		// If mqtt server is available, sync from broker (source of truth)
+		// Otherwise, keep the DB value (for tests or when broker is unavailable)
+		if h.mqtt != nil {
+			clients[i].IsActive = connectedMap[clients[i].ClientID]
+		}
 
 		// Apply active filter after syncing from broker
 		if !activeOnly || clients[i].IsActive {
@@ -425,8 +431,10 @@ func (h *Handler) GetMQTTClientDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sync is_active status from broker memory
-	_, isConnected := h.mqtt.Clients.Get(clientID)
-	client.IsActive = isConnected
+	if h.mqtt != nil {
+		_, isConnected := h.mqtt.Clients.Get(clientID)
+		client.IsActive = isConnected
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(client)
