@@ -344,8 +344,8 @@ func (h *Handler) ListMQTTClients(w http.ResponseWriter, r *http.Request) {
 	// Check query parameter for active filter
 	activeOnly := r.URL.Query().Get("active") == "true"
 
-	// Get paginated clients
-	clients, total, err := h.db.ListMQTTClientsPaginated(params.Page, params.PageSize, params.Search, params.SortBy, params.SortOrder, activeOnly)
+	// Get paginated clients - don't filter by active at DB level since we need to sync from broker
+	clients, _, err := h.db.ListMQTTClientsPaginated(params.Page, params.PageSize, params.Search, params.SortBy, params.SortOrder, false)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to list MQTT clients: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -356,17 +356,44 @@ func (h *Handler) ListMQTTClients(w http.ResponseWriter, r *http.Request) {
 		clients = []storage.MQTTClient{}
 	}
 
-	// Calculate total pages
+	// Sync is_active status from broker memory (source of truth)
+	connectedMap := make(map[string]bool)
+	if h.mqtt != nil {
+		connectedClients := h.mqtt.GetClients()
+		for _, c := range connectedClients {
+			connectedMap[c.ID] = true
+		}
+	}
+
+	// Update is_active based on actual broker state and filter if needed
+	filteredClients := make([]storage.MQTTClient, 0, len(clients))
+	for i := range clients {
+		// If mqtt server is available, sync from broker (source of truth)
+		// Otherwise, keep the DB value (for tests or when broker is unavailable)
+		if h.mqtt != nil {
+			clients[i].IsActive = connectedMap[clients[i].ClientID]
+		}
+
+		// Apply active filter after syncing from broker
+		if !activeOnly || clients[i].IsActive {
+			filteredClients = append(filteredClients, clients[i])
+		}
+	}
+
+	// Recalculate total after filtering
+	filteredTotal := int64(len(filteredClients))
+
+	// Calculate total pages based on filtered results
 	totalPages := 0
 	if params.PageSize > 0 {
-		totalPages = int((total + int64(params.PageSize) - 1) / int64(params.PageSize))
+		totalPages = int((filteredTotal + int64(params.PageSize) - 1) / int64(params.PageSize))
 	}
 
 	// Build paginated response
 	response := PaginatedResponse{
-		Data: clients,
+		Data: filteredClients,
 		Pagination: PaginationMetadata{
-			Total:      total,
+			Total:      filteredTotal,
 			Page:       params.Page,
 			PageSize:   params.PageSize,
 			TotalPages: totalPages,
@@ -401,6 +428,12 @@ func (h *Handler) GetMQTTClientDetails(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"client not found: %s"}`, err), http.StatusNotFound)
 		return
+	}
+
+	// Sync is_active status from broker memory
+	if h.mqtt != nil {
+		_, isConnected := h.mqtt.Clients.Get(clientID)
+		client.IsActive = isConnected
 	}
 
 	w.Header().Set("Content-Type", "application/json")

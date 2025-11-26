@@ -7,22 +7,22 @@ import (
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/packets"
 
-	dbstorage "github/bromq-dev/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/badgerstore"
 )
 
 // MockRetainedStore implements the RetainedStore interface for testing
 type MockRetainedStore struct {
-	messages map[string]*dbstorage.RetainedMessage
+	messages map[string]*badgerstore.RetainedMessage
 }
 
 func NewMockRetainedStore() *MockRetainedStore {
 	return &MockRetainedStore{
-		messages: make(map[string]*dbstorage.RetainedMessage),
+		messages: make(map[string]*badgerstore.RetainedMessage),
 	}
 }
 
 func (m *MockRetainedStore) SaveRetainedMessage(topic string, payload []byte, qos byte) error {
-	m.messages[topic] = &dbstorage.RetainedMessage{
+	m.messages[topic] = &badgerstore.RetainedMessage{
 		Topic:   topic,
 		Payload: payload,
 		QoS:     qos,
@@ -38,8 +38,16 @@ func (m *MockRetainedStore) DeleteRetainedMessage(topic string) error {
 	return nil
 }
 
-func (m *MockRetainedStore) GetAllRetainedMessages() ([]*dbstorage.RetainedMessage, error) {
-	messages := make([]*dbstorage.RetainedMessage, 0, len(m.messages))
+func (m *MockRetainedStore) GetRetainedMessage(topic string) (*badgerstore.RetainedMessage, error) {
+	msg, exists := m.messages[topic]
+	if !exists {
+		return nil, nil
+	}
+	return msg, nil
+}
+
+func (m *MockRetainedStore) GetAllRetainedMessages() ([]*badgerstore.RetainedMessage, error) {
+	messages := make([]*badgerstore.RetainedMessage, 0, len(m.messages))
 	for _, msg := range m.messages {
 		messages = append(messages, msg)
 	}

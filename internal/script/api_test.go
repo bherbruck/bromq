@@ -9,7 +9,7 @@ import (
 )
 
 func TestScriptAPIMqttPublish(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -41,7 +41,7 @@ func TestScriptAPIMqttPublish(t *testing.T) {
 }
 
 func TestScriptAPIMqttPublishInvalidQoS(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -68,7 +68,7 @@ func TestScriptAPIMqttPublishInvalidQoS(t *testing.T) {
 }
 
 func TestScriptAPIStateSetGet(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -109,7 +109,7 @@ func TestScriptAPIStateSetGet(t *testing.T) {
 }
 
 func TestScriptAPIStateWithTTL(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -164,7 +164,7 @@ func TestScriptAPIStateWithTTL(t *testing.T) {
 }
 
 func TestScriptAPIStateDelete(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -201,7 +201,7 @@ func TestScriptAPIStateDelete(t *testing.T) {
 }
 
 func TestScriptAPIStateKeys(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -235,7 +235,7 @@ func TestScriptAPIStateKeys(t *testing.T) {
 }
 
 func TestScriptAPIGlobalState(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	// Script 1 sets global state
@@ -279,7 +279,7 @@ func TestScriptAPIGlobalState(t *testing.T) {
 }
 
 func TestScriptAPIStateIsolation(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	// Script 1 sets script-scoped state
@@ -325,7 +325,7 @@ func TestScriptAPIStateIsolation(t *testing.T) {
 }
 
 func TestScriptAPIComplexDataTypes(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -369,7 +369,7 @@ func TestScriptAPIComplexDataTypes(t *testing.T) {
 }
 
 func TestScriptAPIMqttPublishRateLimit(t *testing.T) {
-	db, runtime, mqttServer := setupTestRuntime(t)
+	db, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	// Set a low rate limit for testing
@@ -414,7 +414,7 @@ func TestScriptAPIMqttPublishRateLimit(t *testing.T) {
 }
 
 func TestScriptAPIMqttPublishWithinLimit(t *testing.T) {
-	db, runtime, mqttServer := setupTestRuntime(t)
+	db, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	// Set rate limit

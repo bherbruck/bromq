@@ -37,7 +37,7 @@ type Engine struct {
 // NewEngine creates a new script engine
 func NewEngine(db *storage.DB, badger *badgerstore.BadgerStore, mqttServer *mqtt.Server) *Engine {
 	state := NewStateManagerBadger(badger)
-	runtime := NewRuntime(db, state, mqttServer)
+	runtime := NewRuntime(db, badger, state, mqttServer)
 	scriptCache := NewScriptCache(db)
 
 	// Load timeout configuration
@@ -114,7 +114,7 @@ func loadTimeoutConfig() time.Duration {
 func loadLogRetentionConfig() time.Duration {
 	retentionStr := os.Getenv("SCRIPT_LOG_RETENTION")
 	if retentionStr == "" {
-		retentionStr = "30d" // Default: 30 days
+		retentionStr = "1d" // Default: 1 day
 	}
 
 	retention, err := ParseDurationWithDays(retentionStr)
@@ -122,8 +122,8 @@ func loadLogRetentionConfig() time.Duration {
 		slog.Warn("Invalid SCRIPT_LOG_RETENTION, using default",
 			"value", retentionStr,
 			"error", err,
-			"default", "30d")
-		return 30 * 24 * time.Hour
+			"default", "1d")
+		return 24 * time.Hour
 	}
 
 	return retention
@@ -335,6 +335,11 @@ func (e *Engine) GetDB() *storage.DB {
 	return e.db
 }
 
+// GetBadger returns the BadgerDB store (for log access)
+func (e *Engine) GetBadger() *badgerstore.BadgerStore {
+	return e.badger
+}
+
 // logCleanupWorker periodically cleans up old script logs
 func (e *Engine) logCleanupWorker() {
 	defer e.wg.Done()
@@ -356,13 +361,13 @@ func (e *Engine) logCleanupWorker() {
 	}
 }
 
-// cleanupOldLogs deletes logs older than the retention period
+// cleanupOldLogs deletes logs older than the retention period from BadgerDB
 func (e *Engine) cleanupOldLogs() {
 	cutoff := time.Now().Add(-e.logRetention)
 
 	slog.Debug("Running script log cleanup", "cutoff", cutoff.Format(time.RFC3339))
 
-	if err := e.db.ClearAllScriptLogsBefore(cutoff); err != nil {
+	if err := e.badger.ClearAllScriptLogsBefore(cutoff); err != nil {
 		slog.Error("Failed to cleanup old script logs", "error", err)
 		return
 	}

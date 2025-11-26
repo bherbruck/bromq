@@ -2,7 +2,6 @@ package storage
 
 import (
 	"testing"
-	"time"
 
 	"gorm.io/datatypes"
 )
@@ -276,79 +275,5 @@ func TestProvisionedScriptProtection(t *testing.T) {
 	}
 }
 
-func TestScriptLogCRUD(t *testing.T) {
-	db := setupTestDB(t)
-
-	script, _ := db.CreateScript(
-		"test-script",
-		"",
-		"log.info('test');",
-		true,
-		datatypes.JSON([]byte("{}")),
-		[]ScriptTrigger{},
-	)
-
-	// Create logs
-	context := datatypes.JSON([]byte(`{"topic":"test/topic","client":"test-client"}`))
-
-	err := db.CreateScriptLog(script.ID, "on_publish", "info", "Test message 1", context, 10)
-	if err != nil {
-		t.Fatalf("Failed to create log: %v", err)
-	}
-
-	time.Sleep(10 * time.Millisecond) // Ensure different timestamps
-
-	err = db.CreateScriptLog(script.ID, "on_publish", "error", "Test error", context, 20)
-	if err != nil {
-		t.Fatalf("Failed to create log: %v", err)
-	}
-
-	// Test ListScriptLogs
-	logs, total, err := db.ListScriptLogs(script.ID, 1, 10, "")
-	if err != nil {
-		t.Fatalf("Failed to list logs: %v", err)
-	}
-
-	if total != 2 {
-		t.Errorf("Expected 2 total logs, got %d", total)
-	}
-	if len(logs) != 2 {
-		t.Errorf("Expected 2 logs, got %d", len(logs))
-	}
-
-	// Verify ordering (newest first)
-	if logs[0].Level != "error" {
-		t.Errorf("Expected newest log to be error, got %s", logs[0].Level)
-	}
-
-	// Test pagination
-	logsPage1, _, _ := db.ListScriptLogs(script.ID, 1, 1, "")
-	if len(logsPage1) != 1 {
-		t.Errorf("Expected 1 log in page, got %d", len(logsPage1))
-	}
-
-	// Test ClearAllScriptLogsBefore
-	cutoff := time.Now().Add(-1 * time.Hour)
-	err = db.ClearAllScriptLogsBefore(cutoff)
-	if err != nil {
-		t.Fatalf("Failed to clear old logs: %v", err)
-	}
-
-	// Logs should still exist (they're not old enough)
-	logs, total, _ = db.ListScriptLogs(script.ID, 1, 10, "")
-	if total != 2 {
-		t.Errorf("Expected logs to still exist, got %d", total)
-	}
-
-	// Delete logs older than now (should delete all)
-	cutoff = time.Now().Add(1 * time.Second)
-	err = db.ClearAllScriptLogsBefore(cutoff)
-	if err != nil {
-		t.Fatalf("Failed to clear old logs: %v", err)
-	}
-
-	logs, total, _ = db.ListScriptLogs(script.ID, 1, 10, "")
-	if total != 0 {
-		t.Errorf("Expected 0 logs after deletion, got %d", total)
-	}
-}
+// TestScriptLogCRUD removed - script logs migrated to BadgerDB
+// See internal/badgerstore/script_logs_test.go for BadgerDB log tests

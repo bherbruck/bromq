@@ -9,14 +9,15 @@ import (
 	"github.com/mochi-mqtt/server/v2/hooks/storage"
 	"github.com/mochi-mqtt/server/v2/packets"
 
-	dbstorage "github/bromq-dev/bromq/internal/storage"
+	"github/bromq-dev/bromq/internal/badgerstore"
 )
 
 // RetainedStore interface for storing retained messages
 type RetainedStore interface {
 	SaveRetainedMessage(topic string, payload []byte, qos byte) error
 	DeleteRetainedMessage(topic string) error
-	GetAllRetainedMessages() ([]*dbstorage.RetainedMessage, error)
+	GetRetainedMessage(topic string) (*badgerstore.RetainedMessage, error)
+	GetAllRetainedMessages() ([]*badgerstore.RetainedMessage, error)
 }
 
 // RetainedHook implements MQTT hook for persisting retained messages

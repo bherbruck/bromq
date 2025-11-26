@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github/bromq-dev/bromq/internal/badgerstore"
 	"github/bromq-dev/bromq/internal/storage"
 
 	"gorm.io/datatypes"
@@ -383,7 +384,7 @@ func (h *Handler) TestScript(w http.ResponseWriter, r *http.Request) {
 // @Param page query int false "Page number" default(1)
 // @Param pageSize query int false "Items per page" default(25)
 // @Param level query string false "Filter by log level (debug, info, warn, error)"
-// @Success 200 {object} PaginatedResponse{data=[]storage.ScriptLog}
+// @Success 200 {object} PaginatedResponse{data=[]badgerstore.ScriptLogEntry}
 // @Failure 400 {object} ErrorResponse "Invalid script ID"
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
@@ -399,7 +400,8 @@ func (h *Handler) GetScriptLogs(w http.ResponseWriter, r *http.Request) {
 	params := parsePaginationParams(r)
 	level := r.URL.Query().Get("level") // Optional filter by level
 
-	logs, total, err := h.db.ListScriptLogs(uint(id), params.Page, params.PageSize, level)
+	badger := h.engine.GetBadger()
+	logs, total, err := badger.ListScriptLogs(uint(id), params.Page, params.PageSize, level)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to list logs: %s"}`, err), http.StatusInternalServerError)
 		return
@@ -407,7 +409,7 @@ func (h *Handler) GetScriptLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure we return empty array instead of null
 	if logs == nil {
-		logs = []storage.ScriptLog{}
+		logs = []badgerstore.ScriptLogEntry{}
 	}
 
 	// Calculate total pages
@@ -449,7 +451,8 @@ func (h *Handler) ClearScriptLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.db.ClearScriptLogs(uint(id)); err != nil {
+	badger := h.engine.GetBadger()
+	if err := badger.ClearScriptLogs(uint(id)); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"failed to clear logs: %s"}`, err), http.StatusInternalServerError)
 		return
 	}

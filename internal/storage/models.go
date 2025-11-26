@@ -82,19 +82,6 @@ func (ACLRule) TableName() string {
 	return "acl_rules"
 }
 
-// RetainedMessage represents a retained MQTT message stored in the database
-type RetainedMessage struct {
-	Topic     string    `gorm:"primaryKey;index:idx_retained_topic" json:"topic"`
-	Payload   []byte    `gorm:"not null" json:"payload"`
-	QoS       byte      `gorm:"column:qos;not null" json:"qos"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-// TableName specifies the table name for RetainedMessage model
-func (RetainedMessage) TableName() string {
-	return "retained_messages"
-}
-
 // BeforeCreate hook for DashboardUser to ensure role is set
 func (u *DashboardUser) BeforeCreate(tx *gorm.DB) error {
 	if u.Role == "" {
@@ -190,37 +177,4 @@ type ScriptTrigger struct {
 // TableName specifies the table name for ScriptTrigger model
 func (ScriptTrigger) TableName() string {
 	return "script_triggers"
-}
-
-// ScriptLog stores script execution logs
-type ScriptLog struct {
-	ID              uint           `gorm:"primaryKey" json:"id"`
-	ScriptID        uint           `gorm:"not null;index:idx_script_log_timestamp" json:"script_id"`
-	Type            string         `gorm:"not null" json:"type"`
-	Level           string         `gorm:"not null;check:level IN ('debug', 'info', 'warn', 'error')" json:"level"`
-	Message         string         `gorm:"type:text" json:"message"`
-	Context         datatypes.JSON `gorm:"type:jsonb" json:"context,omitempty"` // Client ID, topic, etc.
-	ExecutionTimeMs int            `json:"execution_time_ms"`
-	CreatedAt       time.Time      `gorm:"index:idx_script_log_timestamp" json:"created_at"`
-	Script          Script         `gorm:"foreignKey:ScriptID;constraint:OnDelete:CASCADE" json:"-"`
-}
-
-// TableName specifies the table name for ScriptLog model
-func (ScriptLog) TableName() string {
-	return "script_logs"
-}
-
-// ScriptState stores persistent state for scripts (key-value store)
-type ScriptState struct {
-	Key       string     `gorm:"primaryKey;size:255" json:"key"` // Format: "script:{id}:{userkey}" or "global:{userkey}"
-	ScriptID  *uint      `gorm:"index" json:"script_id"`         // NULL for global state
-	Value     []byte     `gorm:"type:bytea" json:"value"`        // JSON-encoded value
-	ExpiresAt *time.Time `gorm:"index" json:"expires_at"`        // NULL = no expiration
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-}
-
-// TableName specifies the table name for ScriptState model
-func (ScriptState) TableName() string {
-	return "script_state"
 }

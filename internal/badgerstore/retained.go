@@ -5,10 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"github/bromq-dev/bromq/internal/storage"
-
 	"github.com/dgraph-io/badger/v4"
 )
+
+// RetainedMessage represents a retained MQTT message in BadgerDB
+type RetainedMessage struct {
+	Topic     string    `json:"topic"`
+	Payload   []byte    `json:"payload"`
+	QoS       byte      `json:"qos"`
+	CreatedAt time.Time `json:"created_at"`
+}
 
 // retainedMessageData represents the JSON structure stored in BadgerDB
 type retainedMessageData struct {
@@ -42,7 +48,7 @@ func (b *BadgerStore) DeleteRetainedMessage(topic string) error {
 }
 
 // GetRetainedMessage retrieves a retained message for a specific topic
-func (b *BadgerStore) GetRetainedMessage(topic string) (*storage.RetainedMessage, error) {
+func (b *BadgerStore) GetRetainedMessage(topic string) (*RetainedMessage, error) {
 	key := fmt.Sprintf("retained:%s", topic)
 	data, err := b.Get(key)
 	if err != nil {
@@ -57,8 +63,8 @@ func (b *BadgerStore) GetRetainedMessage(topic string) (*storage.RetainedMessage
 		return nil, fmt.Errorf("failed to unmarshal retained message: %w", err)
 	}
 
-	// Convert to storage.RetainedMessage
-	return &storage.RetainedMessage{
+	// Convert to RetainedMessage
+	return &RetainedMessage{
 		Topic:     msgData.Topic,
 		Payload:   msgData.Payload,
 		QoS:       msgData.QoS,
@@ -67,8 +73,8 @@ func (b *BadgerStore) GetRetainedMessage(topic string) (*storage.RetainedMessage
 }
 
 // GetAllRetainedMessages retrieves all retained messages
-func (b *BadgerStore) GetAllRetainedMessages() ([]*storage.RetainedMessage, error) {
-	var messages []*storage.RetainedMessage
+func (b *BadgerStore) GetAllRetainedMessages() ([]*RetainedMessage, error) {
+	var messages []*RetainedMessage
 
 	err := b.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -88,8 +94,8 @@ func (b *BadgerStore) GetAllRetainedMessages() ([]*storage.RetainedMessage, erro
 				return fmt.Errorf("failed to unmarshal retained message: %w", err)
 			}
 
-			// Convert to storage.RetainedMessage
-			messages = append(messages, &storage.RetainedMessage{
+			// Convert to RetainedMessage
+			messages = append(messages, &RetainedMessage{
 				Topic:     msgData.Topic,
 				Payload:   msgData.Payload,
 				QoS:       msgData.QoS,
