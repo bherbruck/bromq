@@ -130,8 +130,8 @@ func (db *DB) autoMigrate() error {
 		&BridgeTopic{},
 		&Script{},
 		&ScriptTrigger{},
-		&ScriptLog{},
 		&ScriptState{},
+		// Note: ScriptLog removed - now stored in BadgerDB for better write performance
 	)
 }
 

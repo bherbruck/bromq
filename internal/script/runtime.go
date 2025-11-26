@@ -9,6 +9,7 @@ import (
 	"github.com/dop251/goja"
 	mqtt "github.com/mochi-mqtt/server/v2"
 
+	"github/bromq-dev/bromq/internal/badgerstore"
 	"github/bromq-dev/bromq/internal/storage"
 )
 
@@ -23,6 +24,7 @@ type ExecutionResult struct {
 // Runtime handles individual script execution with timeout and error handling
 type Runtime struct {
 	db             *storage.DB
+	badger         *badgerstore.BadgerStore
 	state          StateStore
 	mqttServer     *mqtt.Server
 	defaultTimeout time.Duration
@@ -30,9 +32,10 @@ type Runtime struct {
 }
 
 // NewRuntime creates a new runtime
-func NewRuntime(db *storage.DB, state StateStore, mqttServer *mqtt.Server) *Runtime {
+func NewRuntime(db *storage.DB, badger *badgerstore.BadgerStore, state StateStore, mqttServer *mqtt.Server) *Runtime {
 	return &Runtime{
 		db:             db,
+		badger:         badger,
 		state:          state,
 		mqttServer:     mqttServer,
 		defaultTimeout: 5 * time.Second, // Default 5 seconds timeout (will be overridden by engine)
@@ -171,10 +174,10 @@ func (r *Runtime) Execute(ctx context.Context, script *storage.Script, message *
 	return result
 }
 
-// logExecution logs the script execution to the database
+// logExecution logs the script execution to BadgerDB
 func (r *Runtime) logExecution(scriptID uint, message *Message, result *ExecutionResult) {
 	// Create context with message details
-	context := message.ToJSON()
+	context := message.ToMap()
 
 	// Only auto-log errors/failures (reduces noise for high-frequency scripts)
 	if !result.Success {
@@ -184,7 +187,7 @@ func (r *Runtime) logExecution(scriptID uint, message *Message, result *Executio
 			msg = result.Error.Error()
 		}
 
-		if err := r.db.CreateScriptLog(
+		if err := r.badger.SaveScriptLog(
 			scriptID,
 			message.Type,
 			level,
@@ -198,7 +201,7 @@ func (r *Runtime) logExecution(scriptID uint, message *Message, result *Executio
 
 	// Always log user messages from the script (log.info, log.warn, etc.)
 	for _, logEntry := range result.Logs {
-		if err := r.db.CreateScriptLog(
+		if err := r.badger.SaveScriptLog(
 			scriptID,
 			message.Type,
 			logEntry.Level,

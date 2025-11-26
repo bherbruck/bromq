@@ -400,3 +400,16 @@ func (m *Message) ToJSON() datatypes.JSON {
 	data, _ := json.Marshal(m)
 	return datatypes.JSON(data)
 }
+
+// ToMap converts the message to a map for storage
+func (m *Message) ToMap() map[string]interface{} {
+	result := make(map[string]interface{})
+	result["type"] = m.Type
+	result["topic"] = m.Topic
+	result["payload"] = string(m.Payload)
+	result["client_id"] = m.ClientID
+	result["username"] = m.Username
+	result["qos"] = m.QoS
+	result["retain"] = m.Retain
+	return result
+}

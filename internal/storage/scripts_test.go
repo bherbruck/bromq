@@ -277,6 +277,8 @@ func TestProvisionedScriptProtection(t *testing.T) {
 }
 
 func TestScriptLogCRUD(t *testing.T) {
+	t.Skip("Script logs have been migrated to BadgerDB - see internal/badgerstore/script_logs_test.go")
+
 	db := setupTestDB(t)
 
 	script, _ := db.CreateScript(

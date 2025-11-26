@@ -193,6 +193,9 @@ func (ScriptTrigger) TableName() string {
 }
 
 // ScriptLog stores script execution logs
+// DEPRECATED: This model is no longer used - script logs are now stored in BadgerDB
+// for better write performance. See internal/badgerstore/script_logs.go
+// This struct is kept for backward compatibility with old database schemas.
 type ScriptLog struct {
 	ID              uint           `gorm:"primaryKey" json:"id"`
 	ScriptID        uint           `gorm:"not null;index:idx_script_log_timestamp" json:"script_id"`

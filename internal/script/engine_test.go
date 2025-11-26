@@ -10,7 +10,7 @@ import (
 )
 
 func TestEngineExecuteForTrigger(t *testing.T) {
-	db, _, mqttServer := setupTestRuntime(t)
+	db, _, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	badger := badgerstore.OpenInMemory(t)
@@ -73,7 +73,7 @@ func TestEngineExecuteForTrigger(t *testing.T) {
 }
 
 func TestEngineExecuteForTriggerNoMatch(t *testing.T) {
-	db, _, mqttServer := setupTestRuntime(t)
+	db, _, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	badger := badgerstore.OpenInMemory(t)
@@ -102,17 +102,16 @@ func TestEngineExecuteForTriggerNoMatch(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify no logs were created
-	_, total, _ := db.ListScriptLogs(script.ID, 1, 10, "")
+	_, total, _ := badger.ListScriptLogs(script.ID, 1, 10, "")
 	if total > 0 {
 		t.Error("Expected script not to execute (topic mismatch)")
 	}
 }
 
 func TestEngineExecuteForTriggerConnect(t *testing.T) {
-	db, _, mqttServer := setupTestRuntime(t)
+	db, badger, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
-	badger := badgerstore.OpenInMemory(t)
 	engine := NewEngine(db, badger, mqttServer)
 	engine.Start()
 	defer engine.Shutdown(context.Background())
@@ -136,8 +135,8 @@ func TestEngineExecuteForTriggerConnect(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	// Verify execution
-	logs, total, _ := db.ListScriptLogs(script.ID, 1, 10, "")
+	// Verify execution in BadgerDB
+	logs, total, _ := badger.ListScriptLogs(script.ID, 1, 10, "")
 	if total == 0 {
 		t.Error("Expected script to have executed")
 	}
@@ -147,7 +146,7 @@ func TestEngineExecuteForTriggerConnect(t *testing.T) {
 }
 
 func TestEngineTestScript(t *testing.T) {
-	db, _, mqttServer := setupTestRuntime(t)
+	db, _, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	badger := badgerstore.OpenInMemory(t)
@@ -191,7 +190,7 @@ func TestEngineTestScript(t *testing.T) {
 }
 
 func TestEngineTestScriptWithError(t *testing.T) {
-	db, _, mqttServer := setupTestRuntime(t)
+	db, _, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	badger := badgerstore.OpenInMemory(t)
@@ -218,7 +217,7 @@ func TestEngineTestScriptWithError(t *testing.T) {
 }
 
 func TestEngineShutdown(t *testing.T) {
-	db, _, mqttServer := setupTestRuntime(t)
+	db, _, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	badger := badgerstore.OpenInMemory(t)
@@ -257,7 +256,7 @@ func TestEngineShutdown(t *testing.T) {
 }
 
 func TestEngineShutdownDuringExecution(t *testing.T) {
-	db, _, mqttServer := setupTestRuntime(t)
+	db, _, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	badger := badgerstore.OpenInMemory(t)
@@ -298,14 +297,14 @@ func TestEngineShutdownDuringExecution(t *testing.T) {
 	}
 
 	// Verify script completed
-	_, total, _ := db.ListScriptLogs(script.ID, 1, 10, "")
+	_, total, _ := badger.ListScriptLogs(script.ID, 1, 10, "")
 	if total == 0 {
 		t.Error("Expected script to have completed during shutdown")
 	}
 }
 
 func TestEngineShutdownMultipleTimes(t *testing.T) {
-	db, _, mqttServer := setupTestRuntime(t)
+	db, _, _, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	badger := badgerstore.OpenInMemory(t)

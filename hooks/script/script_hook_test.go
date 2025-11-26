@@ -13,7 +13,7 @@ import (
 	"github/bromq-dev/bromq/internal/storage"
 )
 
-func setupTestHook(t *testing.T) (*storage.DB, *ScriptHook, *mqtt.Server) {
+func setupTestHook(t *testing.T) (*storage.DB, *badgerstore.BadgerStore, *ScriptHook, *mqtt.Server) {
 	t.Helper()
 
 	// Setup in-memory database with shared cache mode
@@ -36,7 +36,7 @@ func setupTestHook(t *testing.T) (*storage.DB, *ScriptHook, *mqtt.Server) {
 		t.Fatalf("failed to start MQTT server: %v", err)
 	}
 
-	// Setup BadgerDB for state
+	// Setup BadgerDB for state and logs
 	badger := badgerstore.OpenInMemory(t)
 
 	// Setup script engine and hook
@@ -45,15 +45,15 @@ func setupTestHook(t *testing.T) (*storage.DB, *ScriptHook, *mqtt.Server) {
 
 	hook := NewScriptHook(engine)
 
-	return db, hook, mqttServer
+	return db, badger, hook, mqttServer
 }
 
 // ensureScriptTablesExist verifies that script-related tables exist in the database
 func ensureScriptTablesExist(t *testing.T, db *storage.DB) {
 	t.Helper()
 
-	// Verify all script tables exist
-	requiredTables := []string{"scripts", "script_triggers", "script_logs", "script_state"}
+	// Verify all script tables exist (script_logs now in BadgerDB)
+	requiredTables := []string{"scripts", "script_triggers", "script_state"}
 	for _, tableName := range requiredTables {
 		var exists int64
 		err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", tableName).Scan(&exists).Error
@@ -64,7 +64,7 @@ func ensureScriptTablesExist(t *testing.T, db *storage.DB) {
 }
 
 func TestScriptHookID(t *testing.T) {
-	_, hook, mqttServer := setupTestHook(t)
+	_, _, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	if hook.ID() != "script-hook" {
@@ -73,7 +73,7 @@ func TestScriptHookID(t *testing.T) {
 }
 
 func TestScriptHookProvides(t *testing.T) {
-	_, hook, mqttServer := setupTestHook(t)
+	_, _, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	tests := []struct {
@@ -101,7 +101,7 @@ func TestScriptHookProvides(t *testing.T) {
 }
 
 func TestScriptHookOnPublish(t *testing.T) {
-	db, hook, mqttServer := setupTestHook(t)
+	db, badger, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	// Create script that logs publish events
@@ -148,14 +148,14 @@ func TestScriptHookOnPublish(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify script executed
-	_, total, _ := db.ListScriptLogs(script.ID, 1, 10, "")
+	_, total, _ := badger.ListScriptLogs(script.ID, 1, 10, "")
 	if total == 0 {
 		t.Error("Expected script to have executed")
 	}
 }
 
 func TestScriptHookOnConnect(t *testing.T) {
-	db, hook, mqttServer := setupTestHook(t)
+	db, badger, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	// Create script that logs connect events
@@ -193,7 +193,7 @@ func TestScriptHookOnConnect(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify script executed
-	logs, total, _ := db.ListScriptLogs(script.ID, 1, 10, "")
+	logs, total, _ := badger.ListScriptLogs(script.ID, 1, 10, "")
 	if total == 0 {
 		t.Error("Expected script to have executed")
 	}
@@ -204,7 +204,7 @@ func TestScriptHookOnConnect(t *testing.T) {
 }
 
 func TestScriptHookOnDisconnect(t *testing.T) {
-	db, hook, mqttServer := setupTestHook(t)
+	db, badger, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	// Create script that logs disconnect events
@@ -236,7 +236,7 @@ func TestScriptHookOnDisconnect(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify script executed
-	logs, total, _ := db.ListScriptLogs(script.ID, 1, 10, "")
+	logs, total, _ := badger.ListScriptLogs(script.ID, 1, 10, "")
 	if total == 0 {
 		t.Error("Expected script to have executed")
 	}
@@ -247,7 +247,7 @@ func TestScriptHookOnDisconnect(t *testing.T) {
 }
 
 func TestScriptHookOnSubscribe(t *testing.T) {
-	db, hook, mqttServer := setupTestHook(t)
+	db, _, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	// Create script that sets state on subscribe (more reliable for async test)
@@ -301,7 +301,7 @@ func TestScriptHookOnSubscribe(t *testing.T) {
 }
 
 func TestScriptHookMultipleScripts(t *testing.T) {
-	db, hook, mqttServer := setupTestHook(t)
+	db, _, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	// Create multiple scripts that set state
@@ -361,7 +361,7 @@ func TestScriptHookMultipleScripts(t *testing.T) {
 }
 
 func TestScriptHookTopicing(t *testing.T) {
-	db, hook, mqttServer := setupTestHook(t)
+	db, _, hook, mqttServer := setupTestHook(t)
 	defer mqttServer.Close()
 
 	// Create scripts with different topic filters that set state

@@ -13,7 +13,7 @@ import (
 	"github/bromq-dev/bromq/internal/storage"
 )
 
-func setupTestRuntime(t *testing.T) (*storage.DB, *Runtime, *mqtt.Server) {
+func setupTestRuntime(t *testing.T) (*storage.DB, *badgerstore.BadgerStore, *Runtime, *mqtt.Server) {
 	t.Helper()
 
 	// Setup in-memory database
@@ -24,7 +24,7 @@ func setupTestRuntime(t *testing.T) (*storage.DB, *Runtime, *mqtt.Server) {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
-	// Verify schema is ready (script_logs table exists)
+	// Verify schema is ready
 	ensureScriptTablesExist(t, db)
 
 	// Setup MQTT server with InlineClient enabled for script publishing
@@ -35,33 +35,24 @@ func setupTestRuntime(t *testing.T) (*storage.DB, *Runtime, *mqtt.Server) {
 		t.Fatalf("failed to start MQTT server: %v", err)
 	}
 
-	// Setup BadgerDB for state
+	// Setup BadgerDB for state and logs
 	badger := badgerstore.OpenInMemory(t)
 
 	// Setup state manager and runtime
 	stateManager := NewStateManagerBadger(badger)
-	runtime := NewRuntime(db, stateManager, mqttServer)
+	runtime := NewRuntime(db, badger, stateManager, mqttServer)
 
-	return db, runtime, mqttServer
+	return db, badger, runtime, mqttServer
 }
 
 // ensureScriptTablesExist verifies that script-related tables exist in the database
 func ensureScriptTablesExist(t *testing.T, db *storage.DB) {
 	t.Helper()
 
-	// Check if script_logs table exists
-	var count int64
-	err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='script_logs'").Scan(&count).Error
-	if err != nil {
-		t.Fatalf("failed to check for script_logs table: %v", err)
-	}
+	// Note: script_logs table is no longer required - logs are now in BadgerDB
 
-	if count == 0 {
-		t.Fatal("script_logs table does not exist - database migration failed")
-	}
-
-	// Also verify other script tables
-	requiredTables := []string{"scripts", "script_triggers", "script_logs", "script_state"}
+	// Also verify other script tables (except script_logs which is now in BadgerDB)
+	requiredTables := []string{"scripts", "script_triggers", "script_state"}
 	for _, tableName := range requiredTables {
 		var exists int64
 		err := db.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", tableName).Scan(&exists).Error
@@ -72,7 +63,7 @@ func ensureScriptTablesExist(t *testing.T, db *storage.DB) {
 }
 
 func TestRuntimeExecuteSuccess(t *testing.T) {
-	db, runtime, mqttServer := setupTestRuntime(t)
+	db, badger, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	// Create script in database first (needed for foreign key)
@@ -102,9 +93,9 @@ func TestRuntimeExecuteSuccess(t *testing.T) {
 		t.Error("Expected non-negative execution time")
 	}
 
-	// Check that user log was created in database
+	// Check that user log was created in BadgerDB
 	// Note: Success executions no longer auto-log, only user log.* calls are saved
-	_, total, err := db.ListScriptLogs(script.ID, 1, 10, "")
+	_, total, err := badger.ListScriptLogs(script.ID, 1, 10, "")
 	if err != nil {
 		t.Fatalf("Failed to get logs: %v", err)
 	}
@@ -115,7 +106,7 @@ func TestRuntimeExecuteSuccess(t *testing.T) {
 }
 
 func TestRuntimeExecuteWithError(t *testing.T) {
-	db, runtime, mqttServer := setupTestRuntime(t)
+	db, badger, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	// Create script in database first (needed for foreign key)
@@ -145,7 +136,7 @@ func TestRuntimeExecuteWithError(t *testing.T) {
 	}
 
 	// Verify error was logged
-	logs, total, _ := db.ListScriptLogs(script.ID, 1, 10, "")
+	logs, total, _ := badger.ListScriptLogs(script.ID, 1, 10, "")
 	if total == 0 {
 		t.Error("Expected error log to be created")
 	}
@@ -156,7 +147,7 @@ func TestRuntimeExecuteWithError(t *testing.T) {
 }
 
 func TestRuntimeExecuteTimeout(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	// Set short timeout for testing
@@ -193,7 +184,7 @@ func TestRuntimeExecuteTimeout(t *testing.T) {
 }
 
 func TestRuntimeExecuteWithPanic(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -222,7 +213,7 @@ func TestRuntimeExecuteWithPanic(t *testing.T) {
 }
 
 func TestRuntimeExecuteWithEventData(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -259,7 +250,7 @@ func TestRuntimeExecuteWithEventData(t *testing.T) {
 }
 
 func TestRuntimeLogLevels(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -301,7 +292,7 @@ func TestRuntimeLogLevels(t *testing.T) {
 }
 
 func TestRuntimeCompilationError(t *testing.T) {
-	_, runtime, mqttServer := setupTestRuntime(t)
+	_, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	script := &storage.Script{
@@ -330,7 +321,7 @@ func TestRuntimeCompilationError(t *testing.T) {
 }
 
 func TestRuntimeExecuteInfiniteLoopWithPublish(t *testing.T) {
-	db, runtime, mqttServer := setupTestRuntime(t)
+	db, _, runtime, mqttServer := setupTestRuntime(t)
 	defer mqttServer.Close()
 
 	// Set short timeout for testing
