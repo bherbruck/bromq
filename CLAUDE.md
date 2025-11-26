@@ -13,104 +13,104 @@ BroMQ is a production-ready MQTT broker with embedded web UI built on mochi-mqtt
 - **Go 1.25+** - Backend with stdlib net/http
 - **mochi-mqtt/server v2** - MQTT broker core
 - **GORM** - ORM with auto-migration (SQLite/PostgreSQL/MySQL)
+- **BadgerDB** - Embedded key-value store for high-write operational data
 - **goja** - JavaScript engine for scripting
 - **JWT** - API authentication
 - **React Router v7 + shadcn/ui** - Frontend (embedded via go:embed)
 - **Prometheus** - Metrics
 
+## Database Architecture
+
+BroMQ uses a **dual-database architecture** optimized for different access patterns:
+
+### RDBMS (SQLite/PostgreSQL/MySQL) - Configuration & Low-Write Data
+Stores configuration, authentication, and infrequently-updated data with in-memory caching:
+- **Users & Auth**: Dashboard users, MQTT users/credentials, ACL rules
+- **Configuration**: Bridges, bridge topics, scripts, script triggers
+- **Tracking**: MQTT client metadata (first_seen, last_seen, is_active)
+- **Script State**: Persistent key-value store for scripts (legacy, still in RDBMS)
+
+**Why RDBMS?**
+- Complex queries (JOINs, foreign keys, transactions)
+- ACID guarantees for configuration changes
+- Natural fit for relational data (users → ACL rules, scripts → triggers)
+- In-memory cache eliminates read performance concerns
+
+### BadgerDB - High-Write Operational Data
+Stores append-only, time-series data with heavy write volume:
+- **Script Logs**: Execution logs from script runs (all `log.info()`, `log.error()`, etc.)
+- **Script State**: Persistent key-value store for script variables (NEW - migrated from RDBMS)
+- **Retained Messages**: MQTT retained messages
+
+**Why BadgerDB?**
+- **LSM-tree architecture**: Optimized for sequential writes (10-100x faster than SQLite)
+- **Zero write contention**: No blocking on concurrent writes (SQLite has single writer)
+- **Time-series optimized**: Efficient range scans for time-based queries/cleanup
+- **Embedded**: No external dependencies, automatic GC and compaction
+
+**Performance Example:**
+- Script logging 1000 events/sec on SQLite → write contention, lock timeouts
+- Script logging 1000 events/sec on BadgerDB → smooth, no blocking
+
 ## Project Structure
 
 ```
 bromq/
-├── main.go                      # Entry point, wires hooks and servers
+├── cmd/server/main.go          # Entry point, wires hooks and servers
 ├── internal/
-│   ├── storage/                 # Database layer (GORM models + CRUD)
-│   │   ├── models.go           # Schema: dashboard_users, mqtt_users, mqtt_clients, acl_rules, bridges, scripts, etc
-│   │   ├── db.go               # Connection + auto-migration
-│   │   ├── config.go           # DB config (env vars + CLI flags)
-│   │   ├── dashboard_users.go  # Dashboard admin CRUD
-│   │   ├── mqtt_users.go       # MQTT credentials CRUD
-│   │   ├── mqtt_clients.go     # Client tracking CRUD
-│   │   ├── acl.go              # ACL rules + topic matching
-│   │   ├── bridges.go          # Bridge config CRUD
-│   │   ├── scripts.go          # Script CRUD
-│   │   ├── script_state.go     # Persistent key-value store for scripts
-│   │   ├── script_logs.go      # Script execution logs
-│   │   └── retained.go         # Retained message persistence
+│   ├── storage/                # RDBMS layer (GORM models + CRUD)
+│   ├── badgerstore/            # BadgerDB layer (key-value store)
+│   │   ├── badgerstore.go     # Core BadgerDB wrapper
+│   │   ├── retained.go        # Retained MQTT messages
+│   │   ├── script_state.go    # Script persistent state
+│   │   └── script_logs.go     # Script execution logs
 │   ├── api/                    # REST API (JWT auth)
-│   │   ├── server.go           # HTTP server + routing
-│   │   ├── middleware.go       # JWT validation, CORS, admin guard
-│   │   ├── dashboard_handlers.go  # Dashboard user management
-│   │   ├── mqtt_handlers.go    # MQTT users + clients + ACL
-│   │   ├── bridge_handlers.go  # Bridge management
-│   │   ├── script_handlers.go  # Script management + logs
-│   │   └── handlers.go         # Metrics + legacy endpoints
 │   ├── mqtt/                   # MQTT server wrapper
-│   │   ├── server.go           # mochi-mqtt wrapper
-│   │   ├── config.go           # Server config
-│   │   ├── metrics.go          # Stats extraction
-│   │   └── prometheus_metrics.go  # Prometheus metrics
+│   ├── script/                 # JavaScript engine
+│   │   ├── engine.go          # Script lifecycle management
+│   │   ├── runtime.go         # goja VM execution
+│   │   └── api.go             # Script API (mqtt.publish, state.get, log.info, etc)
 │   ├── config/                 # YAML config parsing
-│   │   └── config.go           # Env var interpolation
-│   ├── provisioning/           # Config-to-DB sync (Grafana-style)
-│   │   └── provisioning.go     # Sync users, ACL, bridges, scripts
-│   └── script/                 # JavaScript engine
-│       ├── engine.go           # Script lifecycle management
-│       ├── runtime.go          # goja VM execution
-│       ├── api.go              # Script API (mqtt.publish, state.get, etc)
-│       └── state.go            # Persistent state management
+│   └── provisioning/           # Config-to-DB sync (Grafana-style)
 ├── hooks/                      # MQTT hooks (mochi-mqtt interface)
 │   ├── auth/                   # Authentication + ACL
-│   │   ├── auth.go            # Validate MQTT credentials
-│   │   └── acl.go             # Topic permission checks
-│   ├── tracking/              # Client connection tracking
-│   │   └── tracking.go        # Track connect/disconnect in DB
-│   ├── metrics/               # Prometheus metrics
-│   │   └── metrics.go         # MQTT metrics collection
-│   ├── retained/              # Retained messages
-│   │   └── retained.go        # Persist retained messages to DB
-│   ├── bridge/                # MQTT bridging
-│   │   ├── manager.go         # Bridge lifecycle management
-│   │   ├── bridge_hook.go     # Message forwarding hook
-│   │   └── topic.go           # Topic pattern matching
-│   └── script/                # Script execution
-│       └── script_hook.go     # Execute scripts on MQTT events
-├── web/                       # Frontend (React Router v7 SPA)
-│   ├── app/                   # React source
-│   ├── dist/client/           # Build output (embedded)
-│   └── embed.go               # go:embed directive
-└── examples/
-    └── config/                # YAML config examples
-        ├── config.yml         # Full featured example
-        ├── minimal.yml        # Minimal example
-        └── multitenant.yml    # Multi-tenant isolation example
+│   ├── tracking/               # Client connection tracking
+│   ├── metrics/                # Prometheus metrics
+│   ├── retained/               # Retained messages (uses BadgerDB)
+│   ├── bridge/                 # MQTT bridging
+│   └── script/                 # Script execution (uses BadgerDB for logs)
+└── web/                        # Frontend (React Router v7 SPA)
 ```
 
 ## Database Schema
 
+### RDBMS Tables (SQLite/PostgreSQL/MySQL)
+
 **Three-table user architecture:**
-
 1. **`dashboard_users`** - Web UI administrators (can login to dashboard)
-
-   - `id`, `username`, `password_hash`, `role` (admin/viewer), `metadata`
-
 2. **`mqtt_users`** - MQTT credentials (shared by devices, cannot login to dashboard)
-
-   - `id`, `username`, `password_hash`, `description`, `metadata`, `provisioned_from_config`
-
 3. **`mqtt_clients`** - Individual device tracking (one per Client ID)
-   - `id`, `client_id`, `mqtt_user_id` (FK), `metadata`, `first_seen`, `last_seen`, `is_active`
 
-**Other tables:**
+**Configuration tables:**
+- **`acl_rules`** - Topic permissions per MQTT user
+- **`bridges`** + **`bridge_topics`** - MQTT bridge configurations
+- **`scripts`** + **`script_triggers`** - JavaScript script definitions
+- **`script_state`** - Legacy script state (being migrated to BadgerDB)
 
-- **`acl_rules`** - Topic permissions (`mqtt_user_id`, `topic_pattern`, `permission`)
-- **`bridges`** - Bridge configs (`name`, `remote_host`, `remote_port`, auth, timeouts)
-- **`bridge_topics`** - Topic mappings (`bridge_id`, `local_pattern`, `remote_pattern`, `direction`)
-- **`scripts`** - JavaScript scripts (`name`, `content`, `enabled`, `timeout_seconds`)
-- **`script_triggers`** - When to run scripts (`script_id`, `trigger_type`, `topic_filter`)
-- **`script_state`** - Persistent key-value store for scripts
-- **`script_logs`** - Execution logs
-- **`retained_messages`** - Retained MQTT messages
+### BadgerDB Keys (Embedded Key-Value Store)
+
+**Script operations:**
+- `log:{scriptID}:{timestamp_ns}` - Script execution logs (JSON)
+- `script:{scriptID}:{key}` - Script-scoped persistent state
+- `global:{key}` - Global persistent state (shared across scripts)
+
+**MQTT operations:**
+- `retained:{topic}` - Retained MQTT messages (JSON)
+
+**Key design:**
+- Timestamp-based keys enable efficient time-series queries
+- Prefix-based keys enable efficient range scans and cleanup
+- TTL support for automatic expiration
 
 ## Key Concepts
 
@@ -327,15 +327,20 @@ mosquitto_sub -h localhost -p 1883 -u sensor_user -P password123 -t "test/#"
 Client → MQTT Server (mochi-mqtt)
            ↓
         Hooks (in order):
-           → MetricsHook (Prometheus)
-           → AuthHook (validate credentials)
-           → ACLHook (check topic permissions)
-           → RetainedHook (persist retained messages)
-           → TrackingHook (record connections)
-           → BridgeHook (forward to remote brokers)
-           → ScriptHook (execute custom logic)
+           → MetricsHook → Prometheus
+           → AuthHook → RDBMS (cached)
+           → ACLHook → RDBMS (cached)
+           → RetainedHook → BadgerDB
+           → TrackingHook → RDBMS
+           → BridgeHook → Remote MQTT
+           → ScriptHook → BadgerDB (logs)
            ↓
-        Database (GORM)
+     ┌─────────────────────────┐
+     │  Dual Storage Layer     │
+     ├─────────────────────────┤
+     │ RDBMS (GORM + Cache)    │  ← Config, Auth, Metadata
+     │ BadgerDB (Key-Value)    │  ← Logs, State, Retained
+     └─────────────────────────┘
            ↓
         REST API (JWT auth)
            ↓
